@@ -21,6 +21,7 @@ This is the planned execution checklist for the current M0 milestone.
 - [x] Global simulation tick runtime service (route-independent).
 - [x] 1x/2x/4x speed controls and runtime tick HUD.
 - [x] Initial board styling for player/enemy-side readability.
+- [x] Ensure root/body background + text contrast defaults so deployed page is visible without runtime debugging.
 
 ## D. Deployment Setup (GitHub Pages)
 - [x] Configure Vite `base` for GitHub Pages builds (auto-derived from `GITHUB_REPOSITORY`).
