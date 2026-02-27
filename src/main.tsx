@@ -3,6 +3,14 @@ import ReactDOM from 'react-dom/client'
 import { App } from './app/App'
 import './shared/styles/global.css'
 
+declare global {
+  interface Window {
+    __idleNetworkBooted?: boolean
+  }
+}
+
+window.__idleNetworkBooted = true
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
