@@ -23,7 +23,7 @@ This is the planned execution checklist for the current M0 milestone.
 - [x] Initial board styling for player/enemy-side readability.
 
 ## D. Deployment Setup (GitHub Pages)
-- [x] Configure Vite `base` for GitHub Pages builds.
+- [x] Configure Vite `base` for GitHub Pages builds (auto-derived from `GITHUB_REPOSITORY`).
 - [x] Add GitHub Actions workflow to build and deploy Pages.
 - [ ] Verify deployment on repository Pages settings once CI runs.
 
