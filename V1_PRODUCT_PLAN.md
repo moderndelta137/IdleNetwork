@@ -106,6 +106,9 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 
 ## 5) Milestone Plan (Execution)
 
+M0 active task checklist is maintained in `docs/M0_MILESTONE_TASKS.md`.
+
+
 ### M0 Foundation
 - Project scaffold and architecture skeleton
 - 3x6 board renderer with entity placement
