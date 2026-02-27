@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Idle Network</title>
+    <style>
+      body {
+        margin: 0;
+        background: #111827;
+        color: #f3f5f7;
+        font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+      }
+
+      #root {
+        min-height: 100vh;
+      }
+
+      .boot-fallback {
+        padding: 1rem 1.5rem;
+      }
+
+      .fallback-shell {
+        margin: 0 auto;
+        max-width: 880px;
+        padding: 1.5rem;
+      }
+
+      .fallback-hud {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        margin: 1rem 0;
+      }
+
+      .fallback-board {
+        display: grid;
+        gap: 0.4rem;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      .fallback-panel {
+        align-items: center;
+        aspect-ratio: 1.2/1;
+        border-radius: 8px;
+        display: flex;
+        font-size: 0.8rem;
+        justify-content: center;
+      }
+
+      .fallback-panel.player { background: #1d4ed8; }
+      .fallback-panel.enemy { background: #7f1d1d; }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div id="boot-fallback" class="boot-fallback">
+        Loading Idle Network… If this never changes, open <a href="./docs/test-page.html">test-page.html</a>.
+        If test page works but app does not, set GitHub Pages Source to <strong>GitHub Actions</strong>
+        (see <a href="./docs/DEPLOYMENT.md">deployment notes</a>).
+      </div>
+    </div>
+    <noscript>
+      <div class="boot-fallback">Idle Network requires JavaScript to run.</div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      setTimeout(() => {
+        if (window.__idleNetworkBooted) return;
+
+        const root = document.getElementById('root');
+        if (!root) return;
+
+        const panels = Array.from({ length: 18 }, (_, index) => {
+          const row = Math.floor(index / 6) + 1;
+          const col = (index % 6) + 1;
+          const side = col <= 3 ? 'player' : 'enemy';
+          return `<div class="fallback-panel ${side}">${row},${col}</div>`;
+        }).join('');
+
+        root.innerHTML = `
+          <main class="fallback-shell">
+            <header>
+              <h1>Idle Network — M0 Foundation (Static Fallback)</h1>
+              <p>React runtime did not boot. Showing fallback board so deployment is still visible.</p>
+            </header>
+            <section class="fallback-hud">
+              <span>Ticks: --</span>
+              <span>Speed: 1x / 2x / 4x</span>
+            </section>
+            <section class="fallback-board">${panels}</section>
+          </main>
+        `;
+      }, 1500);
+    </script>
+  </body>
+</html>
