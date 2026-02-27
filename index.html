@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Idle Network</title>
+    <style>
+      body {
+        margin: 0;
+        background: #111827;
+        color: #f3f5f7;
+        font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+      }
+
+      #root {
+        min-height: 100vh;
+      }
+
+      .boot-fallback {
+        padding: 1rem 1.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="boot-fallback">Loading Idle Network… If this never changes, open <a href="./docs/test-page.html">test-page.html</a>. If test page works but app does not, set GitHub Pages Source to <strong>GitHub Actions</strong> (see <a href="./docs/DEPLOYMENT.md">deployment notes</a>).</div>
+    </div>
+    <noscript>
+      <div class="boot-fallback">Idle Network requires JavaScript to run.</div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
