@@ -24,6 +24,7 @@ This is the planned execution checklist for the current M0 milestone.
 - [x] Ensure root/body background + text contrast defaults so deployed page is visible without runtime debugging.
 - [x] Add HTML boot fallback text so GitHub Pages never appears fully blank during script/asset failures.
 - [x] Add static `docs/test-page.html` for deployment smoke-testing independent of app JS runtime (compatible with branch root/docs Pages modes).
+- [x] Document GitHub Pages source requirement (GitHub Actions) for built app runtime.
 
 ## D. Deployment Setup (GitHub Pages)
 - [x] Configure Vite `base` for GitHub Pages builds with relative asset paths (`./`) to avoid project-path mismatches.
