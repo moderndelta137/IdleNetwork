@@ -104,6 +104,13 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 
 ---
 
+## 4.1) Handoff Status
+- M0 deployment and fallback pass are complete.
+- Next implementation target is M1 Combat Vertical Slice.
+- Detailed M1 handoff instructions are in `docs/M1_HANDOFF.md`.
+
+---
+
 ## 5) Milestone Plan (Execution)
 
 M0 active task checklist is maintained in `docs/M0_MILESTONE_TASKS.md`.
