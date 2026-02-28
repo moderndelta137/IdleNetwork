@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Idle Network</title>
+    <style>
+      body {
+        margin: 0;
+        background: #111827;
+        color: #f3f5f7;
+        font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+      }
+
+      #root {
+        min-height: 100vh;
+      }
+
+      .boot-fallback {
+        padding: 1rem 1.5rem;
+      }
+
+      .fallback-shell {
+        margin: 0 auto;
+        max-width: 880px;
+        padding: 1.5rem;
+      }
+
+      .fallback-hud {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        margin: 1rem 0;
+      }
+
+      .fallback-speed-controls {
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      .fallback-speed-controls button {
+        background: #1f2937;
+        border: 1px solid #374151;
+        border-radius: 6px;
+        color: #e5e7eb;
+        cursor: pointer;
+        padding: 0.35rem 0.75rem;
+      }
+
+      .fallback-speed-controls button.active {
+        background: #2563eb;
+        border-color: #60a5fa;
+      }
+
+      .fallback-board {
+        display: grid;
+        gap: 0.4rem;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      .fallback-panel {
+        align-items: center;
+        aspect-ratio: 1.2/1;
+        border-radius: 8px;
+        display: flex;
+        font-size: 0.8rem;
+        justify-content: center;
+      }
+
+      .fallback-panel.player {
+        background: #1d4ed8;
+      }
+
+      .fallback-panel.enemy {
+        background: #7f1d1d;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div id="boot-fallback" class="boot-fallback">
+        Loading Idle Network… If this never changes, open <a href="./docs/test-page.html">test-page.html</a>.
+        If test page works but app does not, set GitHub Pages Source to <strong>GitHub Actions</strong>
+        (see <a href="./docs/DEPLOYMENT.md">deployment notes</a>).
+      </div>
+    </div>
+    <noscript>
+      <div class="boot-fallback">Idle Network requires JavaScript to run.</div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      setTimeout(() => {
+        if (window.__idleNetworkBooted) return;
+
+        const root = document.getElementById('root');
+        if (!root) return;
+
+        const panels = Array.from({ length: 18 }, (_, index) => {
+          const row = Math.floor(index / 6) + 1;
+          const col = (index % 6) + 1;
+          const side = col <= 3 ? 'player' : 'enemy';
+          return `<div class="fallback-panel ${side}">${row},${col}</div>`;
+        }).join('');
+
+        root.innerHTML = `
+          <main class="fallback-shell">
+            <header>
+              <h1>Idle Network — M0 Foundation (Static Fallback)</h1>
+              <p>React runtime did not boot. Running static fallback board/runtime.</p>
+            </header>
+            <section class="fallback-hud">
+              <span id="fallback-ticks">Ticks: 0</span>
+              <div id="fallback-speeds" class="fallback-speed-controls" role="group" aria-label="Fallback speed controls">
+                <button type="button" data-speed="1" class="active">1x</button>
+                <button type="button" data-speed="2">2x</button>
+                <button type="button" data-speed="4">4x</button>
+              </div>
+            </section>
+            <section class="fallback-board">${panels}</section>
+          </main>
+        `;
+
+        const tickNode = document.getElementById('fallback-ticks');
+        const speedControls = document.getElementById('fallback-speeds');
+        if (!tickNode || !speedControls) return;
+
+        let ticks = 0;
+        let speed = 1;
+        const baseTickMs = 100;
+        let previous = performance.now();
+        let accumulator = 0;
+
+        speedControls.addEventListener('click', (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLButtonElement)) return;
+          speed = Number(target.dataset.speed || '1');
+
+          speedControls.querySelectorAll('button').forEach((button) => {
+            button.classList.toggle('active', button === target);
+          });
+        });
+
+        const step = (now) => {
+          const delta = now - previous;
+          previous = now;
+
+          accumulator += delta * speed;
+
+          while (accumulator >= baseTickMs) {
+            accumulator -= baseTickMs;
+            ticks += 1;
+          }
+
+          tickNode.textContent = `Ticks: ${ticks}`;
+          requestAnimationFrame(step);
+        };
+
+        requestAnimationFrame(step);
+      }, 1500);
+    </script>
+  </body>
+</html>
