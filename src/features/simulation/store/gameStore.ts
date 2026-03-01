@@ -118,6 +118,37 @@ const applyDamage = (
   }
 }
 
+const initialEntities: Record<EntityId, EntityState> = {
+  megaman: {
+    id: 'megaman',
+    name: 'MegaMan.EXE',
+    position: { row: 1, col: 1 },
+    alive: true
+  },
+  mettaur: {
+    id: 'mettaur',
+    name: 'Mettaur',
+    position: { row: 1, col: 4 },
+    alive: true
+  }
+}
+
+const makePanelKey = (position: PanelPosition) => `${position.row}-${position.col}`
+
+const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedPanels => {
+  const occupancy: OccupiedPanels = {}
+
+  Object.values(entities).forEach((entity) => {
+    if (!entity.alive) {
+      return
+    }
+
+    occupancy[makePanelKey(entity.position)] = entity.id
+  })
+
+  return occupancy
+}
+
 export const useGameStore = create<GameState>((set, get) => ({
   ticks: 0,
   speed: 1,
