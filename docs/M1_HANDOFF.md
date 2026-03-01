@@ -39,6 +39,21 @@ Implement **Combat Vertical Slice** with this order:
    - Enemy KO -> simple respawn/reset for continued testing.
    - Player KO -> test-state reset button in HUD.
 
+
+## Progress Update
+- [x] Task 1 complete: entity + board occupancy model (MegaMan + Mettaur with panel coordinates and alive/KO state).
+- [x] Task 2 complete: HP fields, damage application over runtime ticks, and HUD HP display for player + target enemy.
+- [x] Task 3 complete: MegaMan auto buster cadence + Mettaur telegraph timer and damage event cadence.
+- [x] Task 4 complete: keyboard movement override on player-side 3x3 with occupancy/bounds enforcement.
+- [x] Task 5 complete: enemy KO auto-respawn loop + player KO reset button in HUD.
+
+
+## M1 Completion Check
+- [x] MegaMan + 1 Mettaur visible on board.
+- [x] HP decreases from attacks over time.
+- [x] Player movement works with keyboard.
+- [x] Full combat cycle reaches KO and reset (enemy respawn + player reset button).
+
 ## M1 Acceptance Criteria
 - You can see MegaMan + 1 Mettaur on the board.
 - HP decreases from attacks over time.
