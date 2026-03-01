@@ -8,6 +8,7 @@ export function App() {
   const speed = useGameStore((state) => state.speed)
   const ticks = useGameStore((state) => state.ticks)
   const entities = useGameStore((state) => state.entities)
+  const combat = useGameStore((state) => state.combat)
   const setSpeed = useGameStore((state) => state.setSpeed)
 
   useEffect(() => {
@@ -15,11 +16,13 @@ export function App() {
     return unsub
   }, [])
 
+  const target = entities[combat.targetId]
+
   return (
     <main className="app-shell">
       <header>
         <h1>Idle Network — M1 Combat Vertical Slice</h1>
-        <p>Task 1: Entity + board occupancy model for MegaMan and Mettaur.</p>
+        <p>Task 2: HP + damage loop with player and enemy HUD tracking.</p>
       </header>
 
       <section className="hud">
@@ -38,16 +41,21 @@ export function App() {
         </div>
       </section>
 
-      <section className="entity-hud" aria-label="Combat entities">
-        {Object.values(entities).map((entity) => (
-          <div key={entity.id} className="entity-card">
-            <strong>{entity.name}</strong>
-            <span>
-              Panel ({entity.position.row + 1},{entity.position.col + 1})
-            </span>
-            <span>Status: {entity.alive ? 'Alive' : 'KO'}</span>
-          </div>
-        ))}
+      <section className="hp-hud" aria-label="HP tracker">
+        <div className="hp-card">
+          <strong>MegaMan.EXE</strong>
+          <span>
+            HP: {combat.playerHp}/{combat.playerMaxHp}
+          </span>
+          <span>Status: {entities.megaman.alive ? 'Alive' : 'KO'}</span>
+        </div>
+        <div className="hp-card">
+          <strong>{target.name}</strong>
+          <span>
+            HP: {combat.targetHp}/{combat.targetMaxHp}
+          </span>
+          <span>Status: {target.alive ? 'Alive' : 'KO'}</span>
+        </div>
       </section>
 
       <Board />

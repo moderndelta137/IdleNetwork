@@ -34,14 +34,14 @@ body {
   margin-bottom: 1rem;
 }
 
-.entity-hud {
+.hp-hud {
   display: grid;
   gap: 0.6rem;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   margin-bottom: 1rem;
 }
 
-.entity-card {
+.hp-card {
   background: #0f172a;
   border: 1px solid #334155;
   border-radius: 8px;
