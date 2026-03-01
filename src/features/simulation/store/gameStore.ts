@@ -153,6 +153,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   ...buildInitialState(),
   speed: 1,
   running: false,
+  entities: initialEntities,
+  occupiedPanels: buildOccupiedPanels(initialEntities),
+  combat: buildCombatSummary(initialEntities),
   setSpeed: (speed) => set({ speed }),
   movePlayer: (deltaRow, deltaCol) => {
     set((current) => {
