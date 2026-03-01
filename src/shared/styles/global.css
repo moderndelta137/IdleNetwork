@@ -34,6 +34,23 @@ body {
   margin-bottom: 1rem;
 }
 
+.hp-hud {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin-bottom: 1rem;
+}
+
+.hp-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.6rem 0.75rem;
+}
+
 .speed-controls {
   display: flex;
   gap: 0.5rem;
@@ -74,4 +91,13 @@ button.active {
 
 .panel.enemy {
   background: #7f1d1d;
+}
+
+.panel.occupied {
+  border: 2px solid #f8fafc;
+}
+
+.occupant {
+  font-size: 0.85rem;
+  font-weight: 700;
 }

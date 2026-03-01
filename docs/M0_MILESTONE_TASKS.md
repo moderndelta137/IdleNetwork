@@ -38,3 +38,9 @@ This is the planned execution checklist for the current M0 milestone.
 - [ ] Run `npm run build` to verify production build output.
 - [ ] Run `npm run dev` and manually verify board/speed controls.
 - [ ] Capture screenshot artifact after runtime verification.
+
+
+## F. Post-M0 Snapshot
+- [x] M1 Task 1: entity + board occupancy model landed.
+- [x] M1 Task 2: HP + damage loop with player/target HUD HP landed.
+- [ ] M1 Task 3–5 pending (auto behavior polish, manual movement override, KO/reset flow).
