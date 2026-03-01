@@ -7,6 +7,7 @@ const SPEEDS = [1, 2, 4] as const
 export function App() {
   const speed = useGameStore((state) => state.speed)
   const ticks = useGameStore((state) => state.ticks)
+  const entities = useGameStore((state) => state.entities)
   const setSpeed = useGameStore((state) => state.setSpeed)
 
   useEffect(() => {
@@ -17,8 +18,8 @@ export function App() {
   return (
     <main className="app-shell">
       <header>
-        <h1>Idle Network — M0 Foundation</h1>
-        <p>3x6 board renderer + route-independent simulation runtime.</p>
+        <h1>Idle Network — M1 Combat Vertical Slice</h1>
+        <p>Task 1: Entity + board occupancy model for MegaMan and Mettaur.</p>
       </header>
 
       <section className="hud">
@@ -35,6 +36,18 @@ export function App() {
             </button>
           ))}
         </div>
+      </section>
+
+      <section className="entity-hud" aria-label="Combat entities">
+        {Object.values(entities).map((entity) => (
+          <div key={entity.id} className="entity-card">
+            <strong>{entity.name}</strong>
+            <span>
+              Panel ({entity.position.row + 1},{entity.position.col + 1})
+            </span>
+            <span>Status: {entity.alive ? 'Alive' : 'KO'}</span>
+          </div>
+        ))}
       </section>
 
       <Board />
