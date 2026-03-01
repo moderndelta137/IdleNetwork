@@ -34,6 +34,36 @@ body {
   margin-bottom: 1rem;
 }
 
+.hp-hud {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-bottom: 0.8rem;
+}
+
+.hp-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.combat-log {
+  background: #111827;
+  border-left: 4px solid #64748b;
+  margin: 0 0 0.75rem;
+  padding: 0.45rem 0.7rem;
+}
+
+.control-tip {
+  color: #cbd5e1;
+  font-size: 0.92rem;
+  margin: 0 0 0.9rem;
+}
+
 .speed-controls {
   display: flex;
   gap: 0.5rem;
@@ -46,6 +76,11 @@ button {
   color: #e5e7eb;
   cursor: pointer;
   padding: 0.35rem 0.75rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 button.active {
@@ -74,4 +109,13 @@ button.active {
 
 .panel.enemy {
   background: #7f1d1d;
+}
+
+.panel.occupied {
+  border: 2px solid #f8fafc;
+}
+
+.occupant {
+  font-size: 0.85rem;
+  font-weight: 700;
 }
