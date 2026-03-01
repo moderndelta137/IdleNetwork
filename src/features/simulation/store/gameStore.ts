@@ -59,7 +59,7 @@ const mettaurRespawnDelayTicks = 20
 const megamanHitDamage = 8
 const mettaurHitDamage = 6
 
-const initialEntities = (): Record<EntityId, EntityState> => ({
+const createInitialEntities = (): Record<EntityId, EntityState> => ({
   megaman: {
     id: 'megaman',
     name: 'MegaMan.EXE',
@@ -135,8 +135,20 @@ const applyDamage = (
 
 const inPlayerArea = (position: PanelPosition) => position.row >= 0 && position.row < 3 && position.col >= 0 && position.col < 3
 
-const buildInitialState = () => {
-  const entities = initialEntities()
+type RuntimeState = Pick<
+  GameState,
+  | 'ticks'
+  | 'entities'
+  | 'occupiedPanels'
+  | 'combat'
+  | 'megamanBusterCooldown'
+  | 'mettaurAttackCooldown'
+  | 'mettaurTelegraphTicksRemaining'
+  | 'mettaurRespawnTick'
+>
+
+const buildInitialState = (): RuntimeState => {
+  const entities = createInitialEntities()
   return {
     ticks: 0,
     entities,
