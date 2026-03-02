@@ -11,8 +11,9 @@ permissions:
   id-token: write
 
 concurrency:
+  # Ensure only the newest Pages deployment runs; older in-flight runs are cancelled.
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
