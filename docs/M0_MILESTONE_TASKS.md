@@ -44,3 +44,4 @@ This is the planned execution checklist for the current M0 milestone.
 - [x] M1 Task 1: entity + board occupancy model landed.
 - [x] M1 Task 2: HP + damage loop with player/target HUD HP landed.
 - [x] M1 Task 3–5 complete (auto behavior cadence + telegraph, manual movement override, KO/reset flow).
+- [x] M2 in progress: always-on hand/gauge flow + control modes + baseline AI movement landed.

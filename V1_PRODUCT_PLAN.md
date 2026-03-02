@@ -107,8 +107,9 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 ## 4.1) Handoff Status
 - M0 deployment and fallback pass are complete.
 - M1 Combat Vertical Slice is complete (Tasks 1-5).
-- M1 now includes entity occupancy, HP/damage loop, baseline auto behavior cadence, manual movement override, and KO/reset flow.
-- Next planned implementation target is M2 Chips + Rules.
+- M2 Chips + Rules is in progress.
+- M2 currently includes: always-on custom gauge/hand flow, deck/discard refill behavior, buffered chip use, aggressive auto-chip behavior (`fullAuto`), and MegaMan control modes (`manual`, `semiAuto`, `fullAuto`) with baseline movement AI.
+- Remaining M2 scope: Program Advance core and MB/cost legality checks.
 - Detailed active handoff and task status are maintained in `docs/M1_HANDOFF.md`.
 
 ---
