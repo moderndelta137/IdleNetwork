@@ -23,4 +23,4 @@ When React boots correctly, the page header reads **"Idle Network — M1 Combat 
 - combat log text (e.g. buster/telegraph events)
 - keyboard movement support (Arrow keys / WASD)
 
-If you instead see **"M0 Foundation (Static Fallback)"**, then M1 is not executing in browser runtime and Pages source is likely still branch mode.
+If app root stays on the loading message and never switches to the M1 header, then React is not executing and Pages source is likely still branch mode.
