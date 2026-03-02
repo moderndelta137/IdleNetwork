@@ -135,6 +135,12 @@ button.active {
   background: #7f1d1d;
 }
 
+.panel.hitbox-active {
+  background: #facc15;
+  border: 2px solid #fef08a;
+  color: #111827;
+}
+
 .panel.occupied {
   border: 2px solid #f8fafc;
 }
