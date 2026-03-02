@@ -22,7 +22,7 @@ body {
 
 .app-shell {
   margin: 0 auto;
-  max-width: 960px;
+  max-width: 880px;
   padding: 1.5rem;
 }
 
@@ -34,6 +34,7 @@ body {
   margin-bottom: 1rem;
 }
 
+
 .chip-hud {
   display: grid;
   gap: 0.6rem;
@@ -41,7 +42,8 @@ body {
   margin-bottom: 0.8rem;
 }
 
-.gauge-card {
+.gauge-card,
+.hand-card {
   background: #0f172a;
   border: 1px solid #334155;
   border-radius: 8px;
@@ -62,6 +64,11 @@ body {
   background: linear-gradient(90deg, #38bdf8, #6366f1);
   height: 100%;
   transition: width 120ms linear;
+}
+
+.chip-list {
+  display: grid;
+  gap: 0.4rem;
 }
 
 .hp-hud {
@@ -122,7 +129,6 @@ button.active {
   display: grid;
   gap: 0.4rem;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  margin-bottom: 1rem;
 }
 
 .panel {
@@ -149,40 +155,4 @@ button.active {
 .occupant {
   font-size: 0.85rem;
   font-weight: 700;
-}
-
-.hand-bar {
-  display: grid;
-  gap: 0.5rem;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
-.chip-slot {
-  align-items: flex-start;
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  min-height: 92px;
-  padding: 0.55rem 0.6rem;
-  text-align: left;
-}
-
-.chip-slot.empty {
-  background: #1e293b;
-  border-style: dashed;
-}
-
-.chip-slot-title {
-  font-size: 0.85rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.chip-slot-detail {
-  color: #bfdbfe;
-  font-size: 0.75rem;
-  line-height: 1.25;
 }
