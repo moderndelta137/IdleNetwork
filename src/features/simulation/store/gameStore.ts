@@ -437,6 +437,109 @@ const chooseMettaurAutoMove = (entities: Record<EntityId, EntityState>): PanelPo
   return next ?? mettaur.position
 }
 
+const tryUseChipFromSlot = (
+  current: Pick<GameState, 'chipHand' | 'chipDiscard' | 'entities' | 'barrierCharges'>,
+  slot: number
+): {
+  entities: Record<EntityId, EntityState>
+  chipHand: Array<BattleChip | null>
+  chipDiscard: BattleChip[]
+  barrierCharges: number
+  lastEvent: string
+  used: boolean
+} => {
+  const chip = current.chipHand[slot]
+  if (!chip) {
+    return {
+      entities: current.entities,
+      chipHand: current.chipHand,
+      chipDiscard: current.chipDiscard,
+      barrierCharges: current.barrierCharges,
+      lastEvent: 'Selected chip slot is empty',
+      used: false
+    }
+  }
+
+  const effects = chipEffects[chip.id]
+  let nextEntities = { ...current.entities }
+  let barrierCharges = current.barrierCharges
+  let lastEvent = `Chip used: ${chip.name} ${chip.code}`
+
+  if (effects.damage) {
+    const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, effects.damage)
+    nextEntities = {
+      ...nextEntities,
+      megaman: result.source,
+      mettaur: result.target
+    }
+    if (result.didHit) {
+      lastEvent = `${chip.name} hit for ${effects.damage}`
+    }
+  }
+
+  if (effects.heal) {
+    const nextHp = Math.min(nextEntities.megaman.maxHp, nextEntities.megaman.hp + effects.heal)
+    const healedAmount = nextHp - nextEntities.megaman.hp
+    nextEntities = {
+      ...nextEntities,
+      megaman: {
+        ...nextEntities.megaman,
+        hp: nextHp,
+        alive: nextHp > 0
+      }
+    }
+    lastEvent = `${chip.name} healed ${healedAmount}`
+  }
+
+  if (effects.barrier) {
+    barrierCharges = effects.barrier
+    lastEvent = `${chip.name} barrier ready`
+  }
+
+  const nextHand = [...current.chipHand]
+  nextHand[slot] = null
+
+  return {
+    entities: nextEntities,
+    chipHand: nextHand,
+    chipDiscard: [...current.chipDiscard, chip],
+    barrierCharges,
+    lastEvent,
+    used: true
+  }
+}
+
+const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'barrierCharges'>): number | null => {
+  const { chipHand, entities, barrierCharges } = state
+  const playerHpRatio = entities.megaman.maxHp > 0 ? entities.megaman.hp / entities.megaman.maxHp : 0
+
+  if (playerHpRatio <= autoRecoverHpThreshold) {
+    const recoverSlot = chipHand.findIndex((chip) => chip?.id === 'recover10')
+    if (recoverSlot >= 0) {
+      return recoverSlot
+    }
+  }
+
+  if (barrierCharges === 0) {
+    const barrierSlot = chipHand.findIndex((chip) => chip?.id === 'barrier')
+    if (barrierSlot >= 0) {
+      return barrierSlot
+    }
+  }
+
+  const swordSlot = chipHand.findIndex((chip) => chip?.id === 'sword')
+  if (swordSlot >= 0) {
+    return swordSlot
+  }
+
+  const cannonSlot = chipHand.findIndex((chip) => chip?.id === 'cannon')
+  if (cannonSlot >= 0) {
+    return cannonSlot
+  }
+
+  return null
+}
+
 type RuntimeState = Pick<
   GameState,
   | 'ticks'
@@ -677,6 +780,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
     })
   },
+  useLeftmostChip: () => {
+    const state = get()
+    const slot = state.chipHand.findIndex((chip) => chip !== null)
+    if (slot >= 0) {
+      state.useChipSlot(slot)
+    }
+  },
   resetBattle: () => {
     set((current) => {
       const next = buildInitialState()
@@ -774,6 +884,31 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
 
           if (megamanControlMode === 'fullAuto' && queuedChipSlot === null && autoChipCooldown === 0 && !megamanBusy) {
+            const autoSlot = chooseAutoChipSlot({
+              chipHand,
+              entities: nextEntities,
+              barrierCharges
+            })
+
+            if (autoSlot !== null) {
+              const autoUse = tryUseChipFromSlot(
+                { chipHand, chipDiscard, entities: nextEntities, barrierCharges },
+                autoSlot
+              )
+
+              if (autoUse.used) {
+                nextEntities = autoUse.entities
+                chipHand = autoUse.chipHand
+                chipDiscard = autoUse.chipDiscard
+                barrierCharges = autoUse.barrierCharges
+                lastEvent = `Auto chip: ${autoUse.lastEvent}`
+              }
+            }
+
+            autoChipCooldown = autoChipCadenceTicks
+          }
+
+          if (queuedChipSlot === null && autoChipCooldown === 0 && !megamanBusy) {
             const autoSlot = chooseAutoChipSlot({
               chipHand,
               entities: nextEntities,
