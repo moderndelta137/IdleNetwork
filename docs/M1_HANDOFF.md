@@ -1,71 +1,59 @@
-# M1 Handoff Notes
+# Active Handoff Notes (M2)
 
 This file captures the current implementation state and the exact next work for a new thread.
 
-## Current State (post-M0)
-- Project scaffold is in place (Vite + React + TypeScript + Zustand).
-- Root page now always shows meaningful content:
-  - React app when bundle boots.
-  - Static fallback 3x6 board with fallback tick/speed runtime when bundle fails.
-- GitHub Pages deployment path is configured and working.
-- Deployment smoke test page is available at `docs/test-page.html`.
+## Current State (post-M1)
+- M0 foundation/deployment pass is in place (Vite + React + TypeScript + Zustand + Pages workflow).
+- M1 Combat Vertical Slice is complete.
+- M2 implementation is in progress and currently includes:
+  - Always-on chip hand with 5 slots.
+  - Custom Gauge refill into hand slots.
+  - Deck/discard reshuffle behavior when deck empties.
+  - Buffered chip-use slot when MegaMan is busy.
+  - MegaMan control modes: `manual`, `semiAuto`, `fullAuto`.
+  - Baseline movement AI for MegaMan and Mettaur.
+- CI now includes a duplicate-helper guard script for `gameStore.ts` before build.
 
-## Confirmed M0 Completion
-- 3x6 board visual in app shell.
-- Route-independent runtime tick store with 1x/2x/4x controls.
-- Pages workflow + deployment guidance.
-- Root-level fallback visibility and diagnostic links.
+## Confirmed Implemented in M2 So Far
+- [x] Custom Gauge + chip hand flow (always-on hand model).
+- [x] Manual chip usage by slot (`1-5`) and left-most quick use.
+- [x] Aggressive auto-chip behavior in `fullAuto` mode.
+- [x] Manual/SemiAuto/FullAuto control mode toggle for MegaMan.
+- [x] Baseline AI movement loop for MegaMan + Mettaur.
+- [x] Duplicate declaration pre-build check in CI.
 
-## Start Here for M1
-Implement **Combat Vertical Slice** with this order:
+## Start Here Next (Remaining M2 Work)
+Implement the remaining M2 scope in this order:
 
-1. **Entity + board occupancy model**
-   - Add MegaMan + Mettaur entity records.
-   - Track panel coordinates and alive/KO states.
+1. **Program Advance (PA) core implementation**
+   - Add PA rule data model and detection for ordered chip sequences.
+   - Resolve PA execution into single effect events in combat loop.
+   - Add basic PA visibility in HUD/log for debugging.
 
-2. **HP + damage loop**
-   - Add HP fields and damage application.
-   - Show HP in HUD for player and target enemy.
+2. **MB/cost legality checks (lighter V1 profile)**
+   - Add chip MB/cost metadata to chip config.
+   - Validate folder legality against current MB budget.
+   - Surface legality status/errors in UI for quick balancing checks.
 
-3. **Auto behavior (baseline)**
-   - MegaMan auto buster fire at target cadence.
-   - Mettaur attack cadence (simple telegraph timer + damage event).
+3. **Stability pass on runtime behavior**
+   - Verify manual/semi/full mode transitions do not desync queued chip state.
+   - Verify AI movement + chip logic remain deterministic across long runs.
+   - Keep `gameStore.ts` free of duplicate helper blocks (guard script + review).
 
-4. **Manual movement override**
-   - Keyboard movement on player-side 3x3 panels.
-   - Respect panel occupancy bounds.
-
-5. **KO + reset flow**
-   - Enemy KO -> simple respawn/reset for continued testing.
-   - Player KO -> test-state reset button in HUD.
-
-
-## Progress Update
-- [x] Task 1 complete: entity + board occupancy model (MegaMan + Mettaur with panel coordinates and alive/KO state).
-- [x] Task 2 complete: HP fields, damage application over runtime ticks, and HUD HP display for player + target enemy.
-- [x] Task 3 complete: MegaMan auto buster cadence + Mettaur telegraph timer and damage event cadence.
-- [x] Task 4 complete: keyboard movement override on player-side 3x3 with occupancy/bounds enforcement.
-- [x] Task 5 complete: enemy KO auto-respawn loop + player KO reset button in HUD.
-
-
-## M1 Completion Check
-- [x] MegaMan + 1 Mettaur visible on board.
-- [x] HP decreases from attacks over time.
-- [x] Player movement works with keyboard.
-- [x] Full combat cycle reaches KO and reset (enemy respawn + player reset button).
-
-## M1 Acceptance Criteria
-- You can see MegaMan + 1 Mettaur on the board.
-- HP decreases from attacks over time.
-- Player movement works with keyboard.
-- At least one full combat cycle reaches KO and reset.
+## Acceptance Targets for Remaining M2
+- At least one PA can be triggered and logged from legal chip sequence.
+- Folder legality rejects illegal MB/cost configurations.
+- Manual/semi/full control modes remain playable with no runtime build regressions.
 
 ## Files to Extend First
 - `src/features/simulation/store/gameStore.ts`
-- `src/features/battle/components/Board.tsx`
 - `src/app/App.tsx`
+- (add as needed) `src/features/chips/*` for PA and legality data separation
 
-## Notes
+## Notes for New Thread
+- Run checks before opening PR:
+  - `npm run check:game-store-duplicates`
+  - `npm run build`
 - Keep docs in sync after each meaningful milestone:
-  - `docs/M0_MILESTONE_TASKS.md` (status tracking)
+  - `docs/M1_HANDOFF.md` (active handoff state)
   - `V1_PRODUCT_PLAN.md` (roadmap/source-of-truth)
