@@ -300,40 +300,6 @@ const moveEntityIfPossible = (
   }
 }
 
-const chooseMegamanAutoMove = (entities: Record<EntityId, EntityState>): PanelPosition => {
-  const megaman = entities.megaman
-  const mettaur = entities.mettaur
-
-  const rowDelta = mettaur.position.row === megaman.position.row ? 0 : mettaur.position.row > megaman.position.row ? 1 : -1
-  const preferred: PanelPosition[] = [
-    { row: megaman.position.row + rowDelta, col: megaman.position.col },
-    { row: megaman.position.row, col: megaman.position.col + 1 },
-    { row: megaman.position.row, col: megaman.position.col - 1 },
-    { row: megaman.position.row - 1, col: megaman.position.col },
-    { row: megaman.position.row + 1, col: megaman.position.col }
-  ]
-
-  const next = preferred.find((position) => inPlayerArea(position))
-  return next ?? megaman.position
-}
-
-const chooseMettaurAutoMove = (entities: Record<EntityId, EntityState>): PanelPosition => {
-  const mettaur = entities.mettaur
-  const megaman = entities.megaman
-
-  const rowDelta = megaman.position.row === mettaur.position.row ? 0 : megaman.position.row > mettaur.position.row ? 1 : -1
-  const preferred: PanelPosition[] = [
-    { row: mettaur.position.row + rowDelta, col: mettaur.position.col },
-    { row: mettaur.position.row, col: mettaur.position.col - 1 },
-    { row: mettaur.position.row, col: mettaur.position.col + 1 },
-    { row: mettaur.position.row - 1, col: mettaur.position.col },
-    { row: mettaur.position.row + 1, col: mettaur.position.col }
-  ]
-
-  const next = preferred.find((position) => inEnemyArea(position))
-  return next ?? mettaur.position
-}
-
 const tryUseChipFromSlot = (
   current: Pick<GameState, 'chipHand' | 'chipDiscard' | 'entities' | 'barrierCharges'>,
   slot: number
@@ -435,6 +401,40 @@ const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'ba
   }
 
   return null
+}
+
+const chooseMegamanAutoMove = (entities: Record<EntityId, EntityState>): PanelPosition => {
+  const megaman = entities.megaman
+  const mettaur = entities.mettaur
+
+  const rowDelta = mettaur.position.row === megaman.position.row ? 0 : mettaur.position.row > megaman.position.row ? 1 : -1
+  const preferred: PanelPosition[] = [
+    { row: megaman.position.row + rowDelta, col: megaman.position.col },
+    { row: megaman.position.row, col: megaman.position.col + 1 },
+    { row: megaman.position.row, col: megaman.position.col - 1 },
+    { row: megaman.position.row - 1, col: megaman.position.col },
+    { row: megaman.position.row + 1, col: megaman.position.col }
+  ]
+
+  const next = preferred.find((position) => inPlayerArea(position))
+  return next ?? megaman.position
+}
+
+const chooseMettaurAutoMove = (entities: Record<EntityId, EntityState>): PanelPosition => {
+  const mettaur = entities.mettaur
+  const megaman = entities.megaman
+
+  const rowDelta = megaman.position.row === mettaur.position.row ? 0 : megaman.position.row > mettaur.position.row ? 1 : -1
+  const preferred: PanelPosition[] = [
+    { row: mettaur.position.row + rowDelta, col: mettaur.position.col },
+    { row: mettaur.position.row, col: mettaur.position.col - 1 },
+    { row: mettaur.position.row, col: mettaur.position.col + 1 },
+    { row: mettaur.position.row - 1, col: mettaur.position.col },
+    { row: mettaur.position.row + 1, col: mettaur.position.col }
+  ]
+
+  const next = preferred.find((position) => inEnemyArea(position))
+  return next ?? mettaur.position
 }
 
 type RuntimeState = Pick<
@@ -774,31 +774,6 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
 
           if (megamanControlMode === 'fullAuto' && queuedChipSlot === null && autoChipCooldown === 0 && !megamanBusy) {
-            const autoSlot = chooseAutoChipSlot({
-              chipHand,
-              entities: nextEntities,
-              barrierCharges
-            })
-
-            if (autoSlot !== null) {
-              const autoUse = tryUseChipFromSlot(
-                { chipHand, chipDiscard, entities: nextEntities, barrierCharges },
-                autoSlot
-              )
-
-              if (autoUse.used) {
-                nextEntities = autoUse.entities
-                chipHand = autoUse.chipHand
-                chipDiscard = autoUse.chipDiscard
-                barrierCharges = autoUse.barrierCharges
-                lastEvent = `Auto chip: ${autoUse.lastEvent}`
-              }
-            }
-
-            autoChipCooldown = autoChipCadenceTicks
-          }
-
-          if (queuedChipSlot === null && autoChipCooldown === 0 && !megamanBusy) {
             const autoSlot = chooseAutoChipSlot({
               chipHand,
               entities: nextEntities,
