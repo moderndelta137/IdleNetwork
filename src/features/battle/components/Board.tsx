@@ -6,6 +6,7 @@ const COLS = 6
 export function Board() {
   const entities = useGameStore((state) => state.entities)
   const occupiedPanels = useGameStore((state) => state.occupiedPanels)
+  const activeHitboxPanels = useGameStore((state) => state.combat.activeHitboxPanels)
 
   return (
     <section className="board" aria-label="Battlefield grid">
@@ -15,10 +16,11 @@ export function Board() {
         const side = col < 3 ? 'player' : 'enemy'
         const key = `${row}-${col}`
         const occupantId = occupiedPanels[key]
+        const hasActiveHitbox = activeHitboxPanels.includes(key)
         const occupant = occupantId ? entities[occupantId] : null
 
         return (
-          <div key={key} className={`panel ${side} ${occupantId ? 'occupied' : ''}`}>
+          <div key={key} className={`panel ${side} ${occupantId ? 'occupied' : ''} ${hasActiveHitbox ? 'hitbox-active' : ''}`}>
             {occupant ? (
               <span className="occupant" aria-label={occupant.name}>
                 {occupant.id === 'megaman' ? 'MegaMan' : 'Mettaur'}
