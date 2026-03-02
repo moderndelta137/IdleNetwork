@@ -64,6 +64,7 @@ type GameState = {
   queuedChipSlot: number | null
   barrierCharges: number
   megamanHitstunTicks: number
+  autoChipCooldown: number
   setSpeed: (speed: Speed) => void
   movePlayer: (deltaRow: number, deltaCol: number) => void
   useChipSlot: (index: number) => void
@@ -86,6 +87,8 @@ const defaultChipHandSize = 5
 const megamanHitDamage = 8
 const mettaurHitDamage = 6
 const megamanHitstunTicksOnHit = 6
+const autoChipCadenceTicks = 8
+const autoRecoverHpThreshold = 0.55
 
 const chipEffects: Record<ChipId, { damage?: number; heal?: number; barrier?: number }> = {
   cannon: { damage: 20 },
@@ -313,6 +316,37 @@ const tryUseChipFromSlot = (
   }
 }
 
+const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'barrierCharges'>): number | null => {
+  const { chipHand, entities, barrierCharges } = state
+  const playerHpRatio = entities.megaman.maxHp > 0 ? entities.megaman.hp / entities.megaman.maxHp : 0
+
+  if (playerHpRatio <= autoRecoverHpThreshold) {
+    const recoverSlot = chipHand.findIndex((chip) => chip?.id === 'recover10')
+    if (recoverSlot >= 0) {
+      return recoverSlot
+    }
+  }
+
+  if (barrierCharges === 0) {
+    const barrierSlot = chipHand.findIndex((chip) => chip?.id === 'barrier')
+    if (barrierSlot >= 0) {
+      return barrierSlot
+    }
+  }
+
+  const swordSlot = chipHand.findIndex((chip) => chip?.id === 'sword')
+  if (swordSlot >= 0) {
+    return swordSlot
+  }
+
+  const cannonSlot = chipHand.findIndex((chip) => chip?.id === 'cannon')
+  if (cannonSlot >= 0) {
+    return cannonSlot
+  }
+
+  return null
+}
+
 type RuntimeState = Pick<
   GameState,
   | 'ticks'
@@ -332,6 +366,7 @@ type RuntimeState = Pick<
   | 'queuedChipSlot'
   | 'barrierCharges'
   | 'megamanHitstunTicks'
+  | 'autoChipCooldown'
 >
 
 const buildInitialState = (): RuntimeState => {
@@ -353,7 +388,8 @@ const buildInitialState = (): RuntimeState => {
     chipDiscard: firstFill.chipDiscard,
     queuedChipSlot: null,
     barrierCharges: 0,
-    megamanHitstunTicks: 0
+    megamanHitstunTicks: 0,
+    autoChipCooldown: autoChipCadenceTicks
   }
 
   return {
@@ -527,6 +563,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           let queuedChipSlot = current.queuedChipSlot
           let barrierCharges = current.barrierCharges
           let megamanHitstunTicks = Math.max(0, current.megamanHitstunTicks - 1)
+          let autoChipCooldown = Math.max(0, current.autoChipCooldown - 1)
           let lastEvent = 'Idle tick'
 
           if (gaugeTicks >= current.customGaugeMaxTicks) {
@@ -551,9 +588,35 @@ export const useGameStore = create<GameState>((set, get) => ({
               barrierCharges = queuedUse.barrierCharges
               lastEvent = `Buffered chip resolved: ${queuedUse.lastEvent}`
               queuedChipSlot = null
+              autoChipCooldown = autoChipCadenceTicks
             } else {
               queuedChipSlot = null
             }
+          }
+
+          if (queuedChipSlot === null && autoChipCooldown === 0 && !megamanBusy) {
+            const autoSlot = chooseAutoChipSlot({
+              chipHand,
+              entities: nextEntities,
+              barrierCharges
+            })
+
+            if (autoSlot !== null) {
+              const autoUse = tryUseChipFromSlot(
+                { chipHand, chipDiscard, entities: nextEntities, barrierCharges },
+                autoSlot
+              )
+
+              if (autoUse.used) {
+                nextEntities = autoUse.entities
+                chipHand = autoUse.chipHand
+                chipDiscard = autoUse.chipDiscard
+                barrierCharges = autoUse.barrierCharges
+                lastEvent = `Auto chip: ${autoUse.lastEvent}`
+              }
+            }
+
+            autoChipCooldown = autoChipCadenceTicks
           }
 
           if (!nextEntities.mettaur.alive && mettaurRespawnTick === null) {
@@ -643,7 +706,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             chipDiscard,
             queuedChipSlot,
             barrierCharges,
-            megamanHitstunTicks
+            megamanHitstunTicks,
+            autoChipCooldown
           }
         })
       }
