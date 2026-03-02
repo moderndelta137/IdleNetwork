@@ -22,6 +22,13 @@ This file captures the current implementation state and the exact next work for 
 - [x] Baseline AI movement loop for MegaMan + Mettaur.
 - [x] Duplicate declaration pre-build check in CI.
 
+## Sprite Integration Prep (immediate pre-PA visual pass)
+Before PA core work, land a lightweight sprite render pass with no combat-logic changes:
+- Add initial sprite asset folders under `public/sprites/megaman` and `public/sprites/mettaur`.
+- Replace board occupant text labels with sprite rendering + text fallback.
+- Keep yellow non-hitscan hitbox overlays visible for combat-range debugging.
+- Start with static idle/swing frames first; animation state wiring can iterate after PA baseline.
+
 ## Start Here Next (Remaining M2 Work)
 Implement the remaining M2 scope in this order:
 

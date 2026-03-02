@@ -97,6 +97,13 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 - Early UI approach: functional BN-like HUD first, nostalgia-heavy styling later
 - Implementation details are delegated to Technical Co-Founder unless explicitly overridden by Product Owner
 
+## 12.1 Sprite Production Conventions (M2+)
+- Initial integration prioritizes readability and gameplay verification over full animation fidelity.
+- Use transparent PNG sprite assets and keep native pixel dimensions (no blurred upscale source exports).
+- Organize assets by actor and state in `public/sprites/<actor>/...` with lowercase kebab-case naming.
+- Preserve combat debug visibility (including non-hitscan hitbox overlays) while introducing sprites.
+- Preferred rollout: static frames first (idle/swing), then animation state machine expansion.
+
 ## 13. Data References
 - Chips: https://megaman.miraheze.org/wiki/List_of_Mega_Man_Battle_Network_6_Battle_Chips
 - Enemies: https://www.therockmanexezone.com/wiki/Enemies_in_MMBN6
