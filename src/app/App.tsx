@@ -5,58 +5,56 @@ import { useGameStore } from '../features/simulation/store/gameStore'
 const SPEEDS = [1, 2, 4] as const
 
 export function App() {
-  const speed = useGameStore((state) => state.speed)
   const ticks = useGameStore((state) => state.ticks)
-  const entities = useGameStore((state) => state.entities)
+  const speed = useGameStore((state) => state.speed)
   const combat = useGameStore((state) => state.combat)
+  const entities = useGameStore((state) => state.entities)
   const setSpeed = useGameStore((state) => state.setSpeed)
   const movePlayer = useGameStore((state) => state.movePlayer)
-  const selectChip = useGameStore((state) => state.selectChip)
-  const useSelectedChip = useGameStore((state) => state.useSelectedChip)
+  const useChipSlot = useGameStore((state) => state.useChipSlot)
+  const useLeftmostChip = useGameStore((state) => state.useLeftmostChip)
   const resetBattle = useGameStore((state) => state.resetBattle)
+  const start = useGameStore((state) => state.start)
 
   useEffect(() => {
-    const unsub = useGameStore.getState().start()
-    return unsub
-  }, [])
+    const stop = start()
+    return () => stop()
+  }, [start])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (combat.handOpen) {
-        if (event.key >= '1' && event.key <= '5') {
-          event.preventDefault()
-          selectChip(Number(event.key) - 1)
-          return
-        }
+      const key = event.key
+      const upperKey = key.toUpperCase()
 
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          useSelectedChip()
-          return
-        }
+      if (key >= '1' && key <= '5') {
+        event.preventDefault()
+        useChipSlot(Number.parseInt(key, 10) - 1)
+        return
       }
 
-      switch (event.key) {
-        case 'ArrowUp':
-        case 'w':
+      if (event.code === 'Space') {
+        event.preventDefault()
+        useLeftmostChip()
+        return
+      }
+
+      switch (upperKey) {
+        case 'ARROWUP':
         case 'W':
           event.preventDefault()
           movePlayer(-1, 0)
           break
-        case 'ArrowDown':
-        case 's':
+        case 'ARROWDOWN':
         case 'S':
           event.preventDefault()
           movePlayer(1, 0)
           break
-        case 'ArrowLeft':
-        case 'a':
+        case 'ARROWLEFT':
         case 'A':
           event.preventDefault()
           movePlayer(0, -1)
           break
-        case 'ArrowRight':
-        case 'd':
+        case 'ARROWRIGHT':
         case 'D':
           event.preventDefault()
           movePlayer(0, 1)
@@ -68,15 +66,15 @@ export function App() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [combat.handOpen, movePlayer, selectChip, useSelectedChip])
+  }, [movePlayer, useChipSlot, useLeftmostChip])
 
   const target = entities[combat.targetId]
 
   return (
     <main className="app-shell">
       <header>
-        <h1>Idle Network — M2 Chips Vertical Slice (Task 1-2)</h1>
-        <p>Custom Gauge + hand flow and manual chip use are now active.</p>
+        <h1>Idle Network — M2 Chips Vertical Slice</h1>
+        <p>Always-on chip hand flow with gauge refill, deck/discard reshuffle, and buffered use.</p>
       </header>
 
       <section className="hud">
@@ -95,45 +93,17 @@ export function App() {
         </div>
       </section>
 
-      <section className="chip-hud" aria-label="Custom Gauge and Chip Hand">
-        <div className="gauge-card">
-          <strong>Custom Gauge</strong>
-          <div className="gauge-track" role="progressbar" aria-valuemin={0} aria-valuemax={combat.customGaugeMaxTicks} aria-valuenow={combat.customGaugeTicks}>
-            <div
-              className="gauge-fill"
-              style={{ width: `${(combat.customGaugeTicks / combat.customGaugeMaxTicks) * 100}%` }}
-            />
-          </div>
-          <span>
-            {combat.customGaugeTicks}/{combat.customGaugeMaxTicks}
-          </span>
-          <span>Barrier: {combat.barrierCharges > 0 ? 'Active' : 'None'}</span>
+      <section className="gauge-card" aria-label="Custom gauge">
+        <strong>Custom Gauge</strong>
+        <div className="gauge-track" role="progressbar" aria-valuemin={0} aria-valuemax={combat.customGaugeMaxTicks} aria-valuenow={combat.customGaugeTicks}>
+          <div className="gauge-fill" style={{ width: `${(combat.customGaugeTicks / combat.customGaugeMaxTicks) * 100}%` }} />
         </div>
-
-        <div className="hand-card">
-          <strong>Chip Hand</strong>
-          {combat.handOpen ? (
-            <>
-              <div className="chip-list" role="group" aria-label="Chip hand buttons">
-                {combat.chipHand.map((chip, index) => (
-                  <button
-                    key={`${chip.name}-${chip.code}-${index}`}
-                    className={combat.selectedChipIndex === index ? 'active' : ''}
-                    onClick={() => selectChip(index)}
-                    type="button"
-                  >
-                    {index + 1}. {chip.name} [{chip.code}]
-                  </button>
-                ))}
-              </div>
-              <button type="button" onClick={useSelectedChip} disabled={combat.selectedChipIndex === null}>
-                Use Selected Chip (Enter)
-              </button>
-            </>
-          ) : (
-            <span>Gauge charging... chip hand opens automatically at full gauge.</span>
-          )}
-        </div>
+        <span>
+          {combat.customGaugeTicks}/{combat.customGaugeMaxTicks}
+        </span>
+        <span>Barrier: {combat.barrierCharges > 0 ? 'Active' : 'None'}</span>
+        <span>Hitstun: {combat.megamanHitstunTicks}t</span>
+        <span>Buffered chip: {combat.queuedChipSlot !== null ? `Slot ${combat.queuedChipSlot + 1}` : 'None'}</span>
       </section>
 
       <section className="hp-hud" aria-label="HP tracker">
@@ -166,9 +136,30 @@ export function App() {
         Last event: {combat.lastEvent}
       </section>
 
-      <p className="control-tip">Move MegaMan: Arrow Keys/WASD. Chips: 1-5 to select, Enter to use when hand is open.</p>
+      <p className="control-tip">Move MegaMan: Arrow Keys/WASD. Chips: 1-5 use slot, Space uses the left-most available chip.</p>
 
       <Board />
+
+      <section className="chip-hand-bar" aria-label="Chip hand area">
+        {combat.chipHand.map((chip, index) => (
+          <button
+            key={`chip-slot-${index}`}
+            type="button"
+            className={`chip-slot ${chip ? 'filled' : 'empty'} ${combat.queuedChipSlot === index ? 'queued' : ''}`}
+            onClick={() => useChipSlot(index)}
+          >
+            <span className="chip-slot-index">{index + 1}</span>
+            {chip ? (
+              <>
+                <span className="chip-name">{chip.name}</span>
+                <span className="chip-code">Code {chip.code}</span>
+              </>
+            ) : (
+              <span className="chip-empty-label">Empty</span>
+            )}
+          </button>
+        ))}
+      </section>
     </main>
   )
 }
