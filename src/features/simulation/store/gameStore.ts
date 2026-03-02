@@ -4,6 +4,16 @@ type Speed = 1 | 2 | 4
 
 type EntityId = 'megaman' | 'mettaur'
 
+type ChipId = 'cannon' | 'sword' | 'recover10' | 'barrier'
+
+type BattleChip = {
+  id: ChipId
+  name: string
+  code: string
+}
+
+type HandSlot = BattleChip | null
+
 type PanelPosition = {
   row: number
   col: number
@@ -27,6 +37,15 @@ type CombatSummary = {
   targetHp: number
   targetMaxHp: number
   mettaurTelegraphTicksRemaining: number
+  customGaugeTicks: number
+  customGaugeMaxTicks: number
+  handSize: number
+  chipHand: HandSlot[]
+  barrierCharges: number
+  megamanHitStunTicks: number
+  queuedChipSlot: number | null
+  deckCount: number
+  discardCount: number
   lastEvent: string
 }
 
@@ -41,8 +60,19 @@ type GameState = {
   mettaurAttackCooldown: number
   mettaurTelegraphTicksRemaining: number
   mettaurRespawnTick: number | null
+  customGaugeTicks: number
+  customGaugeMaxTicks: number
+  handSize: number
+  chipHand: HandSlot[]
+  chipDeck: BattleChip[]
+  chipDiscard: BattleChip[]
+  barrierCharges: number
+  megamanHitStunTicks: number
+  queuedChipSlot: number | null
   setSpeed: (speed: Speed) => void
   movePlayer: (deltaRow: number, deltaCol: number) => void
+  useChipSlot: (index: number) => void
+  useLeftMostChip: () => void
   resetBattle: () => void
   start: () => () => void
 }
@@ -56,8 +86,29 @@ const megamanBusterCadenceTicks = 10
 const mettaurAttackCadenceTicks = 14
 const mettaurTelegraphTicks = 4
 const mettaurRespawnDelayTicks = 20
+const customGaugeMaxTicks = 50
+const defaultHandSize = 5
 const megamanHitDamage = 8
 const mettaurHitDamage = 6
+const megamanHitStunTicksOnHit = 3
+
+const chipEffects: Record<ChipId, { damage?: number; heal?: number; barrier?: number; description: string }> = {
+  cannon: { damage: 20, description: '20 dmg single shot' },
+  sword: { damage: 30, description: '30 dmg close slash' },
+  recover10: { heal: 10, description: 'Recover 10 HP' },
+  barrier: { barrier: 1, description: 'Block 1 hit' }
+}
+
+const starterFolder: BattleChip[] = [
+  { id: 'cannon', name: 'Cannon', code: 'A' },
+  { id: 'sword', name: 'Sword', code: 'A' },
+  { id: 'recover10', name: 'Recover10', code: 'L' },
+  { id: 'barrier', name: 'Barrier', code: 'L' },
+  { id: 'cannon', name: 'Cannon', code: 'B' },
+  { id: 'sword', name: 'Sword', code: 'B' },
+  { id: 'recover10', name: 'Recover10', code: 'A' },
+  { id: 'barrier', name: 'Barrier', code: '*' }
+]
 
 const createInitialEntities = (): Record<EntityId, EntityState> => ({
   megaman: {
@@ -78,6 +129,126 @@ const createInitialEntities = (): Record<EntityId, EntityState> => ({
   }
 })
 
+const shuffleChips = (chips: BattleChip[]): BattleChip[] => {
+  const shuffled = [...chips]
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    const temp = shuffled[index]
+    shuffled[index] = shuffled[swapIndex]
+    shuffled[swapIndex] = temp
+  }
+  return shuffled
+}
+
+const drawChip = (deck: BattleChip[], discard: BattleChip[]): { chip: BattleChip | null; deck: BattleChip[]; discard: BattleChip[] } => {
+  let nextDeck = [...deck]
+  let nextDiscard = [...discard]
+
+  if (nextDeck.length === 0 && nextDiscard.length > 0) {
+    nextDeck = shuffleChips(nextDiscard)
+    nextDiscard = []
+  }
+
+  if (nextDeck.length === 0) {
+    return { chip: null, deck: nextDeck, discard: nextDiscard }
+  }
+
+  const [chip, ...rest] = nextDeck
+  return {
+    chip,
+    deck: rest,
+    discard: nextDiscard
+  }
+}
+
+const refillHandSlots = (hand: HandSlot[], deck: BattleChip[], discard: BattleChip[]): { hand: HandSlot[]; deck: BattleChip[]; discard: BattleChip[] } => {
+  const nextHand = [...hand]
+  let nextDeck = [...deck]
+  let nextDiscard = [...discard]
+
+  for (let slot = 0; slot < nextHand.length; slot += 1) {
+    if (nextHand[slot] !== null) {
+      continue
+    }
+
+    const draw = drawChip(nextDeck, nextDiscard)
+    nextDeck = draw.deck
+    nextDiscard = draw.discard
+    nextHand[slot] = draw.chip
+  }
+
+  return {
+    hand: nextHand,
+    deck: nextDeck,
+    discard: nextDiscard
+  }
+}
+
+const applyChipToState = (
+  current: GameState,
+  slot: number,
+  nextEntities: Record<EntityId, EntityState>,
+  barrierCharges: number
+): {
+  nextEntities: Record<EntityId, EntityState>
+  barrierCharges: number
+  chipHand: HandSlot[]
+  chipDiscard: BattleChip[]
+  lastEvent: string
+} | null => {
+  const selectedChip = current.chipHand[slot]
+  if (!selectedChip) {
+    return null
+  }
+
+  const effects = chipEffects[selectedChip.id]
+  const nextHand = [...current.chipHand]
+  nextHand[slot] = null
+  const nextDiscard = [...current.chipDiscard, selectedChip]
+  let lastEvent = `Chip used: ${selectedChip.name} ${selectedChip.code}`
+  let updatedEntities = nextEntities
+  let updatedBarrier = barrierCharges
+
+  if (effects.damage) {
+    const result = applyDamage(updatedEntities.megaman, updatedEntities.mettaur, effects.damage)
+    updatedEntities = {
+      ...updatedEntities,
+      megaman: result.source,
+      mettaur: result.target
+    }
+    if (result.didHit) {
+      lastEvent = `${selectedChip.name} hit for ${effects.damage}`
+    }
+  }
+
+  if (effects.heal) {
+    const nextHp = Math.min(updatedEntities.megaman.maxHp, updatedEntities.megaman.hp + effects.heal)
+    const healedAmount = nextHp - updatedEntities.megaman.hp
+    updatedEntities = {
+      ...updatedEntities,
+      megaman: {
+        ...updatedEntities.megaman,
+        hp: nextHp,
+        alive: nextHp > 0
+      }
+    }
+    lastEvent = `${selectedChip.name} healed ${healedAmount}`
+  }
+
+  if (effects.barrier) {
+    updatedBarrier = effects.barrier
+    lastEvent = `${selectedChip.name} barrier ready`
+  }
+
+  return {
+    nextEntities: updatedEntities,
+    barrierCharges: updatedBarrier,
+    chipHand: nextHand,
+    chipDiscard: nextDiscard,
+    lastEvent
+  }
+}
+
 const makePanelKey = (position: PanelPosition) => `${position.row}-${position.col}`
 
 const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedPanels => {
@@ -94,7 +265,19 @@ const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedP
 
 const buildCombatSummary = (
   entities: Record<EntityId, EntityState>,
-  mettaurTelegraphTicksRemaining: number,
+  runtime: Pick<
+    GameState,
+    | 'mettaurTelegraphTicksRemaining'
+    | 'customGaugeTicks'
+    | 'customGaugeMaxTicks'
+    | 'handSize'
+    | 'chipHand'
+    | 'barrierCharges'
+    | 'megamanHitStunTicks'
+    | 'queuedChipSlot'
+    | 'chipDeck'
+    | 'chipDiscard'
+  >,
   lastEvent: string
 ): CombatSummary => {
   const player = entities.megaman
@@ -106,7 +289,16 @@ const buildCombatSummary = (
     targetId: target.id,
     targetHp: target.hp,
     targetMaxHp: target.maxHp,
-    mettaurTelegraphTicksRemaining,
+    mettaurTelegraphTicksRemaining: runtime.mettaurTelegraphTicksRemaining,
+    customGaugeTicks: runtime.customGaugeTicks,
+    customGaugeMaxTicks: runtime.customGaugeMaxTicks,
+    handSize: runtime.handSize,
+    chipHand: runtime.chipHand,
+    barrierCharges: runtime.barrierCharges,
+    megamanHitStunTicks: runtime.megamanHitStunTicks,
+    queuedChipSlot: runtime.queuedChipSlot,
+    deckCount: runtime.chipDeck.length,
+    discardCount: runtime.chipDiscard.length,
     lastEvent
   }
 }
@@ -145,29 +337,65 @@ type RuntimeState = Pick<
   | 'mettaurAttackCooldown'
   | 'mettaurTelegraphTicksRemaining'
   | 'mettaurRespawnTick'
+  | 'customGaugeTicks'
+  | 'customGaugeMaxTicks'
+  | 'handSize'
+  | 'chipHand'
+  | 'chipDeck'
+  | 'chipDiscard'
+  | 'barrierCharges'
+  | 'megamanHitStunTicks'
+  | 'queuedChipSlot'
 >
 
 const buildInitialState = (): RuntimeState => {
   const entities = createInitialEntities()
-  return {
-    ticks: 0,
-    entities,
-    occupiedPanels: buildOccupiedPanels(entities),
+  const chipDeck = shuffleChips(starterFolder)
+  const initialHand = Array.from({ length: defaultHandSize }, () => null as HandSlot)
+  const refill = refillHandSlots(initialHand, chipDeck, [])
+
+  const runtime: Omit<RuntimeState, 'ticks' | 'entities' | 'occupiedPanels' | 'combat'> = {
     megamanBusterCooldown: megamanBusterCadenceTicks,
     mettaurAttackCooldown: mettaurAttackCadenceTicks,
     mettaurTelegraphTicksRemaining: 0,
     mettaurRespawnTick: null,
-    combat: buildCombatSummary(entities, 0, 'Combat initialized')
+    customGaugeTicks: 0,
+    customGaugeMaxTicks,
+    handSize: defaultHandSize,
+    chipHand: refill.hand,
+    chipDeck: refill.deck,
+    chipDiscard: refill.discard,
+    barrierCharges: 0,
+    megamanHitStunTicks: 0,
+    queuedChipSlot: null
+  }
+
+  return {
+    ticks: 0,
+    entities,
+    occupiedPanels: buildOccupiedPanels(entities),
+    ...runtime,
+    combat: buildCombatSummary(entities, runtime, 'Combat initialized')
   }
 }
+
+const buildRuntimeSnapshot = (current: GameState) => ({
+  mettaurTelegraphTicksRemaining: current.mettaurTelegraphTicksRemaining,
+  customGaugeTicks: current.customGaugeTicks,
+  customGaugeMaxTicks: current.customGaugeMaxTicks,
+  handSize: current.handSize,
+  chipHand: current.chipHand,
+  barrierCharges: current.barrierCharges,
+  megamanHitStunTicks: current.megamanHitStunTicks,
+  queuedChipSlot: current.queuedChipSlot,
+  chipDeck: current.chipDeck,
+  chipDiscard: current.chipDiscard
+})
 
 export const useGameStore = create<GameState>((set, get) => ({
   ...buildInitialState(),
   speed: 1,
   running: false,
-  entities: initialEntities,
-  occupiedPanels: buildOccupiedPanels(initialEntities),
-  combat: buildCombatSummary(initialEntities),
   setSpeed: (speed) => set({ speed }),
   movePlayer: (deltaRow, deltaCol) => {
     set((current) => {
@@ -201,9 +429,70 @@ export const useGameStore = create<GameState>((set, get) => ({
       return {
         entities: nextEntities,
         occupiedPanels: buildOccupiedPanels(nextEntities),
-        combat: buildCombatSummary(nextEntities, current.mettaurTelegraphTicksRemaining, 'MegaMan moved')
+        combat: buildCombatSummary(nextEntities, buildRuntimeSnapshot(current), 'MegaMan moved')
       }
     })
+  },
+  useChipSlot: (index) => {
+    set((current) => {
+      if (index < 0 || index >= current.handSize) {
+        return {}
+      }
+
+      const chip = current.chipHand[index]
+      if (!chip) {
+        return {
+          combat: buildCombatSummary(current.entities, buildRuntimeSnapshot(current), `Slot ${index + 1} is empty`)
+        }
+      }
+
+      if (current.megamanHitStunTicks > 0) {
+        if (current.queuedChipSlot !== null) {
+          return {
+            combat: buildCombatSummary(
+              current.entities,
+              buildRuntimeSnapshot(current),
+              `Chip queue already occupied (${current.queuedChipSlot + 1})`
+            )
+          }
+        }
+
+        return {
+          queuedChipSlot: index,
+          combat: buildCombatSummary(current.entities, { ...buildRuntimeSnapshot(current), queuedChipSlot: index }, `Queued ${chip.name}`)
+        }
+      }
+
+      const applied = applyChipToState(current, index, { ...current.entities }, current.barrierCharges)
+      if (!applied) {
+        return {}
+      }
+
+      return {
+        entities: applied.nextEntities,
+        occupiedPanels: buildOccupiedPanels(applied.nextEntities),
+        chipHand: applied.chipHand,
+        chipDiscard: applied.chipDiscard,
+        barrierCharges: applied.barrierCharges,
+        combat: buildCombatSummary(
+          applied.nextEntities,
+          {
+            ...buildRuntimeSnapshot(current),
+            chipHand: applied.chipHand,
+            chipDiscard: applied.chipDiscard,
+            barrierCharges: applied.barrierCharges
+          },
+          applied.lastEvent
+        )
+      }
+    })
+  },
+  useLeftMostChip: () => {
+    const state = get()
+    const leftMostIndex = state.chipHand.findIndex((chip) => chip !== null)
+    if (leftMostIndex >= 0) {
+      state.useChipSlot(leftMostIndex)
+    }
   },
   resetBattle: () => {
     set((current) => {
@@ -239,7 +528,23 @@ export const useGameStore = create<GameState>((set, get) => ({
           let mettaurAttackCooldown = Math.max(0, current.mettaurAttackCooldown - 1)
           let mettaurTelegraphTicksRemaining = current.mettaurTelegraphTicksRemaining
           let mettaurRespawnTick = current.mettaurRespawnTick
+          let gaugeTicks = Math.min(current.customGaugeMaxTicks, current.customGaugeTicks + 1)
+          let chipHand = [...current.chipHand]
+          let chipDeck = [...current.chipDeck]
+          let chipDiscard = [...current.chipDiscard]
+          let barrierCharges = current.barrierCharges
+          let megamanHitStunTicks = Math.max(0, current.megamanHitStunTicks - 1)
+          let queuedChipSlot = current.queuedChipSlot
           let lastEvent = 'Idle tick'
+
+          if (gaugeTicks === current.customGaugeMaxTicks) {
+            const refill = refillHandSlots(chipHand, chipDeck, chipDiscard)
+            chipHand = refill.hand
+            chipDeck = refill.deck
+            chipDiscard = refill.discard
+            gaugeTicks = 0
+            lastEvent = 'Custom Gauge full. Hand refilled.'
+          }
 
           if (!nextEntities.mettaur.alive && mettaurRespawnTick === null) {
             mettaurRespawnTick = nextTicks + mettaurRespawnDelayTicks
@@ -277,14 +582,20 @@ export const useGameStore = create<GameState>((set, get) => ({
               mettaurTelegraphTicksRemaining -= 1
 
               if (mettaurTelegraphTicksRemaining === 0) {
-                const result = applyDamage(nextEntities.mettaur, nextEntities.megaman, mettaurHitDamage)
-                nextEntities = {
-                  ...nextEntities,
-                  mettaur: result.source,
-                  megaman: result.target
-                }
-                if (result.didHit) {
-                  lastEvent = `Mettaur swing hit for ${mettaurHitDamage}`
+                if (barrierCharges > 0) {
+                  barrierCharges -= 1
+                  lastEvent = 'Barrier blocked Mettaur attack'
+                } else {
+                  const result = applyDamage(nextEntities.mettaur, nextEntities.megaman, mettaurHitDamage)
+                  nextEntities = {
+                    ...nextEntities,
+                    mettaur: result.source,
+                    megaman: result.target
+                  }
+                  if (result.didHit) {
+                    megamanHitStunTicks = megamanHitStunTicksOnHit
+                    lastEvent = `Mettaur swing hit for ${mettaurHitDamage} (hit stun)`
+                  }
                 }
               }
             } else if (mettaurAttackCooldown === 0) {
@@ -296,17 +607,58 @@ export const useGameStore = create<GameState>((set, get) => ({
             mettaurTelegraphTicksRemaining = 0
           }
 
+          if (queuedChipSlot !== null && megamanHitStunTicks === 0) {
+            const queuedChip = chipHand[queuedChipSlot]
+            if (queuedChip) {
+              const queuedState = {
+                ...current,
+                entities: nextEntities,
+                chipHand,
+                chipDiscard,
+                barrierCharges
+              }
+              const applied = applyChipToState(queuedState, queuedChipSlot, nextEntities, barrierCharges)
+              if (applied) {
+                nextEntities = applied.nextEntities
+                chipHand = applied.chipHand
+                chipDiscard = applied.chipDiscard
+                barrierCharges = applied.barrierCharges
+                lastEvent = `Queued -> ${applied.lastEvent}`
+              }
+            }
+            queuedChipSlot = null
+          }
+
           const occupiedPanels = buildOccupiedPanels(nextEntities)
+          const runtime = {
+            mettaurTelegraphTicksRemaining,
+            customGaugeTicks: gaugeTicks,
+            customGaugeMaxTicks: current.customGaugeMaxTicks,
+            handSize: current.handSize,
+            chipHand,
+            barrierCharges,
+            megamanHitStunTicks,
+            queuedChipSlot,
+            chipDeck,
+            chipDiscard
+          }
 
           return {
             ticks: nextTicks,
             entities: nextEntities,
             occupiedPanels,
-            combat: buildCombatSummary(nextEntities, mettaurTelegraphTicksRemaining, lastEvent),
+            combat: buildCombatSummary(nextEntities, runtime, lastEvent),
             megamanBusterCooldown,
             mettaurAttackCooldown,
             mettaurTelegraphTicksRemaining,
-            mettaurRespawnTick
+            mettaurRespawnTick,
+            customGaugeTicks: gaugeTicks,
+            chipHand,
+            chipDeck,
+            chipDiscard,
+            barrierCharges,
+            megamanHitStunTicks,
+            queuedChipSlot
           }
         })
       }
@@ -326,3 +678,5 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   }
 }))
+
+export const chipInfo = chipEffects

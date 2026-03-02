@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { Board } from '../features/battle/components/Board'
-import { useGameStore } from '../features/simulation/store/gameStore'
+import { chipInfo, useGameStore } from '../features/simulation/store/gameStore'
 
 const SPEEDS = [1, 2, 4] as const
 
@@ -11,6 +11,8 @@ export function App() {
   const combat = useGameStore((state) => state.combat)
   const setSpeed = useGameStore((state) => state.setSpeed)
   const movePlayer = useGameStore((state) => state.movePlayer)
+  const useChipSlot = useGameStore((state) => state.useChipSlot)
+  const useLeftMostChip = useGameStore((state) => state.useLeftMostChip)
   const resetBattle = useGameStore((state) => state.resetBattle)
 
   useEffect(() => {
@@ -20,6 +22,18 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key >= '1' && event.key <= '5') {
+        event.preventDefault()
+        useChipSlot(Number(event.key) - 1)
+        return
+      }
+
+      if (event.key === ' ') {
+        event.preventDefault()
+        useLeftMostChip()
+        return
+      }
+
       switch (event.key) {
         case 'ArrowUp':
         case 'w':
@@ -52,15 +66,15 @@ export function App() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [movePlayer])
+  }, [movePlayer, useChipSlot, useLeftMostChip])
 
   const target = entities[combat.targetId]
 
   return (
     <main className="app-shell">
       <header>
-        <h1>Idle Network — M1 Combat Vertical Slice</h1>
-        <p>Tasks 3-5: Auto behavior, manual movement override, and KO/reset flow.</p>
+        <h1>Idle Network — M2 Active Hand Slice</h1>
+        <p>Hand is always active. Use chips instantly or queue one during hit-stun.</p>
       </header>
 
       <section className="hud">
@@ -76,6 +90,26 @@ export function App() {
               {value}x
             </button>
           ))}
+        </div>
+      </section>
+
+      <section className="chip-hud" aria-label="Custom Gauge and Chip Status">
+        <div className="gauge-card">
+          <strong>Custom Gauge</strong>
+          <div className="gauge-track" role="progressbar" aria-valuemin={0} aria-valuemax={combat.customGaugeMaxTicks} aria-valuenow={combat.customGaugeTicks}>
+            <div className="gauge-fill" style={{ width: `${(combat.customGaugeTicks / combat.customGaugeMaxTicks) * 100}%` }} />
+          </div>
+          <span>
+            {combat.customGaugeTicks}/{combat.customGaugeMaxTicks}
+          </span>
+          <span>Deck: {combat.deckCount} | Discard: {combat.discardCount}</span>
+        </div>
+
+        <div className="gauge-card">
+          <strong>State</strong>
+          <span>Barrier: {combat.barrierCharges > 0 ? `${combat.barrierCharges} hit` : 'None'}</span>
+          <span>Hit-Stun: {combat.megamanHitStunTicks}t</span>
+          <span>Queued Chip Slot: {combat.queuedChipSlot !== null ? combat.queuedChipSlot + 1 : 'None'}</span>
         </div>
       </section>
 
@@ -109,9 +143,33 @@ export function App() {
         Last event: {combat.lastEvent}
       </section>
 
-      <p className="control-tip">Move MegaMan with Arrow Keys or WASD (player-side 3x3 only).</p>
+      <p className="control-tip">Move: Arrow Keys/WASD. Use Slot: 1-5 or click. Space: use left-most non-empty chip.</p>
 
       <Board />
+
+      <section className="hand-bar" aria-label="Active chip hand">
+        {combat.chipHand.map((chip, index) => {
+          if (!chip) {
+            return (
+              <button key={`empty-${index}`} type="button" className="chip-slot empty" disabled>
+                <span className="chip-slot-title">{index + 1}. Empty</span>
+                <span className="chip-slot-detail">Waiting for gauge refill</span>
+              </button>
+            )
+          }
+
+          const info = chipInfo[chip.id]
+
+          return (
+            <button key={`${chip.name}-${chip.code}-${index}`} type="button" className="chip-slot" onClick={() => useChipSlot(index)}>
+              <span className="chip-slot-title">
+                {index + 1}. {chip.name} [{chip.code}]
+              </span>
+              <span className="chip-slot-detail">{info.description}</span>
+            </button>
+          )
+        })}
+      </section>
     </main>
   )
 }
