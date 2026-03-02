@@ -11,8 +11,10 @@ export function App() {
   const entities = useGameStore((state) => state.entities)
   const setSpeed = useGameStore((state) => state.setSpeed)
   const movePlayer = useGameStore((state) => state.movePlayer)
+  const cycleMegamanControlMode = useGameStore((state) => state.cycleMegamanControlMode)
   const useChipSlot = useGameStore((state) => state.useChipSlot)
   const useLeftmostChip = useGameStore((state) => state.useLeftmostChip)
+  const manualFireBuster = useGameStore((state) => state.manualFireBuster)
   const resetBattle = useGameStore((state) => state.resetBattle)
   const start = useGameStore((state) => state.start)
 
@@ -34,7 +36,17 @@ export function App() {
 
       if (event.code === 'Space') {
         event.preventDefault()
-        useLeftmostChip()
+        if (combat.megamanControlMode === 'manual') {
+          manualFireBuster()
+        } else {
+          useLeftmostChip()
+        }
+        return
+      }
+
+      if (upperKey === 'F') {
+        event.preventDefault()
+        manualFireBuster()
         return
       }
 
@@ -66,7 +78,7 @@ export function App() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [movePlayer, useChipSlot, useLeftmostChip])
+  }, [combat.megamanControlMode, manualFireBuster, movePlayer, useChipSlot, useLeftmostChip])
 
   const target = entities[combat.targetId]
 
@@ -91,6 +103,9 @@ export function App() {
             </button>
           ))}
         </div>
+        <button type="button" onClick={cycleMegamanControlMode}>
+          Control: {combat.megamanControlMode}
+        </button>
       </section>
 
       <section className="gauge-card" aria-label="Custom gauge">
@@ -136,7 +151,7 @@ export function App() {
         Last event: {combat.lastEvent}
       </section>
 
-      <p className="control-tip">Move MegaMan: Arrow Keys/WASD. Chips: 1-5 use slot, Space uses the left-most available chip.</p>
+      <p className="control-tip">Manual mode: Move (WASD/Arrows), Buster (Space or F), Chips (1-5). Semi-auto: auto move+buster, manual chips. Full-auto: auto move+buster+chips (manual chip override still works).</p>
 
       <Board />
 
