@@ -110,6 +110,24 @@ const starterFolder: BattleChip[] = [
   { id: 'barrier', name: 'Barrier', code: '*' }
 ]
 
+const chipEffects: Record<ChipId, { damage?: number; heal?: number; barrier?: number }> = {
+  cannon: { damage: 20 },
+  sword: { damage: 30 },
+  recover10: { heal: 10 },
+  barrier: { barrier: 1 }
+}
+
+const starterFolder: BattleChip[] = [
+  { id: 'cannon', name: 'Cannon', code: 'A' },
+  { id: 'sword', name: 'Sword', code: 'A' },
+  { id: 'recover10', name: 'Recover10', code: 'L' },
+  { id: 'barrier', name: 'Barrier', code: 'L' },
+  { id: 'cannon', name: 'Cannon', code: 'B' },
+  { id: 'sword', name: 'Sword', code: 'B' },
+  { id: 'recover10', name: 'Recover10', code: 'A' },
+  { id: 'barrier', name: 'Barrier', code: '*' }
+]
+
 const createInitialEntities = (): Record<EntityId, EntityState> => ({
   megaman: {
     id: 'megaman',
@@ -424,6 +442,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       nextEntities.megaman = {
         ...player,
         position: targetPosition
+      }
+
+      const runtime = {
+        mettaurTelegraphTicksRemaining: current.mettaurTelegraphTicksRemaining,
+        customGaugeTicks: current.customGaugeTicks,
+        customGaugeMaxTicks: current.customGaugeMaxTicks,
+        handOpen: current.handOpen,
+        chipHand: current.chipHand,
+        selectedChipIndex: current.selectedChipIndex,
+        barrierCharges: current.barrierCharges
       }
 
       return {
