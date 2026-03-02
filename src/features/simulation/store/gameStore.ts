@@ -44,6 +44,7 @@ type CombatSummary = {
   queuedChipSlot: number | null
   megamanControlMode: MegamanControlMode
   lastEvent: string
+  activeHitboxPanels: string[]
 }
 
 type GameState = {
@@ -196,6 +197,27 @@ const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedP
   return occupancy
 }
 
+
+const buildMettaurSwingHitboxPanels = (entities: Record<EntityId, EntityState>, telegraphTicks: number): string[] => {
+  const mettaur = entities.mettaur
+  if (!mettaur.alive || telegraphTicks <= 0) {
+    return []
+  }
+
+  const tiles: string[] = []
+  for (let offset = 1; offset <= 2; offset += 1) {
+    const target: PanelPosition = {
+      row: mettaur.position.row,
+      col: mettaur.position.col - offset
+    }
+    if (inPlayerArea(target)) {
+      tiles.push(makePanelKey(target))
+    }
+  }
+
+  return tiles
+}
+
 const buildCombatSummary = (
   entities: Record<EntityId, EntityState>,
   runtime: Pick<
@@ -228,7 +250,8 @@ const buildCombatSummary = (
     megamanHitstunTicks: runtime.megamanHitstunTicks,
     queuedChipSlot: runtime.queuedChipSlot,
     megamanControlMode: runtime.megamanControlMode,
-    lastEvent
+    lastEvent,
+    activeHitboxPanels: buildMettaurSwingHitboxPanels(entities, runtime.mettaurTelegraphTicksRemaining)
   }
 }
 
