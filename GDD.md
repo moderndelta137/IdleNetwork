@@ -102,7 +102,7 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 - Use transparent PNG sprite assets and keep native pixel dimensions (no blurred upscale source exports).
 - Organize assets by actor and state in `public/sprites/<actor>/...` with lowercase kebab-case naming.
 - Preserve combat debug visibility (including non-hitscan hitbox overlays) while introducing sprites.
-- Preferred rollout: static frames first (idle/swing), then animation state machine expansion.
+- Preferred rollout (M2): static frames first (idle/swing) before PA implementation, then animation state machine expansion.
 - Atlas JSON support is explicitly deferred until after the first static-sprite validation pass.
 
 ## 13. Data References

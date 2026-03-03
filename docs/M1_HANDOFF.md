@@ -42,17 +42,22 @@ Before PA core work, land a lightweight sprite render pass with no combat-logic 
 ## Start Here Next (Remaining M2 Work)
 Implement the remaining M2 scope in this order:
 
-1. **Program Advance (PA) core implementation**
+1. **Simple sprite implementation pass (pre-PA)**
+   - Ship static board sprite rendering for MegaMan + Mettaur with text fallback.
+   - Use initial PNG assets in `public/sprites/megaman` and `public/sprites/mettaur`.
+   - Keep yellow non-hitscan hitbox overlays visible during sprite validation.
+
+2. **Program Advance (PA) core implementation**
    - Add PA rule data model and detection for ordered chip sequences.
    - Resolve PA execution into single effect events in combat loop.
    - Add basic PA visibility in HUD/log for debugging.
 
-2. **MB/cost legality checks (lighter V1 profile)**
+3. **MB/cost legality checks (lighter V1 profile)**
    - Add chip MB/cost metadata to chip config.
    - Validate folder legality against current MB budget.
    - Surface legality status/errors in UI for quick balancing checks.
 
-3. **Stability pass on runtime behavior**
+4. **Stability pass on runtime behavior**
    - Verify manual/semi/full mode transitions do not desync queued chip state.
    - Verify AI movement + chip logic remain deterministic across long runs.
    - Keep `gameStore.ts` free of duplicate helper blocks (guard script + review).
