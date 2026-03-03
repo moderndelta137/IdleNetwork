@@ -102,6 +102,16 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 - Chip configs: codes, MB/cost, effects, rarity/source
 - Encounter configs: wave composition + difficulty scaling
 
+### Sprite Asset Intake Spec (M2 prep)
+- Preferred format: transparent `PNG` assets (no JPG) for pixel-art fidelity and alpha support.
+- Preferred delivery path in repo: `public/sprites/megaman/` and `public/sprites/mettaur/`.
+- Naming convention: lowercase kebab-case by actor/state (examples: `megaman-idle.png`, `megaman-shoot.png`, `mettaur-idle.png`, `mettaur-swing.png`).
+- Base frame target: keep native pixel dimensions (commonly 24x24, 32x32, or 40x40) and avoid pre-upscaled blurry exports.
+- Initial implementation priority: ship a simple static PNG sprite test pass first (idle + swing) before adding atlas/JSON parsing.
+- Sheet support (follow-up): sprite sheets are accepted if frames are on a uniform grid, or via explicit atlas metadata mapping for non-uniform layouts.
+- Minimum starter pack for first render pass: MegaMan idle + Mettaur idle + Mettaur swing/telegraph frame.
+- Debug policy: non-hitscan hitbox panel overlays remain visible while sprite rendering is introduced.
+
 ---
 
 ## 4.1) Handoff Status

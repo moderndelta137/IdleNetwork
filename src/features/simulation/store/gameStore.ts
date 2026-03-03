@@ -44,6 +44,7 @@ type CombatSummary = {
   queuedChipSlot: number | null
   megamanControlMode: MegamanControlMode
   lastEvent: string
+  activeHitboxPanels: string[]
 }
 
 type GameState = {
@@ -96,8 +97,9 @@ const mettaurHitDamage = 6
 const megamanHitstunTicksOnHit = 6
 const autoChipCadenceTicks = 8
 const autoRecoverHpThreshold = 0.55
-const megamanAutoMoveCadenceTicks = 8
-const mettaurMoveCadenceTicks = 10
+const megamanAutoMoveCadenceTicks = 5
+const mettaurMoveCadenceTicks = 6
+const mettaurThreatWindowTicks = 2
 
 const chipEffects: Record<ChipId, { damage?: number; heal?: number; barrier?: number }> = {
   cannon: { damage: 20 },
@@ -195,6 +197,27 @@ const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedP
   return occupancy
 }
 
+
+const buildMettaurSwingHitboxPanels = (entities: Record<EntityId, EntityState>, telegraphTicks: number): string[] => {
+  const mettaur = entities.mettaur
+  if (!mettaur.alive || telegraphTicks <= 0) {
+    return []
+  }
+
+  const tiles: string[] = []
+  for (let offset = 1; offset <= 2; offset += 1) {
+    const target: PanelPosition = {
+      row: mettaur.position.row,
+      col: mettaur.position.col - offset
+    }
+    if (inPlayerArea(target)) {
+      tiles.push(makePanelKey(target))
+    }
+  }
+
+  return tiles
+}
+
 const buildCombatSummary = (
   entities: Record<EntityId, EntityState>,
   runtime: Pick<
@@ -227,7 +250,8 @@ const buildCombatSummary = (
     megamanHitstunTicks: runtime.megamanHitstunTicks,
     queuedChipSlot: runtime.queuedChipSlot,
     megamanControlMode: runtime.megamanControlMode,
-    lastEvent
+    lastEvent,
+    activeHitboxPanels: buildMettaurSwingHitboxPanels(entities, runtime.mettaurTelegraphTicksRemaining)
   }
 }
 
@@ -298,6 +322,20 @@ const moveEntityIfPossible = (
       position: targetPosition
     }
   }
+}
+
+const isSameRow = (source: EntityState, target: EntityState) => source.position.row === target.position.row
+
+const canMegamanBusterHit = (megaman: EntityState, mettaur: EntityState) =>
+  isSameRow(megaman, mettaur) && megaman.position.col < mettaur.position.col
+
+const canMettaurSwingHit = (mettaur: EntityState, megaman: EntityState) => {
+  if (!isSameRow(mettaur, megaman)) {
+    return false
+  }
+
+  const colDistance = Math.abs(mettaur.position.col - megaman.position.col)
+  return colDistance > 0 && colDistance <= 2
 }
 
 const tryUseChipFromSlot = (
@@ -403,38 +441,108 @@ const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'ba
   return null
 }
 
-const chooseMegamanAutoMove = (entities: Record<EntityId, EntityState>): PanelPosition => {
+const chooseMegamanAutoMove = (
+  entities: Record<EntityId, EntityState>,
+  state: Pick<GameState, 'mettaurTelegraphTicksRemaining' | 'mettaurAttackCooldown' | 'megamanBusterCooldown'>
+): PanelPosition => {
   const megaman = entities.megaman
   const mettaur = entities.mettaur
 
-  const rowDelta = mettaur.position.row === megaman.position.row ? 0 : mettaur.position.row > megaman.position.row ? 1 : -1
-  const preferred: PanelPosition[] = [
-    { row: megaman.position.row + rowDelta, col: megaman.position.col },
-    { row: megaman.position.row, col: megaman.position.col + 1 },
-    { row: megaman.position.row, col: megaman.position.col - 1 },
+  const candidates: PanelPosition[] = [
+    megaman.position,
     { row: megaman.position.row - 1, col: megaman.position.col },
-    { row: megaman.position.row + 1, col: megaman.position.col }
-  ]
+    { row: megaman.position.row + 1, col: megaman.position.col },
+    { row: megaman.position.row, col: megaman.position.col + 1 },
+    { row: megaman.position.row, col: megaman.position.col - 1 }
+  ].filter(inPlayerArea)
 
-  const next = preferred.find((position) => inPlayerArea(position))
-  return next ?? megaman.position
+  const mettaurThreatSoon =
+    state.mettaurTelegraphTicksRemaining > 0 ||
+    (state.mettaurAttackCooldown > 0 && state.mettaurAttackCooldown <= mettaurThreatWindowTicks)
+  const busterReadySoon = state.megamanBusterCooldown <= 2
+
+  let best = megaman.position
+  let bestScore = Number.NEGATIVE_INFINITY
+
+  candidates.forEach((candidate) => {
+    const rowAligned = candidate.row === mettaur.position.row
+    const colDistance = Math.abs(mettaur.position.col - candidate.col)
+    const forwardPressure = candidate.col
+
+    let score = 0
+    if (mettaurThreatSoon) {
+      score += rowAligned ? -8 : 8
+    } else if (busterReadySoon) {
+      score += rowAligned ? 6 : -2
+    } else {
+      score += rowAligned ? 2 : 0
+    }
+
+    score += Math.max(0, 3 - colDistance)
+    score += forwardPressure * 0.5
+
+    if (candidate.row === megaman.position.row && candidate.col === megaman.position.col) {
+      score -= 1
+    }
+
+    if (score > bestScore) {
+      best = candidate
+      bestScore = score
+    }
+  })
+
+  return best
 }
 
-const chooseMettaurAutoMove = (entities: Record<EntityId, EntityState>): PanelPosition => {
+const chooseMettaurAutoMove = (
+  entities: Record<EntityId, EntityState>,
+  state: Pick<GameState, 'megamanBusterCooldown' | 'mettaurTelegraphTicksRemaining'>
+): PanelPosition => {
   const mettaur = entities.mettaur
   const megaman = entities.megaman
 
-  const rowDelta = megaman.position.row === mettaur.position.row ? 0 : megaman.position.row > mettaur.position.row ? 1 : -1
-  const preferred: PanelPosition[] = [
-    { row: mettaur.position.row + rowDelta, col: mettaur.position.col },
-    { row: mettaur.position.row, col: mettaur.position.col - 1 },
-    { row: mettaur.position.row, col: mettaur.position.col + 1 },
+  const candidates: PanelPosition[] = [
+    mettaur.position,
     { row: mettaur.position.row - 1, col: mettaur.position.col },
-    { row: mettaur.position.row + 1, col: mettaur.position.col }
-  ]
+    { row: mettaur.position.row + 1, col: mettaur.position.col },
+    { row: mettaur.position.row, col: mettaur.position.col - 1 },
+    { row: mettaur.position.row, col: mettaur.position.col + 1 }
+  ].filter(inEnemyArea)
 
-  const next = preferred.find((position) => inEnemyArea(position))
-  return next ?? mettaur.position
+  const megamanBusterSoon = state.megamanBusterCooldown <= 2
+  const inTelegraph = state.mettaurTelegraphTicksRemaining > 0
+
+  let best = mettaur.position
+  let bestScore = Number.NEGATIVE_INFINITY
+
+  candidates.forEach((candidate) => {
+    const rowAligned = candidate.row === megaman.position.row
+    const colDistance = Math.abs(candidate.col - megaman.position.col)
+
+    let score = 0
+    if (megamanBusterSoon && !inTelegraph) {
+      score += rowAligned ? -7 : 5
+    } else {
+      score += rowAligned ? 4 : -1
+    }
+
+    if (colDistance <= 2) {
+      score += 4
+    } else {
+      score -= Math.min(3, colDistance - 2)
+    }
+
+    if (candidate.col === mettaur.position.col && candidate.row === mettaur.position.row) {
+      score -= 1
+    }
+
+    if (score > bestScore) {
+      best = candidate
+      bestScore = score
+    }
+  })
+
+  return best
 }
 
 type RuntimeState = Pick<
@@ -652,7 +760,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         return {}
       }
 
-      const result = applyDamage(current.entities.megaman, current.entities.mettaur, megamanHitDamage)
+      const canHit = canMegamanBusterHit(current.entities.megaman, current.entities.mettaur)
+      const result = canHit
+        ? applyDamage(current.entities.megaman, current.entities.mettaur, megamanHitDamage)
+        : { source: current.entities.megaman, target: current.entities.mettaur, didHit: false }
       const nextEntities = {
         ...current.entities,
         megaman: result.source,
@@ -673,7 +784,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         entities: nextEntities,
         occupiedPanels: buildOccupiedPanels(nextEntities),
         megamanBusterCooldown: megamanBusterCadenceTicks,
-        combat: buildCombatSummary(nextEntities, runtime, result.didHit ? `Manual MegaBuster hit for ${megamanHitDamage}` : 'Manual MegaBuster missed')
+        combat: buildCombatSummary(nextEntities, runtime, result.didHit ? `Manual MegaBuster hit for ${megamanHitDamage}` : 'Manual MegaBuster missed (out of line)')
       }
     })
   },
@@ -736,21 +847,28 @@ export const useGameStore = create<GameState>((set, get) => ({
           const megamanBusy = !nextEntities.megaman.alive || megamanHitstunTicks > 0
 
           if (nextEntities.megaman.alive && megamanControlMode !== 'manual' && megamanAutoMoveCooldown === 0) {
-            const autoMove = chooseMegamanAutoMove(nextEntities)
+            const autoMove = chooseMegamanAutoMove(nextEntities, {
+              mettaurTelegraphTicksRemaining,
+              mettaurAttackCooldown,
+              megamanBusterCooldown
+            })
             const movedEntities = moveEntityIfPossible(nextEntities, 'megaman', autoMove)
             if (movedEntities !== nextEntities) {
               nextEntities = movedEntities
-              lastEvent = 'MegaMan auto moved'
+              lastEvent = 'MegaMan repositioned'
             }
             megamanAutoMoveCooldown = megamanAutoMoveCadenceTicks
           }
 
           if (nextEntities.mettaur.alive && mettaurMoveCooldown === 0) {
-            const autoMove = chooseMettaurAutoMove(nextEntities)
+            const autoMove = chooseMettaurAutoMove(nextEntities, {
+              megamanBusterCooldown,
+              mettaurTelegraphTicksRemaining
+            })
             const movedEntities = moveEntityIfPossible(nextEntities, 'mettaur', autoMove)
             if (movedEntities !== nextEntities) {
               nextEntities = movedEntities
-              lastEvent = 'Mettaur shifted position'
+              lastEvent = 'Mettaur repositioned'
             }
             mettaurMoveCooldown = mettaurMoveCadenceTicks
           }
@@ -817,16 +935,20 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
 
           if (megamanControlMode !== 'manual' && megamanBusterCooldown === 0) {
-            const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, megamanHitDamage)
-            nextEntities = {
-              ...nextEntities,
-              megaman: result.source,
-              mettaur: result.target
+            if (canMegamanBusterHit(nextEntities.megaman, nextEntities.mettaur)) {
+              const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, megamanHitDamage)
+              nextEntities = {
+                ...nextEntities,
+                megaman: result.source,
+                mettaur: result.target
+              }
+              if (result.didHit) {
+                lastEvent = `MegaBuster hit for ${megamanHitDamage}`
+              }
+            } else {
+              lastEvent = 'MegaBuster missed (out of line)'
             }
             megamanBusterCooldown = megamanBusterCadenceTicks
-            if (result.didHit) {
-              lastEvent = `MegaBuster hit for ${megamanHitDamage}`
-            }
           }
 
           if (nextEntities.mettaur.alive && nextEntities.megaman.alive) {
@@ -834,20 +956,24 @@ export const useGameStore = create<GameState>((set, get) => ({
               mettaurTelegraphTicksRemaining -= 1
 
               if (mettaurTelegraphTicksRemaining === 0) {
-                if (barrierCharges > 0) {
-                  barrierCharges -= 1
-                  lastEvent = 'Barrier blocked Mettaur attack'
+                if (canMettaurSwingHit(nextEntities.mettaur, nextEntities.megaman)) {
+                  if (barrierCharges > 0) {
+                    barrierCharges -= 1
+                    lastEvent = 'Barrier blocked Mettaur swing'
+                  } else {
+                    const result = applyDamage(nextEntities.mettaur, nextEntities.megaman, mettaurHitDamage)
+                    nextEntities = {
+                      ...nextEntities,
+                      mettaur: result.source,
+                      megaman: result.target
+                    }
+                    if (result.didHit) {
+                      megamanHitstunTicks = megamanHitstunTicksOnHit
+                      lastEvent = `Mettaur swing hit for ${mettaurHitDamage}`
+                    }
+                  }
                 } else {
-                  const result = applyDamage(nextEntities.mettaur, nextEntities.megaman, mettaurHitDamage)
-                  nextEntities = {
-                    ...nextEntities,
-                    mettaur: result.source,
-                    megaman: result.target
-                  }
-                  if (result.didHit) {
-                    megamanHitstunTicks = megamanHitstunTicksOnHit
-                    lastEvent = `Mettaur swing hit for ${mettaurHitDamage}`
-                  }
+                  lastEvent = 'Mettaur swing missed'
                 }
               }
             } else if (mettaurAttackCooldown === 0) {

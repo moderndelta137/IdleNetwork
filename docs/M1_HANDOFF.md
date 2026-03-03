@@ -22,6 +22,23 @@ This file captures the current implementation state and the exact next work for 
 - [x] Baseline AI movement loop for MegaMan + Mettaur.
 - [x] Duplicate declaration pre-build check in CI.
 
+## Sprite Integration Prep (immediate pre-PA visual pass)
+Before PA core work, land a lightweight sprite render pass with no combat-logic changes:
+- Add initial sprite asset folders under `public/sprites/megaman` and `public/sprites/mettaur`.
+- Replace board occupant text labels with sprite rendering + text fallback.
+- Keep yellow non-hitscan hitbox overlays visible for combat-range debugging.
+- Start with static idle/swing frames first; animation state wiring can iterate after PA baseline.
+- Defer sprite-atlas JSON parsing/discussion until after the first simple sprite test pass lands.
+
+### Immediate Sprite Test Pass (next thread pickup checklist)
+1. Place simple PNG sprites for:
+   - MegaMan idle (`public/sprites/megaman/megaman-idle.png`)
+   - Mettaur idle (`public/sprites/mettaur/mettaur-idle.png`)
+   - Mettaur swing/telegraph (`public/sprites/mettaur/mettaur-swing.png`)
+2. Render those images on board occupants (keep text fallback if image missing).
+3. Validate yellow non-hitscan hitbox overlays still render over/with sprites.
+4. After this pass is stable, evaluate atlas JSON support for non-uniform sheets.
+
 ## Start Here Next (Remaining M2 Work)
 Implement the remaining M2 scope in this order:
 
