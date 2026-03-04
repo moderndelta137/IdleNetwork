@@ -25,6 +25,7 @@ type EntityState = {
   alive: boolean
   hp: number
   maxHp: number
+  hitFlashTicks: number
 }
 
 type OccupiedPanels = Record<string, EntityId>
@@ -112,6 +113,7 @@ const autoRecoverHpThreshold = 0.55
 const megamanAutoMoveCadenceTicks = 5
 const mettaurMoveCadenceTicks = 6
 const mettaurThreatWindowTicks = 2
+const hitFlashDurationTicks = 2
 
 const chipEffects: Record<ChipId, { damage?: number; heal?: number; barrier?: number }> = {
   cannon: { damage: 20 },
@@ -138,7 +140,8 @@ const createInitialEntities = (): Record<EntityId, EntityState> => ({
     position: { row: 1, col: 1 },
     alive: true,
     hp: 120,
-    maxHp: 120
+    maxHp: 120,
+    hitFlashTicks: 0
   },
   mettaur: {
     id: 'mettaur',
@@ -146,7 +149,8 @@ const createInitialEntities = (): Record<EntityId, EntityState> => ({
     position: { row: 1, col: 4 },
     alive: true,
     hp: 90,
-    maxHp: 90
+    maxHp: 90,
+    hitFlashTicks: 0
   }
 })
 
@@ -293,7 +297,8 @@ const applyDamage = (
     target: {
       ...target,
       hp: nextHp,
-      alive: nextHp > 0
+      alive: nextHp > 0,
+      hitFlashTicks: hitFlashDurationTicks
     },
     didHit: true
   }
@@ -868,7 +873,17 @@ export const useGameStore = create<GameState>((set, get) => ({
         accumulator -= baseTickMs
         set((current) => {
           const nextTicks = current.ticks + 1
-          let nextEntities = { ...current.entities }
+          let nextEntities = {
+            ...current.entities,
+            megaman: {
+              ...current.entities.megaman,
+              hitFlashTicks: Math.max(0, current.entities.megaman.hitFlashTicks - 1)
+            },
+            mettaur: {
+              ...current.entities.mettaur,
+              hitFlashTicks: Math.max(0, current.entities.mettaur.hitFlashTicks - 1)
+            }
+          }
           let megamanBusterCooldown = Math.max(0, current.megamanBusterCooldown - 1)
           let mettaurAttackCooldown = Math.max(0, current.mettaurAttackCooldown - 1)
           let mettaurTelegraphTicksRemaining = current.mettaurTelegraphTicksRemaining
@@ -981,7 +996,8 @@ export const useGameStore = create<GameState>((set, get) => ({
               ...nextEntities.mettaur,
               hp: nextEntities.mettaur.maxHp,
               alive: true,
-              position: { row: 1, col: 4 }
+              position: { row: 1, col: 4 },
+              hitFlashTicks: 0
             }
             mettaurRespawnTick = null
             mettaurAttackCooldown = mettaurAttackCadenceTicks

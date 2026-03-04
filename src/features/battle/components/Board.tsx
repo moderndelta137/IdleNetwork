@@ -34,9 +34,10 @@ type OccupantSpriteProps = {
   entityId: string
   fallbackLabel: string
   isAttacking: boolean
+  isFlashing: boolean
 }
 
-function OccupantSprite({ entityId, fallbackLabel, isAttacking }: OccupantSpriteProps) {
+function OccupantSprite({ entityId, fallbackLabel, isAttacking, isFlashing }: OccupantSpriteProps) {
   const [attemptIndex, setAttemptIndex] = useState(0)
 
   const spriteSources = SPRITES_BY_ENTITY[entityId]
@@ -55,12 +56,12 @@ function OccupantSprite({ entityId, fallbackLabel, isAttacking }: OccupantSprite
   const spriteSource = candidates[attemptIndex]
 
   if (!spriteSource) {
-    return <span className="occupant-fallback">{fallbackLabel}</span>
+    return <span className={`occupant-fallback ${isFlashing ? 'hit-flash' : ''}`}>{fallbackLabel}</span>
   }
 
   return (
     <img
-      className="occupant-sprite"
+      className={`occupant-sprite ${isFlashing ? 'hit-flash' : ''}`}
       src={spriteSource}
       alt={fallbackLabel}
       loading="eager"
@@ -95,7 +96,9 @@ export function Board() {
                   entityId={occupant.id}
                   fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : 'Mettaur'}
                   isAttacking={occupant.id === 'mettaur' && mettaurTelegraphTicksRemaining > 0}
+                  isFlashing={occupant.hitFlashTicks > 0}
                 />
+                {occupant.id !== 'megaman' ? <span className="occupant-hp">{occupant.hp}</span> : null}
               </div>
             ) : (
               <span>
