@@ -91,7 +91,14 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 ## 11. Technical Product Notes
 - Stack: TypeScript + React + Vite + Zustand
 - Data-driven configs for chips, encounters, area unlocks, and waves
+- Chip and enemy attack tuning are maintained as CSV catalogs and loaded at runtime for balancing iteration
 - Deterministic simulation emphasized for testability and balancing
+
+### 11.1 Current Debug Runtime Tooling (M2)
+- Pause/resume simulation
+- Single-frame stepping while paused
+- Runtime sprite scale slider
+- Recovery tick visibility for quick combat timing verification
 
 ## 12. UI & Production Direction
 - Early UI approach: functional BN-like HUD first, nostalgia-heavy styling later

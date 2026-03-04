@@ -1,0 +1,7 @@
+Section,Grammar,Example,Notes
+Melee,melee:offsets=x|y;...,melee:offsets=1|0;1|1;1|-1,Offsets relative to player tile
+Throw,throw:offsets=x|y;...,throw:offsets=2|0;3|0;4|0,Each offset spawns an arc landing on that tile
+Hitscan,hitscan:rows=y;...;maxRange=n;pierce=true|false,hitscan:rows=0;1;-1;maxRange=6;pierce=false,Rows relative to player row
+Step,step:offset=x|y,step:offset=3|0,Temporarily move user to offset before follow-up effects
+Heal,heal:amount=n,heal:amount=10,Restores player HP
+Barrier,barrier:charges=n,barrier:charges=1,Sets barrier hit count

@@ -1,0 +1,5 @@
+Name,DMG,Type,Description,Lag,Recoil,Effects
+Cannon,20,Hitscan,Fire cannon forward,0.2,0.4,hitscan:rows=0;maxRange=6;pierce=false
+Sword,30,Melee,Slash in front,0.1,0.3,melee:offsets=1|0
+Recover10,0,Support,Recover a small amount of HP,0.1,0.2,heal:amount=10
+Barrier,0,Support,Set a single-hit barrier,0.1,0.2,barrier:charges=1
