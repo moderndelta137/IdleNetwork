@@ -1,12 +1,80 @@
+import { useMemo, useState } from 'react'
 import { useGameStore } from '../../simulation/store/gameStore'
 
 const ROWS = 3
 const COLS = 6
 
+type SpriteSources = {
+  idle: string[]
+  attack?: string[]
+}
+
+const SPRITES_BY_ENTITY: Record<string, SpriteSources> = {
+  megaman: {
+    idle: [
+      'sprites/megaman/MegaMan-idle.png',
+      'sprites/megaman/megaman-idle.png'
+    ]
+  },
+  mettaur: {
+    idle: [
+      'sprites/mettaur/Mettaur-idle.png',
+      'sprites/mettaur/mettaur-idle.png'
+    ],
+    attack: [
+      'sprites/mettaur/Mettaur-attack.png',
+      'sprites/mettaur/mettaur-attack.png',
+      'sprites/mettaur/Mettaur-swing.png',
+      'sprites/mettaur/mettaur-swing.png'
+    ]
+  }
+}
+
+type OccupantSpriteProps = {
+  entityId: string
+  fallbackLabel: string
+  isAttacking: boolean
+}
+
+function OccupantSprite({ entityId, fallbackLabel, isAttacking }: OccupantSpriteProps) {
+  const [attemptIndex, setAttemptIndex] = useState(0)
+
+  const spriteSources = SPRITES_BY_ENTITY[entityId]
+  const candidates = useMemo(() => {
+    if (!spriteSources) {
+      return []
+    }
+
+    if (isAttacking && spriteSources.attack) {
+      return spriteSources.attack
+    }
+
+    return spriteSources.idle
+  }, [isAttacking, spriteSources])
+
+  const spriteSource = candidates[attemptIndex]
+
+  if (!spriteSource) {
+    return <span className="occupant-fallback">{fallbackLabel}</span>
+  }
+
+  return (
+    <img
+      className="occupant-sprite"
+      src={spriteSource}
+      alt={fallbackLabel}
+      loading="eager"
+      decoding="sync"
+      onError={() => setAttemptIndex((current) => current + 1)}
+    />
+  )
+}
+
 export function Board() {
   const entities = useGameStore((state) => state.entities)
   const occupiedPanels = useGameStore((state) => state.occupiedPanels)
   const activeHitboxPanels = useGameStore((state) => state.combat.activeHitboxPanels)
+  const mettaurTelegraphTicksRemaining = useGameStore((state) => state.combat.mettaurTelegraphTicksRemaining)
 
   return (
     <section className="board" aria-label="Battlefield grid">
@@ -22,9 +90,13 @@ export function Board() {
         return (
           <div key={key} className={`panel ${side} ${occupantId ? 'occupied' : ''} ${hasActiveHitbox ? 'hitbox-active' : ''}`}>
             {occupant ? (
-              <span className="occupant" aria-label={occupant.name}>
-                {occupant.id === 'megaman' ? 'MegaMan' : 'Mettaur'}
-              </span>
+              <div className="occupant" aria-label={occupant.name}>
+                <OccupantSprite
+                  entityId={occupant.id}
+                  fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : 'Mettaur'}
+                  isAttacking={occupant.id === 'mettaur' && mettaurTelegraphTicksRemaining > 0}
+                />
+              </div>
             ) : (
               <span>
                 {row + 1},{col + 1}
