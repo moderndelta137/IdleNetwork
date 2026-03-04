@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type CSSProperties } from 'react'
 import { Board } from '../features/battle/components/Board'
 import { useGameStore } from '../features/simulation/store/gameStore'
 
@@ -10,12 +10,19 @@ export function App() {
   const combat = useGameStore((state) => state.combat)
   const entities = useGameStore((state) => state.entities)
   const setSpeed = useGameStore((state) => state.setSpeed)
+  const debugPaused = useGameStore((state) => state.debugPaused)
+  const setDebugPaused = useGameStore((state) => state.setDebugPaused)
+  const stepFrame = useGameStore((state) => state.stepFrame)
+  const debugSpriteScalePercent = useGameStore((state) => state.debugSpriteScalePercent)
+  const setDebugSpriteScalePercent = useGameStore((state) => state.setDebugSpriteScalePercent)
   const movePlayer = useGameStore((state) => state.movePlayer)
   const cycleMegamanControlMode = useGameStore((state) => state.cycleMegamanControlMode)
   const useChipSlot = useGameStore((state) => state.useChipSlot)
   const useLeftmostChip = useGameStore((state) => state.useLeftmostChip)
   const manualFireBuster = useGameStore((state) => state.manualFireBuster)
   const resetBattle = useGameStore((state) => state.resetBattle)
+  const megamanRecoveryTicks = useGameStore((state) => state.megamanRecoveryTicks)
+  const mettaurRecoveryTicks = useGameStore((state) => state.mettaurRecoveryTicks)
   const start = useGameStore((state) => state.start)
 
   useEffect(() => {
@@ -83,7 +90,7 @@ export function App() {
   const target = entities[combat.targetId]
 
   return (
-    <main className="app-shell">
+    <main className="app-shell" style={{ '--sprite-scale': `${debugSpriteScalePercent / 100}` } as CSSProperties}>
       <header>
         <h1>Idle Network — M2 Chips Vertical Slice</h1>
         <p>Always-on chip hand flow with gauge refill, deck/discard reshuffle, and buffered use.</p>
@@ -106,6 +113,33 @@ export function App() {
         <button type="button" onClick={cycleMegamanControlMode}>
           Control: {combat.megamanControlMode}
         </button>
+      </section>
+
+
+      <section className="debug-controls" aria-label="Debug simulation controls">
+        <strong>Debug Controls</strong>
+        <div className="debug-controls-row">
+          <button type="button" onClick={() => setDebugPaused(!debugPaused)}>
+            {debugPaused ? 'Resume' : 'Pause'} Simulation
+          </button>
+          <button type="button" onClick={stepFrame} disabled={!debugPaused}>
+            Advance 1 Frame
+          </button>
+          <span>{debugPaused ? 'Paused' : 'Running'}</span>
+          <span>Recovery: MegaMan {megamanRecoveryTicks}t / Mettaur {mettaurRecoveryTicks}t</span>
+        </div>
+        <label className="sprite-scale-control" htmlFor="sprite-scale-slider">
+          Sprite scale: {debugSpriteScalePercent}%
+        </label>
+        <input
+          id="sprite-scale-slider"
+          type="range"
+          min={100}
+          max={400}
+          step={10}
+          value={debugSpriteScalePercent}
+          onChange={(event) => setDebugSpriteScalePercent(Number(event.currentTarget.value))}
+        />
       </section>
 
       <section className="gauge-card" aria-label="Custom gauge">
