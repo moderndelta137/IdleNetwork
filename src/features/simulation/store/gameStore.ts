@@ -15,6 +15,21 @@ type BattleChip = {
   code: string
 }
 
+type ProgramAdvanceRule = {
+  id: string
+  name: string
+  sequence: ChipId[]
+  resultChip: BattleChip
+  priority: number
+}
+
+type ProgramAdvanceAnimation = {
+  sourceSlots: number[]
+  targetSlot: number
+  ticksRemaining: number
+  name: string
+}
+
 type PanelPosition = {
   row: number
   col: number
@@ -46,6 +61,7 @@ type CombatSummary = {
   megamanHitstunTicks: number
   queuedChipSlot: number | null
   megamanControlMode: MegamanControlMode
+  programAdvanceAnimation: ProgramAdvanceAnimation | null
   lastEvent: string
   activeHitboxPanels: string[]
 }
@@ -76,6 +92,8 @@ type GameState = {
   mettaurRecoveryTicks: number
   autoChipCooldown: number
   megamanControlMode: MegamanControlMode
+  programAdvanceAnimation: ProgramAdvanceAnimation | null
+  forceProgramAdvanceOnNextCustomDraw: boolean
   megamanAutoMoveCooldown: number
   mettaurMoveCooldown: number
   setSpeed: (speed: Speed) => void
@@ -83,6 +101,7 @@ type GameState = {
   stepFrame: () => void
   setDebugSpriteScalePercent: (scale: number) => void
   cycleMegamanControlMode: () => void
+  debugForceNextCustomDrawProgramAdvance: () => void
   movePlayer: (deltaRow: number, deltaCol: number) => void
   useChipSlot: (index: number) => void
   useLeftmostChip: () => void
@@ -111,6 +130,7 @@ const megamanAutoMoveCadenceTicks = 5
 const mettaurMoveCadenceTicks = 6
 const mettaurThreatWindowTicks = 2
 const hitFlashDurationTicks = 2
+const programAdvanceAnimationTicks = 12
 
 const chipCatalog = loadChipCatalog(baseTickMs)
 const enemyAttackCatalog = loadEnemyAttackCatalog(baseTickMs)
@@ -118,6 +138,20 @@ const mettaurSwingAttack = enemyAttackCatalog.MettaurSwing
 const mettaurTelegraphTicks = mettaurSwingAttack?.lagTicks ?? 4
 const mettaurHitDamage = mettaurSwingAttack?.damage ?? 6
 const mettaurSwingRecoveryTicks = mettaurSwingAttack?.recoilTicks ?? 6
+
+const programAdvanceRules: ProgramAdvanceRule[] = [
+  {
+    id: 'pa-z-cannon',
+    name: 'Z-Cannon',
+    sequence: ['cannon', 'cannon', 'cannon'],
+    resultChip: {
+      id: 'zcannon',
+      name: 'Z-Cannon',
+      code: 'PA'
+    },
+    priority: 100
+  }
+]
 
 const parseEffectNumber = (effects: string, prefix: string): number | null => {
   const match = effects.match(new RegExp(`${prefix}(\\d+)`))
@@ -208,10 +242,11 @@ const canChipDamageHitTarget = (chipDefinition: { type: string; effects: string 
 
 const starterFolder: BattleChip[] = [
   { id: 'cannon', name: 'Cannon', code: 'A' },
+  { id: 'cannon', name: 'Cannon', code: 'B' },
+  { id: 'cannon', name: 'Cannon', code: 'C' },
   { id: 'sword', name: 'Sword', code: 'A' },
   { id: 'recover10', name: 'Recover10', code: 'L' },
   { id: 'barrier', name: 'Barrier', code: 'L' },
-  { id: 'cannon', name: 'Cannon', code: 'B' },
   { id: 'sword', name: 'Sword', code: 'B' },
   { id: 'recover10', name: 'Recover10', code: 'A' },
   { id: 'barrier', name: 'Barrier', code: '*' }
@@ -283,6 +318,89 @@ const fillHandSlots = (
   }
 }
 
+
+const recycleDeckIfEmpty = (
+  deck: BattleChip[],
+  discard: BattleChip[]
+): { chipDeck: BattleChip[]; chipDiscard: BattleChip[]; didRecycle: boolean } => {
+  if (deck.length > 0 || discard.length === 0) {
+    return { chipDeck: deck, chipDiscard: discard, didRecycle: false }
+  }
+
+  return {
+    chipDeck: shuffleChips(discard),
+    chipDiscard: [],
+    didRecycle: true
+  }
+}
+
+const findProgramAdvanceMatchSlots = (hand: Array<BattleChip | null>, rule: ProgramAdvanceRule): number[] | null => {
+  const matched: number[] = []
+
+  for (const chipId of rule.sequence) {
+    const slot = hand.findIndex((chip, index) => chip?.id === chipId && !matched.includes(index))
+    if (slot < 0) {
+      return null
+    }
+    matched.push(slot)
+  }
+
+  return matched
+}
+
+const forceProgramAdvanceHand = (hand: Array<BattleChip | null>, rule: ProgramAdvanceRule): Array<BattleChip | null> => {
+  const nextHand = [...hand]
+
+  rule.sequence.forEach((chipId, index) => {
+    nextHand[index] = {
+      id: chipId,
+      name: chipCatalog[chipId].name,
+      code: String.fromCharCode(65 + index)
+    }
+  })
+
+  return nextHand
+}
+
+const tryFormProgramAdvanceFromHand = (
+  hand: Array<BattleChip | null>
+): { chipHand: Array<BattleChip | null>; animation: ProgramAdvanceAnimation | null; lastEvent: string | null } => {
+  const sortedRules = [...programAdvanceRules].sort((a, b) => b.priority - a.priority)
+
+  // Intentionally forms at most one PA per hand evaluation, even if overlapping or duplicate windows exist.
+
+  for (const rule of sortedRules) {
+    const matchedSlots = findProgramAdvanceMatchSlots(hand, rule)
+    if (!matchedSlots) {
+      continue
+    }
+
+    const [targetSlot, ...sourceSlots] = matchedSlots
+    const nextHand = [...hand]
+    nextHand[targetSlot] = rule.resultChip
+    sourceSlots.forEach((slot) => {
+      nextHand[slot] = null
+    })
+
+    return {
+      chipHand: nextHand,
+      animation: {
+        sourceSlots,
+        targetSlot,
+        ticksRemaining: programAdvanceAnimationTicks,
+        name: rule.name
+      },
+      lastEvent: `PROGRAM ADVANCE! ${rule.name} formed in slot ${targetSlot + 1}`
+    }
+  }
+
+  return {
+    chipHand: hand,
+    animation: null,
+    lastEvent: null
+  }
+}
+
 const makePanelKey = (position: PanelPosition) => `${position.row}-${position.col}`
 
 const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedPanels => {
@@ -330,6 +448,7 @@ const buildCombatSummary = (
     | 'megamanHitstunTicks'
     | 'queuedChipSlot'
     | 'megamanControlMode'
+    | 'programAdvanceAnimation'
   >,
   lastEvent: string
 ): CombatSummary => {
@@ -350,6 +469,7 @@ const buildCombatSummary = (
     megamanHitstunTicks: runtime.megamanHitstunTicks,
     queuedChipSlot: runtime.queuedChipSlot,
     megamanControlMode: runtime.megamanControlMode,
+    programAdvanceAnimation: runtime.programAdvanceAnimation,
     lastEvent,
     activeHitboxPanels: buildMettaurSwingHitboxPanels(entities, runtime.mettaurTelegraphTicksRemaining)
   }
@@ -526,6 +646,11 @@ const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'ba
   const { chipHand, entities, barrierCharges } = state
   const playerHpRatio = entities.megaman.maxHp > 0 ? entities.megaman.hp / entities.megaman.maxHp : 0
 
+  const paSlot = chipHand.findIndex((chip) => chip?.id === 'zcannon')
+  if (paSlot >= 0) {
+    return paSlot
+  }
+
   if (playerHpRatio <= autoRecoverHpThreshold) {
     const recoverSlot = chipHand.findIndex((chip) => chip?.id === 'recover10')
     if (recoverSlot >= 0) {
@@ -682,6 +807,8 @@ type RuntimeState = Pick<
   | 'megamanControlMode'
   | 'megamanAutoMoveCooldown'
   | 'mettaurMoveCooldown'
+  | 'programAdvanceAnimation'
+  | 'forceProgramAdvanceOnNextCustomDraw'
 >
 
 const buildInitialState = (): RuntimeState => {
@@ -709,7 +836,9 @@ const buildInitialState = (): RuntimeState => {
     autoChipCooldown: autoChipCadenceTicks,
     megamanControlMode: 'semiAuto',
     megamanAutoMoveCooldown: megamanAutoMoveCadenceTicks,
-    mettaurMoveCooldown: mettaurMoveCadenceTicks
+    mettaurMoveCooldown: mettaurMoveCadenceTicks,
+    programAdvanceAnimation: null,
+    forceProgramAdvanceOnNextCustomDraw: false
   }
 
   return {
@@ -744,6 +873,26 @@ export const useGameStore = create<GameState>((set, get) => ({
     const clampedScale = Math.max(100, Math.min(400, Math.round(scale)))
     set({ debugSpriteScalePercent: clampedScale })
   },
+  debugForceNextCustomDrawProgramAdvance: () => {
+    set((current) => {
+      const runtime = {
+        mettaurTelegraphTicksRemaining: current.mettaurTelegraphTicksRemaining,
+        customGaugeTicks: current.customGaugeTicks,
+        customGaugeMaxTicks: current.customGaugeMaxTicks,
+        chipHand: current.chipHand,
+        barrierCharges: current.barrierCharges,
+        megamanHitstunTicks: current.megamanHitstunTicks,
+        queuedChipSlot: current.queuedChipSlot,
+        megamanControlMode: current.megamanControlMode,
+        programAdvanceAnimation: current.programAdvanceAnimation
+      }
+
+      return {
+        forceProgramAdvanceOnNextCustomDraw: true,
+        combat: buildCombatSummary(current.entities, runtime, 'Debug: next Custom Draw will force PA set')
+      }
+    })
+  },
   cycleMegamanControlMode: () => {
     set((current) => {
       const nextMode = cycleControlMode(current.megamanControlMode)
@@ -755,7 +904,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
         queuedChipSlot: current.queuedChipSlot,
-        megamanControlMode: nextMode
+        megamanControlMode: nextMode,
+        programAdvanceAnimation: current.programAdvanceAnimation
       }
 
       return {
@@ -805,7 +955,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
         queuedChipSlot: current.queuedChipSlot,
-        megamanControlMode: current.megamanControlMode
+        megamanControlMode: current.megamanControlMode,
+        programAdvanceAnimation: current.programAdvanceAnimation
       }
 
       return {
@@ -832,7 +983,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           barrierCharges: current.barrierCharges,
           megamanHitstunTicks: current.megamanHitstunTicks,
           queuedChipSlot: index,
-          megamanControlMode: current.megamanControlMode
+          megamanControlMode: current.megamanControlMode,
+          programAdvanceAnimation: current.programAdvanceAnimation
         }
 
         return {
@@ -851,7 +1003,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           barrierCharges: current.barrierCharges,
           megamanHitstunTicks: current.megamanHitstunTicks,
           queuedChipSlot: current.queuedChipSlot,
-          megamanControlMode: current.megamanControlMode
+          megamanControlMode: current.megamanControlMode,
+          programAdvanceAnimation: current.programAdvanceAnimation
         }
 
         return {
@@ -867,7 +1020,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         barrierCharges: result.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
         queuedChipSlot: null,
-        megamanControlMode: current.megamanControlMode
+        megamanControlMode: current.megamanControlMode,
+        programAdvanceAnimation: current.programAdvanceAnimation
       }
 
       return {
@@ -912,7 +1066,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
         queuedChipSlot: current.queuedChipSlot,
-        megamanControlMode: current.megamanControlMode
+        megamanControlMode: current.megamanControlMode,
+        programAdvanceAnimation: current.programAdvanceAnimation
       }
 
       return {
@@ -983,6 +1138,9 @@ export const useGameStore = create<GameState>((set, get) => ({
           let chipHand = current.chipHand
           let chipDeck = current.chipDeck
           let chipDiscard = current.chipDiscard
+          const recycledDeck = recycleDeckIfEmpty(chipDeck, chipDiscard)
+          chipDeck = recycledDeck.chipDeck
+          chipDiscard = recycledDeck.chipDiscard
           let queuedChipSlot = current.queuedChipSlot
           let barrierCharges = current.barrierCharges
           let megamanHitstunTicks = Math.max(0, current.megamanHitstunTicks - 1)
@@ -991,16 +1149,36 @@ export const useGameStore = create<GameState>((set, get) => ({
           let autoChipCooldown = Math.max(0, current.autoChipCooldown - 1)
           let megamanAutoMoveCooldown = Math.max(0, current.megamanAutoMoveCooldown - 1)
           let mettaurMoveCooldown = Math.max(0, current.mettaurMoveCooldown - 1)
+          let programAdvanceAnimation =
+            current.programAdvanceAnimation && current.programAdvanceAnimation.ticksRemaining > 1
+              ? { ...current.programAdvanceAnimation, ticksRemaining: current.programAdvanceAnimation.ticksRemaining - 1 }
+              : null
+          let forceProgramAdvanceOnNextCustomDraw = current.forceProgramAdvanceOnNextCustomDraw
           const megamanControlMode = current.megamanControlMode
-          let lastEvent = 'Idle tick'
+          let lastEvent = recycledDeck.didRecycle ? 'Deck recycled from discard pile' : 'Idle tick'
 
           if (gaugeTicks >= current.customGaugeMaxTicks) {
             const refill = fillHandSlots(chipHand, chipDeck, chipDiscard)
             chipHand = refill.chipHand
             chipDeck = refill.chipDeck
             chipDiscard = refill.chipDiscard
+
+            if (forceProgramAdvanceOnNextCustomDraw) {
+              chipHand = forceProgramAdvanceHand(chipHand, programAdvanceRules[0])
+              forceProgramAdvanceOnNextCustomDraw = false
+            }
+
+            const formed = tryFormProgramAdvanceFromHand(chipHand)
+            chipHand = formed.chipHand
+            if (formed.animation) {
+              programAdvanceAnimation = formed.animation
+              lastEvent = formed.lastEvent ?? 'PROGRAM ADVANCE formed'
+            }
+
             gaugeTicks = 0
-            lastEvent = 'Custom Gauge full. Hand refilled from deck.'
+            if (!formed.animation) {
+              lastEvent = 'Custom Gauge full. Hand refilled from deck.'
+            }
           }
 
           const megamanBusy = !nextEntities.megaman.alive || megamanHitstunTicks > 0 || megamanRecoveryTicks > 0
@@ -1160,7 +1338,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             barrierCharges,
             megamanHitstunTicks,
             queuedChipSlot,
-            megamanControlMode
+            megamanControlMode,
+            programAdvanceAnimation
           }
 
           return {
@@ -1183,7 +1362,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             mettaurRecoveryTicks,
             autoChipCooldown,
             megamanAutoMoveCooldown,
-            mettaurMoveCooldown
+            mettaurMoveCooldown,
+            programAdvanceAnimation,
+            forceProgramAdvanceOnNextCustomDraw
           }
         })
       }
