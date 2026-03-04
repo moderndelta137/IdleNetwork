@@ -318,6 +318,22 @@ const fillHandSlots = (
   }
 }
 
+
+const recycleDeckIfEmpty = (
+  deck: BattleChip[],
+  discard: BattleChip[]
+): { chipDeck: BattleChip[]; chipDiscard: BattleChip[]; didRecycle: boolean } => {
+  if (deck.length > 0 || discard.length === 0) {
+    return { chipDeck: deck, chipDiscard: discard, didRecycle: false }
+  }
+
+  return {
+    chipDeck: shuffleChips(discard),
+    chipDiscard: [],
+    didRecycle: true
+  }
+}
+
 const findProgramAdvanceMatchSlots = (hand: Array<BattleChip | null>, rule: ProgramAdvanceRule): number[] | null => {
   const matched: number[] = []
 
@@ -350,6 +366,8 @@ const tryFormProgramAdvanceFromHand = (
   hand: Array<BattleChip | null>
 ): { chipHand: Array<BattleChip | null>; animation: ProgramAdvanceAnimation | null; lastEvent: string | null } => {
   const sortedRules = [...programAdvanceRules].sort((a, b) => b.priority - a.priority)
+
+  // Intentionally forms at most one PA per hand evaluation, even if overlapping or duplicate windows exist.
 
   for (const rule of sortedRules) {
     const matchedSlots = findProgramAdvanceMatchSlots(hand, rule)
@@ -1120,6 +1138,9 @@ export const useGameStore = create<GameState>((set, get) => ({
           let chipHand = current.chipHand
           let chipDeck = current.chipDeck
           let chipDiscard = current.chipDiscard
+          const recycledDeck = recycleDeckIfEmpty(chipDeck, chipDiscard)
+          chipDeck = recycledDeck.chipDeck
+          chipDiscard = recycledDeck.chipDiscard
           let queuedChipSlot = current.queuedChipSlot
           let barrierCharges = current.barrierCharges
           let megamanHitstunTicks = Math.max(0, current.megamanHitstunTicks - 1)
@@ -1134,7 +1155,7 @@ export const useGameStore = create<GameState>((set, get) => ({
               : null
           let forceProgramAdvanceOnNextCustomDraw = current.forceProgramAdvanceOnNextCustomDraw
           const megamanControlMode = current.megamanControlMode
-          let lastEvent = 'Idle tick'
+          let lastEvent = recycledDeck.didRecycle ? 'Deck recycled from discard pile' : 'Idle tick'
 
           if (gaugeTicks >= current.customGaugeMaxTicks) {
             const refill = fillHandSlots(chipHand, chipDeck, chipDiscard)
