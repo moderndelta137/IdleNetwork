@@ -1,5 +1,13 @@
+@font-face {
+  font-family: 'Jersey 10';
+  src: url('/fonts/jersey-10/Jersey10-Regular.woff2') format('woff2'),
+    url('/fonts/jersey-10/Jersey10-Regular.ttf') format('truetype');
+  font-display: swap;
+}
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --sprite-scale: 3;
+  font-family: 'Jersey 10', system-ui, sans-serif;
   color: #f3f5f7;
   background-color: #111827;
 }
@@ -15,9 +23,17 @@ body,
 }
 
 body {
+  font-family: 'Jersey 10', system-ui, sans-serif;
   margin: 0;
   background-color: #111827;
   color: #f3f5f7;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: 'Jersey 10', system-ui, sans-serif;
 }
 
 .app-shell {
@@ -32,6 +48,29 @@ body {
   gap: 1rem;
   justify-content: space-between;
   margin-bottom: 1rem;
+}
+
+
+.debug-controls {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 0.8rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.debug-controls-row {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+}
+
+.sprite-scale-control {
+  color: #cbd5e1;
+  font-size: 0.85rem;
 }
 
 .gauge-card {
@@ -94,6 +133,7 @@ body {
 }
 
 button {
+  font-family: inherit;
   background: #1f2937;
   border: 1px solid #374151;
   border-radius: 6px;
@@ -146,6 +186,47 @@ button.active {
 }
 
 .occupant {
+  align-items: center;
+  display: flex;
+  height: 100%;
+  justify-content: center;
+  overflow: visible;
+  position: relative;
+  width: 100%;
+}
+
+.occupant-sprite {
+  image-rendering: pixelated;
+  max-height: 115%;
+  max-width: 115%;
+  object-fit: contain;
+  transform: scale(var(--sprite-scale));
+  transform-origin: center center;
+}
+
+
+
+.occupant-sprite.hit-flash,
+.occupant-fallback.hit-flash {
+  filter: brightness(0) invert(1);
+}
+
+.occupant-hp {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  bottom: -14px;
+  color: #f8fafc;
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 32px;
+  padding: 0;
+  position: absolute;
+  text-shadow: 0 1px 0 #0f172a, 0 0 4px rgba(15, 23, 42, 0.9);
+  text-align: center;
+}
+.occupant-fallback {
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -191,7 +272,7 @@ button.active {
 }
 
 .chip-name {
-  font-size: 0.9rem;
+  font-size: 1.8rem;
   font-weight: 700;
 }
 
