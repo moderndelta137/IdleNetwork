@@ -1,4 +1,5 @@
 :root {
+  --sprite-scale: 3;
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   color: #f3f5f7;
   background-color: #111827;
@@ -32,6 +33,29 @@ body {
   gap: 1rem;
   justify-content: space-between;
   margin-bottom: 1rem;
+}
+
+
+.debug-controls {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 0.8rem;
+  padding: 0.6rem 0.75rem;
+}
+
+.debug-controls-row {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+}
+
+.sprite-scale-control {
+  color: #cbd5e1;
+  font-size: 0.85rem;
 }
 
 .gauge-card {
@@ -159,6 +183,8 @@ button.active {
   max-height: 115%;
   max-width: 115%;
   object-fit: contain;
+  transform: scale(var(--sprite-scale));
+  transform-origin: center center;
 }
 
 .occupant-fallback {
