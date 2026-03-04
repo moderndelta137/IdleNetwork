@@ -24,6 +24,7 @@ body,
 
 body {
   font-family: 'Jersey 10', system-ui, sans-serif;
+  letter-spacing: 0.045em;
   margin: 0;
   background-color: #111827;
   color: #f3f5f7;
@@ -34,6 +35,17 @@ input,
 select,
 textarea {
   font-family: 'Jersey 10', system-ui, sans-serif;
+  letter-spacing: 0.045em;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+strong {
+  letter-spacing: 0.06em;
 }
 
 .app-shell {
