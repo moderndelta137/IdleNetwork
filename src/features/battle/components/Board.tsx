@@ -4,13 +4,29 @@ import { useGameStore } from '../../simulation/store/gameStore'
 const ROWS = 3
 const COLS = 6
 
-const SPRITES_BY_ENTITY: Record<string, { idle: string; attack?: string }> = {
+type SpriteSources = {
+  idle: string[]
+  attack?: string[]
+}
+
+const SPRITES_BY_ENTITY: Record<string, SpriteSources> = {
   megaman: {
-    idle: '/sprites/megaman/MegaMan-idle.png'
+    idle: [
+      'sprites/megaman/MegaMan-idle.png',
+      'sprites/megaman/megaman-idle.png'
+    ]
   },
   mettaur: {
-    idle: '/sprites/mettaur/Mettaur-idle.png',
-    attack: '/sprites/mettaur/Mettaur-attack.png'
+    idle: [
+      'sprites/mettaur/Mettaur-idle.png',
+      'sprites/mettaur/mettaur-idle.png'
+    ],
+    attack: [
+      'sprites/mettaur/Mettaur-attack.png',
+      'sprites/mettaur/mettaur-attack.png',
+      'sprites/mettaur/Mettaur-swing.png',
+      'sprites/mettaur/mettaur-swing.png'
+    ]
   }
 }
 
@@ -21,12 +37,12 @@ type OccupantSpriteProps = {
 }
 
 function OccupantSprite({ entityId, fallbackLabel, isAttacking }: OccupantSpriteProps) {
-  const [isImageMissing, setIsImageMissing] = useState(false)
+  const [attemptIndex, setAttemptIndex] = useState(0)
 
   const spriteSources = SPRITES_BY_ENTITY[entityId]
-  const spriteSource = useMemo(() => {
+  const candidates = useMemo(() => {
     if (!spriteSources) {
-      return null
+      return []
     }
 
     if (isAttacking && spriteSources.attack) {
@@ -36,7 +52,9 @@ function OccupantSprite({ entityId, fallbackLabel, isAttacking }: OccupantSprite
     return spriteSources.idle
   }, [isAttacking, spriteSources])
 
-  if (!spriteSource || isImageMissing) {
+  const spriteSource = candidates[attemptIndex]
+
+  if (!spriteSource) {
     return <span className="occupant-fallback">{fallbackLabel}</span>
   }
 
@@ -47,7 +65,7 @@ function OccupantSprite({ entityId, fallbackLabel, isAttacking }: OccupantSprite
       alt={fallbackLabel}
       loading="eager"
       decoding="sync"
-      onError={() => setIsImageMissing(true)}
+      onError={() => setAttemptIndex((current) => current + 1)}
     />
   )
 }
