@@ -13,6 +13,22 @@ type BattleChip = {
   id: ChipId
   name: string
   code: string
+  formedFrom?: BattleChip[]
+}
+
+type ProgramAdvanceRule = {
+  id: string
+  name: string
+  sequence: ChipId[]
+  resultChip: BattleChip
+  priority: number
+}
+
+type ProgramAdvanceAnimation = {
+  sourceSlots: number[]
+  targetSlot: number
+  ticksRemaining: number
+  name: string
 }
 
 type ProgramAdvanceRule = {
@@ -377,7 +393,15 @@ const tryFormProgramAdvanceFromHand = (
 
     const [targetSlot, ...sourceSlots] = matchedSlots
     const nextHand = [...hand]
-    nextHand[targetSlot] = rule.resultChip
+    const componentChips = matchedSlots
+      .map((slot) => hand[slot])
+      .filter((chip): chip is BattleChip => chip !== null)
+      .map((chip) => ({ id: chip.id, name: chip.name, code: chip.code }))
+
+    nextHand[targetSlot] = {
+      ...rule.resultChip,
+      formedFrom: componentChips
+    }
     sourceSlots.forEach((slot) => {
       nextHand[slot] = null
     })
@@ -631,10 +655,12 @@ const tryUseChipFromSlot = (
   const nextHand = [...current.chipHand]
   nextHand[slot] = null
 
+  const chipsToDiscard = chip.formedFrom && chip.formedFrom.length > 0 ? chip.formedFrom : [chip]
+
   return {
     entities: nextEntities,
     chipHand: nextHand,
-    chipDiscard: [...current.chipDiscard, chip],
+    chipDiscard: [...current.chipDiscard, ...chipsToDiscard],
     barrierCharges,
     lastEvent,
     used: true,
