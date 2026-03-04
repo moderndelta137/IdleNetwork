@@ -1,7 +1,7 @@
 import chipsCsvRaw from './data/chips.csv?raw'
 import { csvRowsToRecords, parseCsv, secondsToTicks } from '../shared/csv'
 
-export type ChipRuntimeId = 'cannon' | 'sword' | 'recover10' | 'barrier'
+export type ChipRuntimeId = 'cannon' | 'sword' | 'recover10' | 'barrier' | 'zcannon'
 
 type ChipCsvRow = {
   Name: string
@@ -28,7 +28,10 @@ export type ChipDefinition = {
 
 const normalizeChipId = (name: string): ChipRuntimeId => {
   const normalized = name.toLowerCase().replace(/\s+/g, '')
-  if (normalized === 'cannon' || normalized === 'sword' || normalized === 'recover10' || normalized === 'barrier') {
+  if (normalized === 'cannon' || normalized === 'sword' || normalized === 'recover10' || normalized === 'barrier' || normalized === 'z-cannon' || normalized === 'zcannon') {
+    if (normalized === 'z-cannon') {
+      return 'zcannon'
+    }
     return normalized
   }
 
