@@ -1,11 +1,13 @@
 import { create } from 'zustand'
+import { loadChipCatalog, type ChipRuntimeId } from '../../chips/chipCatalog'
+import { loadEnemyAttackCatalog } from '../../enemies/enemyAttackCatalog'
 
 type Speed = 1 | 2 | 4
 type MegamanControlMode = 'manual' | 'semiAuto' | 'fullAuto'
 
 type EntityId = 'megaman' | 'mettaur'
 
-type ChipId = 'cannon' | 'sword' | 'recover10' | 'barrier'
+type ChipId = ChipRuntimeId
 
 type BattleChip = {
   id: ChipId
@@ -97,17 +99,12 @@ let pendingStepFrames = 0
 const baseTickMs = 100
 const megamanBusterCadenceTicks = 10
 const mettaurAttackCadenceTicks = 14
-const mettaurTelegraphTicks = 4
 const mettaurRespawnDelayTicks = 20
 const customGaugeMaxTicks = 50
 const defaultChipHandSize = 5
 const megamanHitDamage = 8
-const mettaurHitDamage = 6
 const megamanHitstunTicksOnHit = 6
 const megamanBusterRecoveryTicks = 2
-const megamanSupportChipRecoveryTicks = 2
-const megamanAttackChipRecoveryTicks = 8
-const mettaurSwingRecoveryTicks = 6
 const autoChipCadenceTicks = 8
 const autoRecoverHpThreshold = 0.55
 const megamanAutoMoveCadenceTicks = 5
@@ -115,11 +112,20 @@ const mettaurMoveCadenceTicks = 6
 const mettaurThreatWindowTicks = 2
 const hitFlashDurationTicks = 2
 
-const chipEffects: Record<ChipId, { damage?: number; heal?: number; barrier?: number }> = {
-  cannon: { damage: 20 },
-  sword: { damage: 30 },
-  recover10: { heal: 10 },
-  barrier: { barrier: 1 }
+const chipCatalog = loadChipCatalog(baseTickMs)
+const enemyAttackCatalog = loadEnemyAttackCatalog(baseTickMs)
+const mettaurSwingAttack = enemyAttackCatalog.MettaurSwing
+const mettaurTelegraphTicks = mettaurSwingAttack?.lagTicks ?? 4
+const mettaurHitDamage = mettaurSwingAttack?.damage ?? 6
+const mettaurSwingRecoveryTicks = mettaurSwingAttack?.recoilTicks ?? 6
+
+const parseEffectNumber = (effects: string, prefix: string): number | null => {
+  const match = effects.match(new RegExp(`${prefix}(\\d+)`))
+  if (!match) {
+    return null
+  }
+
+  return Number.parseInt(match[1], 10)
 }
 
 const starterFolder: BattleChip[] = [
@@ -380,26 +386,27 @@ const tryUseChipFromSlot = (
     }
   }
 
-  const effects = chipEffects[chip.id]
+  const chipDefinition = chipCatalog[chip.id]
   let nextEntities = { ...current.entities }
   let barrierCharges = current.barrierCharges
   let lastEvent = `Chip used: ${chip.name} ${chip.code}`
-  let megamanRecoveryTicks = effects.damage ? megamanAttackChipRecoveryTicks : megamanSupportChipRecoveryTicks
+  let megamanRecoveryTicks = chipDefinition.recoilTicks
 
-  if (effects.damage) {
-    const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, effects.damage)
+  if (chipDefinition.damage > 0) {
+    const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, chipDefinition.damage)
     nextEntities = {
       ...nextEntities,
       megaman: result.source,
       mettaur: result.target
     }
     if (result.didHit) {
-      lastEvent = `${chip.name} hit for ${effects.damage}`
+      lastEvent = `${chip.name} hit for ${chipDefinition.damage}`
     }
   }
 
-  if (effects.heal) {
-    const nextHp = Math.min(nextEntities.megaman.maxHp, nextEntities.megaman.hp + effects.heal)
+  const healAmount = parseEffectNumber(chipDefinition.effects, 'heal:amount=')
+  if (healAmount) {
+    const nextHp = Math.min(nextEntities.megaman.maxHp, nextEntities.megaman.hp + healAmount)
     const healedAmount = nextHp - nextEntities.megaman.hp
     nextEntities = {
       ...nextEntities,
@@ -412,8 +419,9 @@ const tryUseChipFromSlot = (
     lastEvent = `${chip.name} healed ${healedAmount}`
   }
 
-  if (effects.barrier) {
-    barrierCharges = effects.barrier
+  const barrierAmount = parseEffectNumber(chipDefinition.effects, 'barrier:charges=')
+  if (barrierAmount) {
+    barrierCharges = barrierAmount
     lastEvent = `${chip.name} barrier ready`
   }
 

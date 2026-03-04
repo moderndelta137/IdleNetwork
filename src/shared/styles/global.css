@@ -1,4 +1,9 @@
-@import url("https://fonts.googleapis.com/css2?family=Jersey+10&display=swap");
+@font-face {
+  font-family: 'Jersey 10';
+  src: url('/fonts/jersey-10/Jersey10-Regular.woff2') format('woff2'),
+    url('/fonts/jersey-10/Jersey10-Regular.ttf') format('truetype');
+  font-display: swap;
+}
 
 :root {
   --sprite-scale: 3;
@@ -18,9 +23,17 @@ body,
 }
 
 body {
+  font-family: 'Jersey 10', system-ui, sans-serif;
   margin: 0;
   background-color: #111827;
   color: #f3f5f7;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: 'Jersey 10', system-ui, sans-serif;
 }
 
 .app-shell {
