@@ -103,6 +103,8 @@ type GameState = {
   setDebugPaused: (paused: boolean) => void
   stepFrame: () => void
   setDebugSpriteScalePercent: (scale: number) => void
+  moveFolderChipToStock: (index: number) => void
+  moveStockChipToFolder: (index: number) => void
   cycleMegamanControlMode: () => void
   debugForceNextCustomDrawProgramAdvance: () => void
   movePlayer: (deltaRow: number, deltaCol: number) => void
@@ -294,6 +296,19 @@ const shuffleChips = (chips: BattleChip[]): BattleChip[] => {
   }
   return shuffled
 }
+
+const sortChipCollection = (chips: BattleChip[]): BattleChip[] =>
+  [...chips].sort((a, b) => {
+    if (a.name !== b.name) {
+      return a.name.localeCompare(b.name)
+    }
+
+    if (a.code !== b.code) {
+      return a.code.localeCompare(b.code)
+    }
+
+    return a.id.localeCompare(b.id)
+  })
 
 const fillHandSlots = (
   hand: Array<BattleChip | null>,
@@ -848,8 +863,8 @@ const buildInitialState = (): RuntimeState => {
     customGaugeTicks: 0,
     customGaugeMaxTicks,
     chipHandSize: defaultChipHandSize,
-    chipFolder: starterFolder,
-    chipStock: starterStock,
+    chipFolder: sortChipCollection(starterFolder),
+    chipStock: sortChipCollection(starterStock),
     chipHand: firstFill.chipHand,
     chipDeck: firstFill.chipDeck,
     chipDiscard: firstFill.chipDiscard,
@@ -897,6 +912,38 @@ export const useGameStore = create<GameState>((set, get) => ({
   setDebugSpriteScalePercent: (scale) => {
     const clampedScale = Math.max(100, Math.min(400, Math.round(scale)))
     set({ debugSpriteScalePercent: clampedScale })
+  },
+  moveFolderChipToStock: (index) => {
+    set((current) => {
+      if (index < 0 || index >= current.chipFolder.length) {
+        return {}
+      }
+
+      const movingChip = current.chipFolder[index]
+      const nextFolder = sortChipCollection(current.chipFolder.filter((_, chipIndex) => chipIndex !== index))
+      const nextStock = sortChipCollection([...current.chipStock, movingChip])
+
+      return {
+        chipFolder: nextFolder,
+        chipStock: nextStock
+      }
+    })
+  },
+  moveStockChipToFolder: (index) => {
+    set((current) => {
+      if (index < 0 || index >= current.chipStock.length || current.chipFolder.length >= 30) {
+        return {}
+      }
+
+      const movingChip = current.chipStock[index]
+      const nextStock = sortChipCollection(current.chipStock.filter((_, chipIndex) => chipIndex !== index))
+      const nextFolder = sortChipCollection([...current.chipFolder, movingChip])
+
+      return {
+        chipFolder: nextFolder,
+        chipStock: nextStock
+      }
+    })
   },
   debugForceNextCustomDrawProgramAdvance: () => {
     set((current) => {
