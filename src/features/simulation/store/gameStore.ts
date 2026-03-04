@@ -130,7 +130,7 @@ const megamanAutoMoveCadenceTicks = 5
 const mettaurMoveCadenceTicks = 6
 const mettaurThreatWindowTicks = 2
 const hitFlashDurationTicks = 2
-const programAdvanceAnimationTicks = 5
+const programAdvanceAnimationTicks = 12
 
 const chipCatalog = loadChipCatalog(baseTickMs)
 const enemyAttackCatalog = loadEnemyAttackCatalog(baseTickMs)

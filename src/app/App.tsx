@@ -201,8 +201,10 @@ export function App() {
             key={`chip-slot-${index}`}
             type="button"
             className={`chip-slot ${chip ? 'filled' : 'empty'} ${combat.queuedChipSlot === index ? 'queued' : ''} ${
-              combat.programAdvanceAnimation?.targetSlot === index ? 'pa-target' : ''
-            } ${combat.programAdvanceAnimation?.sourceSlots.includes(index) ? 'pa-source' : ''}`}
+              chip?.id === 'zcannon' ? 'pa-chip' : ''
+            } ${combat.programAdvanceAnimation?.targetSlot === index ? 'pa-target' : ''} ${
+              combat.programAdvanceAnimation?.sourceSlots.includes(index) ? 'pa-source' : ''
+            }`}
             style={{ '--pa-shift': combat.programAdvanceAnimation ? String(combat.programAdvanceAnimation.targetSlot - index) : '0' } as CSSProperties}
             onClick={() => useChipSlot(index)}
           >

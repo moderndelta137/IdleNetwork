@@ -287,6 +287,22 @@ button.active {
   box-shadow: 0 0 0 1px #f59e0b inset;
 }
 
+.chip-slot.pa-chip {
+  background: linear-gradient(135deg, #f59e0b, #facc15);
+  border-color: #fde68a;
+  color: #111827;
+  box-shadow: 0 0 0 1px rgba(17, 24, 39, 0.15) inset;
+}
+
+.chip-slot.pa-chip .chip-code,
+.chip-slot.pa-chip .chip-slot-index {
+  color: #78350f;
+}
+
+.chip-slot.pa-chip .chip-name {
+  color: #111827;
+}
+
 .chip-slot.pa-target {
   border-color: #facc15;
   box-shadow: 0 0 0 2px #facc15 inset;
@@ -294,7 +310,7 @@ button.active {
 }
 
 .chip-slot.pa-source {
-  animation: pa-source-fly 280ms ease-in-out infinite;
+  animation: pa-source-fly 650ms ease-in-out infinite;
 }
 
 @keyframes pa-source-fly {
