@@ -119,7 +119,7 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 - M1 Combat Vertical Slice is complete (Tasks 1-5).
 - M2 Chips + Rules is in progress.
 - M2 currently includes: always-on custom gauge/hand flow, deck/discard refill behavior, buffered chip use, aggressive auto-chip behavior (`fullAuto`), MegaMan control modes (`manual`, `semiAuto`, `fullAuto`), baseline movement AI, sprite board rendering with hit-flash/HP overlays, runtime debug controls (pause/step/scale), recovery windows, and initial CSV-driven chip/enemy attack catalogs with grammar-aware melee/hitscan checks.
-- Remaining M2 scope: Program Advance core, MB/cost legality checks, and expanded effect grammar execution (throw/step + validation hardening).
+- Remaining M2 scope: MB/cost legality checks and expanded effect grammar execution (throw/step + validation hardening).
 - Detailed active handoff and task status are maintained in `docs/M1_HANDOFF.md`.
 
 ---

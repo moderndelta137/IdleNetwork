@@ -1,10 +1,12 @@
-import { useEffect, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Board } from '../features/battle/components/Board'
+import { FolderScene } from '../features/chips/components/FolderScene'
 import { useGameStore } from '../features/simulation/store/gameStore'
 
 const SPEEDS = [1, 2, 4] as const
 
 export function App() {
+  const [scene, setScene] = useState<'battle' | 'folder'>('battle')
   const ticks = useGameStore((state) => state.ticks)
   const speed = useGameStore((state) => state.speed)
   const combat = useGameStore((state) => state.combat)
@@ -15,6 +17,7 @@ export function App() {
   const stepFrame = useGameStore((state) => state.stepFrame)
   const debugSpriteScalePercent = useGameStore((state) => state.debugSpriteScalePercent)
   const setDebugSpriteScalePercent = useGameStore((state) => state.setDebugSpriteScalePercent)
+  const debugForceNextCustomDrawProgramAdvance = useGameStore((state) => state.debugForceNextCustomDrawProgramAdvance)
   const movePlayer = useGameStore((state) => state.movePlayer)
   const cycleMegamanControlMode = useGameStore((state) => state.cycleMegamanControlMode)
   const useChipSlot = useGameStore((state) => state.useChipSlot)
@@ -96,7 +99,18 @@ export function App() {
         <p>Always-on chip hand flow with gauge refill, deck/discard reshuffle, and buffered use.</p>
       </header>
 
-      <section className="hud">
+      <section className="scene-taskbar top" aria-label="Scene navigation">
+        <button type="button" className={scene === 'battle' ? 'active' : ''} onClick={() => setScene('battle')}>
+          Battle
+        </button>
+        <button type="button" className={scene === 'folder' ? 'active' : ''} onClick={() => setScene('folder')}>
+          Folder
+        </button>
+      </section>
+
+      {scene === 'battle' ? (
+        <>
+          <section className="hud">
         <span>Ticks: {ticks}</span>
         <div className="speed-controls" role="group" aria-label="Simulation speed">
           {SPEEDS.map((value) => (
@@ -113,10 +127,10 @@ export function App() {
         <button type="button" onClick={cycleMegamanControlMode}>
           Control: {combat.megamanControlMode}
         </button>
-      </section>
+          </section>
 
 
-      <section className="debug-controls" aria-label="Debug simulation controls">
+          <section className="debug-controls" aria-label="Debug simulation controls">
         <strong>Debug Controls</strong>
         <div className="debug-controls-row">
           <button type="button" onClick={() => setDebugPaused(!debugPaused)}>
@@ -127,6 +141,9 @@ export function App() {
           </button>
           <span>{debugPaused ? 'Paused' : 'Running'}</span>
           <span>Recovery: MegaMan {megamanRecoveryTicks}t / Mettaur {mettaurRecoveryTicks}t</span>
+          <button type="button" onClick={debugForceNextCustomDrawProgramAdvance}>
+            Force PA on Next Draw
+          </button>
         </div>
         <label className="sprite-scale-control" htmlFor="sprite-scale-slider">
           Sprite scale: {debugSpriteScalePercent}%
@@ -140,9 +157,9 @@ export function App() {
           value={debugSpriteScalePercent}
           onChange={(event) => setDebugSpriteScalePercent(Number(event.currentTarget.value))}
         />
-      </section>
+          </section>
 
-      <section className="gauge-card" aria-label="Custom gauge">
+          <section className="gauge-card" aria-label="Custom gauge">
         <strong>Custom Gauge</strong>
         <div className="gauge-track" role="progressbar" aria-valuemin={0} aria-valuemax={combat.customGaugeMaxTicks} aria-valuenow={combat.customGaugeTicks}>
           <div className="gauge-fill" style={{ width: `${(combat.customGaugeTicks / combat.customGaugeMaxTicks) * 100}%` }} />
@@ -153,9 +170,9 @@ export function App() {
         <span>Barrier: {combat.barrierCharges > 0 ? 'Active' : 'None'}</span>
         <span>Hitstun: {combat.megamanHitstunTicks}t</span>
         <span>Buffered chip: {combat.queuedChipSlot !== null ? `Slot ${combat.queuedChipSlot + 1}` : 'None'}</span>
-      </section>
+          </section>
 
-      <section className="hp-hud" aria-label="HP tracker">
+          <section className="hp-hud" aria-label="HP tracker">
         <div className="hp-card">
           <strong>MegaMan.EXE</strong>
           <span>
@@ -179,22 +196,29 @@ export function App() {
             Telegraph: {combat.mettaurTelegraphTicksRemaining > 0 ? `${combat.mettaurTelegraphTicksRemaining}t` : 'Idle'}
           </span>
         </div>
-      </section>
+          </section>
 
-      <section className="combat-log" aria-live="polite">
+          <section className="combat-log" aria-live="polite">
         Last event: {combat.lastEvent}
-      </section>
+          </section>
 
-      <p className="control-tip">Manual mode: Move (WASD/Arrows), Buster (Space or F), Chips (1-5). Buster/swing now need row alignment, so dodging telegraphs and re-lining shots matters. Yellow panels show active non-hitscan hitboxes (e.g., Mettaur swing). Semi-auto: auto move+buster, manual chips. Full-auto: auto move+buster+chips (manual chip override still works).</p>
+          {combat.programAdvanceAnimation ? <section className="pa-banner">PROGRAM ADVANCE! {combat.programAdvanceAnimation.name}</section> : null}
 
-      <Board />
+          <p className="control-tip">Manual mode: Move (WASD/Arrows), Buster (Space or F), Chips (1-5). Buster/swing now need row alignment, so dodging telegraphs and re-lining shots matters. Yellow panels show active non-hitscan hitboxes (e.g., Mettaur swing). Semi-auto: auto move+buster, manual chips. Full-auto: auto move+buster+chips (manual chip override still works).</p>
 
-      <section className="chip-hand-bar" aria-label="Chip hand area">
+          <Board />
+
+          <section className="chip-hand-bar" aria-label="Chip hand area">
         {combat.chipHand.map((chip, index) => (
           <button
             key={`chip-slot-${index}`}
             type="button"
-            className={`chip-slot ${chip ? 'filled' : 'empty'} ${combat.queuedChipSlot === index ? 'queued' : ''}`}
+            className={`chip-slot ${chip ? 'filled' : 'empty'} ${combat.queuedChipSlot === index ? 'queued' : ''} ${
+              chip?.id === 'zcannon' ? 'pa-chip' : ''
+            } ${combat.programAdvanceAnimation?.targetSlot === index ? 'pa-target' : ''} ${
+              combat.programAdvanceAnimation?.sourceSlots.includes(index) ? 'pa-source' : ''
+            }`}
+            style={{ '--pa-shift': combat.programAdvanceAnimation ? String(combat.programAdvanceAnimation.targetSlot - index) : '0' } as CSSProperties}
             onClick={() => useChipSlot(index)}
           >
             <span className="chip-slot-index">{index + 1}</span>
@@ -208,6 +232,19 @@ export function App() {
             )}
           </button>
         ))}
+          </section>
+        </>
+      ) : (
+        <FolderScene />
+      )}
+
+      <section className="scene-taskbar bottom" aria-label="Scene navigation">
+        <button type="button" className={scene === 'battle' ? 'active' : ''} onClick={() => setScene('battle')}>
+          Battle
+        </button>
+        <button type="button" className={scene === 'folder' ? 'active' : ''} onClick={() => setScene('folder')}>
+          Folder
+        </button>
       </section>
     </main>
   )
