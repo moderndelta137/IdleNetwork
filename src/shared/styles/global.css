@@ -353,3 +353,171 @@ button.active {
   color: #cbd5e1;
   font-size: 0.75rem;
 }
+
+.scene-taskbar {
+  align-items: center;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+  padding: 0.4rem;
+}
+
+.scene-taskbar.bottom {
+  margin: 1rem 0 0;
+  position: sticky;
+  bottom: 0.35rem;
+  z-index: 3;
+}
+
+.folder-scene {
+  background: #dadde7;
+  border: 4px solid #334155;
+  border-radius: 10px;
+  color: #111827;
+  margin-top: 0.6rem;
+  padding: 0.6rem;
+}
+
+.folder-scene-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.folder-scene-header h2 {
+  color: #111827;
+  font-size: 2rem;
+  margin: 0;
+}
+
+.folder-counters {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.folder-count,
+.stock-count {
+  border-radius: 999px;
+  color: #ecfeff;
+  font-size: 1.1rem;
+  padding: 0.15rem 0.55rem;
+}
+
+.folder-count {
+  background: #0f766e;
+}
+
+.stock-count {
+  background: #0369a1;
+}
+
+.folder-scene-body {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: minmax(210px, 0.72fr) minmax(0, 1.28fr);
+}
+
+.folder-chip-preview {
+  background: #e5e7eb;
+  border: 2px solid #94a3b8;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.45rem;
+}
+
+.folder-chip-art {
+  align-items: center;
+  background: linear-gradient(180deg, #60a5fa, #1d4ed8);
+  border: 2px solid #f8fafc;
+  border-radius: 6px;
+  color: #f8fafc;
+  display: flex;
+  font-size: 1.8rem;
+  height: 120px;
+  justify-content: center;
+  text-align: center;
+}
+
+.folder-chip-stats {
+  display: flex;
+  justify-content: space-between;
+}
+
+.folder-chip-description {
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  margin: 0;
+  min-height: 90px;
+  padding: 0.45rem;
+}
+
+.folder-chip-scrollbar {
+  background: repeating-linear-gradient(90deg, #fbbf24 0 8px, #fde68a 8px 12px);
+  border-radius: 999px;
+  height: 10px;
+}
+
+
+.folder-chip-columns {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.folder-chip-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.folder-chip-panel h3 {
+  color: #111827;
+  font-size: 1.2rem;
+  margin: 0;
+}
+.folder-chip-list {
+  background: #cbd5e1;
+  border: 2px solid #64748b;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+  height: 360px;
+  overflow: auto;
+  padding: 0.28rem;
+}
+
+.folder-chip-row {
+  align-items: center;
+  background: #1e293b;
+  border: 1px solid #475569;
+  color: #f8fafc;
+  display: grid;
+  gap: 0.25rem;
+  grid-template-columns: 20px minmax(0, 1fr) 24px 30px;
+  min-height: 30px;
+  padding: 0.2rem;
+}
+
+.folder-chip-row.selected {
+  background: #0f766e;
+  border-color: #5eead4;
+  box-shadow: 0 0 0 1px #5eead4 inset;
+}
+
+.folder-chip-row-index,
+.folder-chip-row-code,
+.folder-chip-row-mb {
+  text-align: center;
+}
+
+.folder-chip-row.stock {
+  background: #334155;
+  border-color: #64748b;
+}

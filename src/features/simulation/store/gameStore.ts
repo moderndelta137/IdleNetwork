@@ -83,6 +83,8 @@ type GameState = {
   customGaugeTicks: number
   customGaugeMaxTicks: number
   chipHandSize: number
+  chipFolder: BattleChip[]
+  chipStock: BattleChip[]
   chipHand: Array<BattleChip | null>
   chipDeck: BattleChip[]
   chipDiscard: BattleChip[]
@@ -250,6 +252,14 @@ const starterFolder: BattleChip[] = [
   { id: 'barrier', name: 'Barrier', code: 'L' },
   { id: 'sword', name: 'Sword', code: 'B' },
   { id: 'recover10', name: 'Recover10', code: 'A' },
+  { id: 'barrier', name: 'Barrier', code: '*' }
+]
+
+const starterStock: BattleChip[] = [
+  ...starterFolder,
+  { id: 'cannon', name: 'Cannon', code: 'A' },
+  { id: 'sword', name: 'Sword', code: 'A' },
+  { id: 'recover10', name: 'Recover10', code: 'L' },
   { id: 'barrier', name: 'Barrier', code: '*' }
 ]
 
@@ -806,6 +816,8 @@ type RuntimeState = Pick<
   | 'customGaugeTicks'
   | 'customGaugeMaxTicks'
   | 'chipHandSize'
+  | 'chipFolder'
+  | 'chipStock'
   | 'chipHand'
   | 'chipDeck'
   | 'chipDiscard'
@@ -836,6 +848,8 @@ const buildInitialState = (): RuntimeState => {
     customGaugeTicks: 0,
     customGaugeMaxTicks,
     chipHandSize: defaultChipHandSize,
+    chipFolder: starterFolder,
+    chipStock: starterStock,
     chipHand: firstFill.chipHand,
     chipDeck: firstFill.chipDeck,
     chipDiscard: firstFill.chipDiscard,
