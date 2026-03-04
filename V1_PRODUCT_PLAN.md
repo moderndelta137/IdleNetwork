@@ -118,8 +118,8 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 - M0 deployment and fallback pass are complete.
 - M1 Combat Vertical Slice is complete (Tasks 1-5).
 - M2 Chips + Rules is in progress.
-- M2 currently includes: always-on custom gauge/hand flow, deck/discard refill behavior, buffered chip use, aggressive auto-chip behavior (`fullAuto`), and MegaMan control modes (`manual`, `semiAuto`, `fullAuto`) with baseline movement AI.
-- Remaining M2 scope: Program Advance core and MB/cost legality checks.
+- M2 currently includes: always-on custom gauge/hand flow, deck/discard refill behavior, buffered chip use, aggressive auto-chip behavior (`fullAuto`), MegaMan control modes (`manual`, `semiAuto`, `fullAuto`), baseline movement AI, sprite board rendering with hit-flash/HP overlays, runtime debug controls (pause/step/scale), recovery windows, and initial CSV-driven chip/enemy attack catalogs with grammar-aware melee/hitscan checks.
+- Remaining M2 scope: Program Advance core, MB/cost legality checks, and expanded effect grammar execution (throw/step + validation hardening).
 - Detailed active handoff and task status are maintained in `docs/M1_HANDOFF.md`.
 
 ---
@@ -147,6 +147,7 @@ M0 active task checklist is maintained in `docs/M0_MILESTONE_TASKS.md`.
 - Simple board sprite implementation pass (MegaMan + Mettaur static sprites, text fallback retained)
 - Program Advance core implementation
 - MB/cost legality checks (lighter V1 profile)
+- Effect grammar executor expansion (throw/step + validation hardening)
 
 ### M3 Area Meta Loop
 - Area map UI + unlock gates
