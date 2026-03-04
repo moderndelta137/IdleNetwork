@@ -128,6 +128,84 @@ const parseEffectNumber = (effects: string, prefix: string): number | null => {
   return Number.parseInt(match[1], 10)
 }
 
+const parseMeleeOffsets = (effects: string): PanelPosition[] => {
+  const match = effects.match(/melee:offsets=([^;]+)/)
+  if (!match) {
+    return []
+  }
+
+  return match[1]
+    .split(';')
+    .map((pair) => pair.trim())
+    .filter((pair) => pair.length > 0)
+    .map((pair) => {
+      const [x, y] = pair.split('|')
+      return {
+        row: Number.parseInt(y, 10),
+        col: Number.parseInt(x, 10)
+      }
+    })
+    .filter((offset) => Number.isFinite(offset.row) && Number.isFinite(offset.col))
+}
+
+const parseHitscanRows = (effects: string): number[] => {
+  const rowsStart = effects.indexOf('hitscan:rows=')
+  if (rowsStart < 0) {
+    return []
+  }
+
+  const afterRows = effects.slice(rowsStart + 'hitscan:rows='.length)
+  const rowsSection = afterRows.split(';maxRange=')[0]
+
+  return rowsSection
+    .split(';')
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isFinite(value))
+}
+
+const canMeleeHitTarget = (megaman: EntityState, mettaur: EntityState, effects: string): boolean => {
+  const offsets = parseMeleeOffsets(effects)
+
+  return offsets.some((offset) => {
+    const targetPanel = {
+      row: megaman.position.row + offset.row,
+      col: megaman.position.col + offset.col
+    }
+
+    return targetPanel.row === mettaur.position.row && targetPanel.col === mettaur.position.col
+  })
+}
+
+const canHitscanHitTarget = (megaman: EntityState, mettaur: EntityState, effects: string): boolean => {
+  const rowOffsets = parseHitscanRows(effects)
+  const maxRange = parseEffectNumber(effects, 'maxRange=') ?? 6
+  const colDelta = mettaur.position.col - megaman.position.col
+  if (colDelta <= 0 || colDelta > maxRange) {
+    return false
+  }
+
+  const rowDelta = mettaur.position.row - megaman.position.row
+  if (!rowOffsets.includes(rowDelta)) {
+    return false
+  }
+
+  return true
+}
+
+const canChipDamageHitTarget = (chipDefinition: { type: string; effects: string }, megaman: EntityState, mettaur: EntityState): boolean => {
+  const chipType = chipDefinition.type.toLowerCase()
+
+  if (chipType === 'melee') {
+    return canMeleeHitTarget(megaman, mettaur, chipDefinition.effects)
+  }
+
+  if (chipType === 'hitscan') {
+    return canHitscanHitTarget(megaman, mettaur, chipDefinition.effects)
+  }
+
+  return true
+}
+
 const starterFolder: BattleChip[] = [
   { id: 'cannon', name: 'Cannon', code: 'A' },
   { id: 'sword', name: 'Sword', code: 'A' },
@@ -393,14 +471,19 @@ const tryUseChipFromSlot = (
   let megamanRecoveryTicks = chipDefinition.recoilTicks
 
   if (chipDefinition.damage > 0) {
-    const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, chipDefinition.damage)
-    nextEntities = {
-      ...nextEntities,
-      megaman: result.source,
-      mettaur: result.target
-    }
-    if (result.didHit) {
-      lastEvent = `${chip.name} hit for ${chipDefinition.damage}`
+    const canHit = canChipDamageHitTarget(chipDefinition, nextEntities.megaman, nextEntities.mettaur)
+    if (canHit) {
+      const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, chipDefinition.damage)
+      nextEntities = {
+        ...nextEntities,
+        megaman: result.source,
+        mettaur: result.target
+      }
+      if (result.didHit) {
+        lastEvent = `${chip.name} hit for ${chipDefinition.damage}`
+      }
+    } else {
+      lastEvent = `${chip.name} missed (out of range/line)`
     }
   }
 
