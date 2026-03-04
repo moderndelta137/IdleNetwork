@@ -31,6 +31,21 @@ type ProgramAdvanceAnimation = {
   name: string
 }
 
+type ProgramAdvanceRule = {
+  id: string
+  name: string
+  sequence: ChipId[]
+  resultChip: BattleChip
+  priority: number
+}
+
+type ProgramAdvanceAnimation = {
+  sourceSlots: number[]
+  targetSlot: number
+  ticksRemaining: number
+  name: string
+}
+
 type PanelPosition = {
   row: number
   col: number
