@@ -15,6 +15,7 @@ export function App() {
   const stepFrame = useGameStore((state) => state.stepFrame)
   const debugSpriteScalePercent = useGameStore((state) => state.debugSpriteScalePercent)
   const setDebugSpriteScalePercent = useGameStore((state) => state.setDebugSpriteScalePercent)
+  const debugForceNextCustomDrawProgramAdvance = useGameStore((state) => state.debugForceNextCustomDrawProgramAdvance)
   const movePlayer = useGameStore((state) => state.movePlayer)
   const cycleMegamanControlMode = useGameStore((state) => state.cycleMegamanControlMode)
   const useChipSlot = useGameStore((state) => state.useChipSlot)
@@ -127,6 +128,9 @@ export function App() {
           </button>
           <span>{debugPaused ? 'Paused' : 'Running'}</span>
           <span>Recovery: MegaMan {megamanRecoveryTicks}t / Mettaur {mettaurRecoveryTicks}t</span>
+          <button type="button" onClick={debugForceNextCustomDrawProgramAdvance}>
+            Force PA on Next Draw
+          </button>
         </div>
         <label className="sprite-scale-control" htmlFor="sprite-scale-slider">
           Sprite scale: {debugSpriteScalePercent}%
@@ -185,6 +189,8 @@ export function App() {
         Last event: {combat.lastEvent}
       </section>
 
+      {combat.programAdvanceAnimation ? <section className="pa-banner">PROGRAM ADVANCE! {combat.programAdvanceAnimation.name}</section> : null}
+
       <p className="control-tip">Manual mode: Move (WASD/Arrows), Buster (Space or F), Chips (1-5). Buster/swing now need row alignment, so dodging telegraphs and re-lining shots matters. Yellow panels show active non-hitscan hitboxes (e.g., Mettaur swing). Semi-auto: auto move+buster, manual chips. Full-auto: auto move+buster+chips (manual chip override still works).</p>
 
       <Board />
@@ -194,7 +200,12 @@ export function App() {
           <button
             key={`chip-slot-${index}`}
             type="button"
-            className={`chip-slot ${chip ? 'filled' : 'empty'} ${combat.queuedChipSlot === index ? 'queued' : ''}`}
+            className={`chip-slot ${chip ? 'filled' : 'empty'} ${combat.queuedChipSlot === index ? 'queued' : ''} ${
+              chip?.id === 'zcannon' ? 'pa-chip' : ''
+            } ${combat.programAdvanceAnimation?.targetSlot === index ? 'pa-target' : ''} ${
+              combat.programAdvanceAnimation?.sourceSlots.includes(index) ? 'pa-source' : ''
+            }`}
+            style={{ '--pa-shift': combat.programAdvanceAnimation ? String(combat.programAdvanceAnimation.targetSlot - index) : '0' } as CSSProperties}
             onClick={() => useChipSlot(index)}
           >
             <span className="chip-slot-index">{index + 1}</span>
