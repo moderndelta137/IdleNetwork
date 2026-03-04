@@ -25,6 +25,7 @@ type EntityState = {
   alive: boolean
   hp: number
   maxHp: number
+  hitFlashTicks: number
 }
 
 type OccupiedPanels = Record<string, EntityId>
@@ -51,6 +52,8 @@ type GameState = {
   ticks: number
   speed: Speed
   running: boolean
+  debugPaused: boolean
+  debugSpriteScalePercent: number
   entities: Record<EntityId, EntityState>
   occupiedPanels: OccupiedPanels
   combat: CombatSummary
@@ -67,11 +70,16 @@ type GameState = {
   queuedChipSlot: number | null
   barrierCharges: number
   megamanHitstunTicks: number
+  megamanRecoveryTicks: number
+  mettaurRecoveryTicks: number
   autoChipCooldown: number
   megamanControlMode: MegamanControlMode
   megamanAutoMoveCooldown: number
   mettaurMoveCooldown: number
   setSpeed: (speed: Speed) => void
+  setDebugPaused: (paused: boolean) => void
+  stepFrame: () => void
+  setDebugSpriteScalePercent: (scale: number) => void
   cycleMegamanControlMode: () => void
   movePlayer: (deltaRow: number, deltaCol: number) => void
   useChipSlot: (index: number) => void
@@ -84,6 +92,7 @@ type GameState = {
 let rafId: number | null = null
 let previous = 0
 let accumulator = 0
+let pendingStepFrames = 0
 
 const baseTickMs = 100
 const megamanBusterCadenceTicks = 10
@@ -95,11 +104,16 @@ const defaultChipHandSize = 5
 const megamanHitDamage = 8
 const mettaurHitDamage = 6
 const megamanHitstunTicksOnHit = 6
+const megamanBusterRecoveryTicks = 2
+const megamanSupportChipRecoveryTicks = 2
+const megamanAttackChipRecoveryTicks = 8
+const mettaurSwingRecoveryTicks = 6
 const autoChipCadenceTicks = 8
 const autoRecoverHpThreshold = 0.55
 const megamanAutoMoveCadenceTicks = 5
 const mettaurMoveCadenceTicks = 6
 const mettaurThreatWindowTicks = 2
+const hitFlashDurationTicks = 2
 
 const chipEffects: Record<ChipId, { damage?: number; heal?: number; barrier?: number }> = {
   cannon: { damage: 20 },
@@ -126,7 +140,8 @@ const createInitialEntities = (): Record<EntityId, EntityState> => ({
     position: { row: 1, col: 1 },
     alive: true,
     hp: 120,
-    maxHp: 120
+    maxHp: 120,
+    hitFlashTicks: 0
   },
   mettaur: {
     id: 'mettaur',
@@ -134,7 +149,8 @@ const createInitialEntities = (): Record<EntityId, EntityState> => ({
     position: { row: 1, col: 4 },
     alive: true,
     hp: 90,
-    maxHp: 90
+    maxHp: 90,
+    hitFlashTicks: 0
   }
 })
 
@@ -281,7 +297,8 @@ const applyDamage = (
     target: {
       ...target,
       hp: nextHp,
-      alive: nextHp > 0
+      alive: nextHp > 0,
+      hitFlashTicks: hitFlashDurationTicks
     },
     didHit: true
   }
@@ -348,6 +365,7 @@ const tryUseChipFromSlot = (
   barrierCharges: number
   lastEvent: string
   used: boolean
+  megamanRecoveryTicks: number
 } => {
   const chip = current.chipHand[slot]
   if (!chip) {
@@ -357,7 +375,8 @@ const tryUseChipFromSlot = (
       chipDiscard: current.chipDiscard,
       barrierCharges: current.barrierCharges,
       lastEvent: 'Selected chip slot is empty',
-      used: false
+      used: false,
+      megamanRecoveryTicks: 0
     }
   }
 
@@ -365,6 +384,7 @@ const tryUseChipFromSlot = (
   let nextEntities = { ...current.entities }
   let barrierCharges = current.barrierCharges
   let lastEvent = `Chip used: ${chip.name} ${chip.code}`
+  let megamanRecoveryTicks = effects.damage ? megamanAttackChipRecoveryTicks : megamanSupportChipRecoveryTicks
 
   if (effects.damage) {
     const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, effects.damage)
@@ -406,7 +426,8 @@ const tryUseChipFromSlot = (
     chipDiscard: [...current.chipDiscard, chip],
     barrierCharges,
     lastEvent,
-    used: true
+    used: true,
+    megamanRecoveryTicks
   }
 }
 
@@ -564,6 +585,8 @@ type RuntimeState = Pick<
   | 'queuedChipSlot'
   | 'barrierCharges'
   | 'megamanHitstunTicks'
+  | 'megamanRecoveryTicks'
+  | 'mettaurRecoveryTicks'
   | 'autoChipCooldown'
   | 'megamanControlMode'
   | 'megamanAutoMoveCooldown'
@@ -590,6 +613,8 @@ const buildInitialState = (): RuntimeState => {
     queuedChipSlot: null,
     barrierCharges: 0,
     megamanHitstunTicks: 0,
+    megamanRecoveryTicks: 0,
+    mettaurRecoveryTicks: 0,
     autoChipCooldown: autoChipCadenceTicks,
     megamanControlMode: 'semiAuto',
     megamanAutoMoveCooldown: megamanAutoMoveCadenceTicks,
@@ -609,7 +634,25 @@ export const useGameStore = create<GameState>((set, get) => ({
   ...buildInitialState(),
   speed: 1,
   running: false,
+  debugPaused: false,
+  debugSpriteScalePercent: 300,
   setSpeed: (speed) => set({ speed }),
+  setDebugPaused: (paused) => {
+    if (!paused) {
+      pendingStepFrames = 0
+    }
+    set({ debugPaused: paused })
+  },
+  stepFrame: () => {
+    if (!get().debugPaused) {
+      return
+    }
+    pendingStepFrames += 1
+  },
+  setDebugSpriteScalePercent: (scale) => {
+    const clampedScale = Math.max(100, Math.min(400, Math.round(scale)))
+    set({ debugSpriteScalePercent: clampedScale })
+  },
   cycleMegamanControlMode: () => {
     set((current) => {
       const nextMode = cycleControlMode(current.megamanControlMode)
@@ -637,7 +680,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       const player = current.entities.megaman
-      if (!player.alive) {
+      if (!player.alive || current.megamanRecoveryTicks > 0) {
         return {}
       }
 
@@ -687,7 +730,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         return {}
       }
 
-      const megamanBusy = !current.entities.megaman.alive || current.megamanHitstunTicks > 0
+      const megamanBusy = !current.entities.megaman.alive || current.megamanHitstunTicks > 0 || current.megamanRecoveryTicks > 0
 
       if (megamanBusy) {
         const runtime = {
@@ -743,6 +786,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipDiscard: result.chipDiscard,
         barrierCharges: result.barrierCharges,
         queuedChipSlot: null,
+        megamanRecoveryTicks: result.megamanRecoveryTicks,
         combat: buildCombatSummary(result.entities, runtime, result.lastEvent)
       }
     })
@@ -756,7 +800,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   manualFireBuster: () => {
     set((current) => {
-      if (current.megamanControlMode !== 'manual' || current.megamanBusterCooldown > 0) {
+      if (current.megamanControlMode !== 'manual' || current.megamanBusterCooldown > 0 || current.megamanRecoveryTicks > 0) {
         return {}
       }
 
@@ -784,6 +828,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         entities: nextEntities,
         occupiedPanels: buildOccupiedPanels(nextEntities),
         megamanBusterCooldown: megamanBusterCadenceTicks,
+        megamanRecoveryTicks: megamanBusterRecoveryTicks,
         combat: buildCombatSummary(nextEntities, runtime, result.didHit ? `Manual MegaBuster hit for ${megamanHitDamage}` : 'Manual MegaBuster missed (out of line)')
       }
     })
@@ -794,7 +839,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       return {
         ...next,
         speed: current.speed,
-        running: current.running
+        running: current.running,
+        debugPaused: current.debugPaused,
+        debugSpriteScalePercent: current.debugSpriteScalePercent
       }
     })
   },
@@ -811,13 +858,32 @@ export const useGameStore = create<GameState>((set, get) => ({
       const delta = now - previous
       previous = now
 
-      accumulator += delta * state.speed
+      if (state.debugPaused) {
+        if (pendingStepFrames > 0) {
+          pendingStepFrames -= 1
+          accumulator = Math.max(accumulator, baseTickMs)
+        } else {
+          accumulator = 0
+        }
+      } else {
+        accumulator += delta * state.speed
+      }
 
       while (accumulator >= baseTickMs) {
         accumulator -= baseTickMs
         set((current) => {
           const nextTicks = current.ticks + 1
-          let nextEntities = { ...current.entities }
+          let nextEntities = {
+            ...current.entities,
+            megaman: {
+              ...current.entities.megaman,
+              hitFlashTicks: Math.max(0, current.entities.megaman.hitFlashTicks - 1)
+            },
+            mettaur: {
+              ...current.entities.mettaur,
+              hitFlashTicks: Math.max(0, current.entities.mettaur.hitFlashTicks - 1)
+            }
+          }
           let megamanBusterCooldown = Math.max(0, current.megamanBusterCooldown - 1)
           let mettaurAttackCooldown = Math.max(0, current.mettaurAttackCooldown - 1)
           let mettaurTelegraphTicksRemaining = current.mettaurTelegraphTicksRemaining
@@ -829,6 +895,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           let queuedChipSlot = current.queuedChipSlot
           let barrierCharges = current.barrierCharges
           let megamanHitstunTicks = Math.max(0, current.megamanHitstunTicks - 1)
+          let megamanRecoveryTicks = Math.max(0, current.megamanRecoveryTicks - 1)
+          let mettaurRecoveryTicks = Math.max(0, current.mettaurRecoveryTicks - 1)
           let autoChipCooldown = Math.max(0, current.autoChipCooldown - 1)
           let megamanAutoMoveCooldown = Math.max(0, current.megamanAutoMoveCooldown - 1)
           let mettaurMoveCooldown = Math.max(0, current.mettaurMoveCooldown - 1)
@@ -844,7 +912,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             lastEvent = 'Custom Gauge full. Hand refilled from deck.'
           }
 
-          const megamanBusy = !nextEntities.megaman.alive || megamanHitstunTicks > 0
+          const megamanBusy = !nextEntities.megaman.alive || megamanHitstunTicks > 0 || megamanRecoveryTicks > 0
 
           if (nextEntities.megaman.alive && megamanControlMode !== 'manual' && megamanAutoMoveCooldown === 0) {
             const autoMove = chooseMegamanAutoMove(nextEntities, {
@@ -860,7 +928,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanAutoMoveCooldown = megamanAutoMoveCadenceTicks
           }
 
-          if (nextEntities.mettaur.alive && mettaurMoveCooldown === 0) {
+          if (nextEntities.mettaur.alive && mettaurMoveCooldown === 0 && mettaurTelegraphTicksRemaining === 0 && mettaurRecoveryTicks === 0) {
             const autoMove = chooseMettaurAutoMove(nextEntities, {
               megamanBusterCooldown,
               mettaurTelegraphTicksRemaining
@@ -885,6 +953,7 @@ export const useGameStore = create<GameState>((set, get) => ({
               barrierCharges = queuedUse.barrierCharges
               lastEvent = `Buffered chip resolved: ${queuedUse.lastEvent}`
               queuedChipSlot = null
+              megamanRecoveryTicks = queuedUse.megamanRecoveryTicks
               autoChipCooldown = autoChipCadenceTicks
             } else {
               queuedChipSlot = null
@@ -909,6 +978,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                 chipHand = autoUse.chipHand
                 chipDiscard = autoUse.chipDiscard
                 barrierCharges = autoUse.barrierCharges
+                megamanRecoveryTicks = autoUse.megamanRecoveryTicks
                 lastEvent = `Auto chip: ${autoUse.lastEvent}`
               }
             }
@@ -926,15 +996,17 @@ export const useGameStore = create<GameState>((set, get) => ({
               ...nextEntities.mettaur,
               hp: nextEntities.mettaur.maxHp,
               alive: true,
-              position: { row: 1, col: 4 }
+              position: { row: 1, col: 4 },
+              hitFlashTicks: 0
             }
             mettaurRespawnTick = null
             mettaurAttackCooldown = mettaurAttackCadenceTicks
             mettaurTelegraphTicksRemaining = 0
+            mettaurRecoveryTicks = 0
             lastEvent = 'Mettaur respawned'
           }
 
-          if (megamanControlMode !== 'manual' && megamanBusterCooldown === 0) {
+          if (!megamanBusy && megamanControlMode !== 'manual' && megamanBusterCooldown === 0) {
             if (canMegamanBusterHit(nextEntities.megaman, nextEntities.mettaur)) {
               const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, megamanHitDamage)
               nextEntities = {
@@ -949,6 +1021,7 @@ export const useGameStore = create<GameState>((set, get) => ({
               lastEvent = 'MegaBuster missed (out of line)'
             }
             megamanBusterCooldown = megamanBusterCadenceTicks
+            megamanRecoveryTicks = megamanBusterRecoveryTicks
           }
 
           if (nextEntities.mettaur.alive && nextEntities.megaman.alive) {
@@ -975,14 +1048,16 @@ export const useGameStore = create<GameState>((set, get) => ({
                 } else {
                   lastEvent = 'Mettaur swing missed'
                 }
+                mettaurRecoveryTicks = mettaurSwingRecoveryTicks
               }
-            } else if (mettaurAttackCooldown === 0) {
+            } else if (mettaurAttackCooldown === 0 && mettaurRecoveryTicks === 0) {
               mettaurTelegraphTicksRemaining = mettaurTelegraphTicks
               mettaurAttackCooldown = mettaurAttackCadenceTicks
               lastEvent = `Mettaur telegraph (${mettaurTelegraphTicks} ticks)`
             }
           } else {
             mettaurTelegraphTicksRemaining = 0
+            mettaurRecoveryTicks = 0
           }
 
           const occupiedPanels = buildOccupiedPanels(nextEntities)
@@ -1013,6 +1088,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             queuedChipSlot,
             barrierCharges,
             megamanHitstunTicks,
+            megamanRecoveryTicks,
+            mettaurRecoveryTicks,
             autoChipCooldown,
             megamanAutoMoveCooldown,
             mettaurMoveCooldown
@@ -1031,6 +1108,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
       rafId = null
       accumulator = 0
+      pendingStepFrames = 0
       set({ running: false })
     }
   }
