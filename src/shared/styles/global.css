@@ -534,6 +534,11 @@ button.active {
   padding: 0.28rem;
 }
 
+.folder-chip-list.drop-target {
+  border-color: #0891b2;
+  box-shadow: 0 0 0 1px #0891b2 inset;
+}
+
 .folder-chip-row {
   align-items: center;
   background: #1e293b;
@@ -552,6 +557,11 @@ button.active {
   box-shadow: 0 0 0 1px #5eead4 inset;
 }
 
+.folder-chip-row.dragging {
+  opacity: 0.65;
+  outline: 2px dashed #fbbf24;
+}
+
 .folder-chip-row-index,
 .folder-chip-row-code,
 .folder-chip-row-mb {
@@ -566,4 +576,17 @@ button.active {
 
 .folder-chip-row-size {
   text-align: center;
+}
+
+.folder-temp-add-row {
+  align-items: center;
+  background: rgba(14, 165, 233, 0.16);
+  border: 1px dashed #0891b2;
+  border-radius: 6px;
+  color: #0f172a;
+  display: flex;
+  font-size: 1.4rem;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 30px;
 }
