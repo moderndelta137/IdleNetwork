@@ -303,6 +303,27 @@ const starterStock: BattleChip[] = [
   { id: 'barrier', name: 'Barrier', code: '*' }
 ]
 
+const starterStock: BattleChip[] = [
+  ...starterFolder,
+  { id: 'cannon', name: 'Cannon', code: 'A' },
+  { id: 'hicannon', name: 'HiCannon', code: 'L' },
+  { id: 'hicannon', name: 'HiCannon', code: 'A' },
+  { id: 'm-cannon', name: 'M-Cannon', code: 'A' },
+  { id: 'sword', name: 'Sword', code: 'A' },
+  { id: 'widesword', name: 'WideSword', code: 'A' },
+  { id: 'widesword', name: 'WideSword', code: 'B' },
+  { id: 'longsword', name: 'LongSword', code: 'A' },
+  { id: 'longsword', name: 'LongSword', code: 'L' },
+  { id: 'spreader', name: 'Spreader', code: 'L' },
+  { id: 'spreader', name: 'Spreader', code: 'A' },
+  { id: 'minibomb', name: 'MiniBomb', code: '*' },
+  { id: 'minibomb', name: 'MiniBomb', code: 'B' },
+  { id: 'recover10', name: 'Recover10', code: 'L' },
+  { id: 'recover30', name: 'Recover30', code: 'L' },
+  { id: 'recover30', name: 'Recover30', code: 'A' },
+  { id: 'barrier', name: 'Barrier', code: '*' }
+]
+
 const createInitialEntities = (): Record<EntityId, EntityState> => ({
   megaman: {
     id: 'megaman',
