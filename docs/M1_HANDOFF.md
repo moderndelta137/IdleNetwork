@@ -4,6 +4,7 @@ This file captures the current implementation state and exact next work for a ne
 
 ## Current State (post-M1, active M2)
 - M0 foundation/deployment pass is in place (Vite + React + TypeScript + Zustand + Pages workflow).
+- CSV data pipeline hardening pass complete (row validation, grammar validation, skip+warn fallback, parser/loader tests).
 - M1 Combat Vertical Slice is complete.
 - M2 implementation is in progress and currently includes:
   - Always-on chip hand with 5 slots.
@@ -46,12 +47,12 @@ Implement remaining M2 scope in this order:
      - multi-row/multi-tile fan patterns with consistent separators
    - Keep CSV as source-of-truth; avoid hardcoded effect behavior in store.
 
-2. **Data pipeline hardening for CSV workflow**
-   - Add validation/warnings for malformed CSV rows/effects grammar.
-   - Add clear fallback behavior when a row is invalid (skip row + log).
-   - Consider adding tiny tests for parser/catalog loaders.
+2. **Data pipeline hardening for CSV workflow** ✅ complete
+   - Validation/warnings added for malformed CSV rows/effects grammar.
+   - Safe fallback behavior added (invalid row skipped + warning log).
+   - Parser/catalog loader tests added.
 
-3. **Stability pass on runtime behavior**
+3. **Stability pass on runtime behavior** (active)
    - Verify manual/semi/full mode transitions do not desync queued chip state.
    - Verify AI movement + chip logic remain deterministic across long runs.
    - Keep `gameStore.ts` free of duplicate helper blocks (guard script + review).
