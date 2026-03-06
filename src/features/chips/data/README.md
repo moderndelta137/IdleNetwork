@@ -16,3 +16,4 @@
 
 Notes:
 - `MB` is explicit metadata used for folder legality checks (do not derive from DMG).
+- Effects can be chained in one `Effects` field using commas (example: `step:offset=2|0,melee:offsets=1|0`).
