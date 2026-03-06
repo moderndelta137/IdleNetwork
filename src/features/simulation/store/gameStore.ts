@@ -366,15 +366,26 @@ const collectChipIndicatorPanels = (effects: string, megaman: EntityState): stri
   return Array.from(indicatorPanels)
 }
 
-const applyStepToMegamanIfPresent = (entities: Record<EntityId, EntityState>, effects: string): Record<EntityId, EntityState> => {
-  const steppedMegaman = getSteppedMegamanEntity(entities.megaman, entities.mettaur, effects)
-  if (steppedMegaman.position.row === entities.megaman.position.row && steppedMegaman.position.col === entities.megaman.position.col) {
-    return entities
+const resolveChipExecutionSource = (
+  entities: Record<EntityId, EntityState>,
+  effects: string
+): { entities: Record<EntityId, EntityState>; didStep: boolean; originalMegaman: EntityState } => {
+  const originalMegaman = entities.megaman
+  const steppedMegaman = getSteppedMegamanEntity(originalMegaman, entities.mettaur, effects)
+  const didStep =
+    steppedMegaman.position.row !== originalMegaman.position.row || steppedMegaman.position.col !== originalMegaman.position.col
+
+  if (!didStep) {
+    return { entities, didStep: false, originalMegaman }
   }
 
   return {
-    ...entities,
-    megaman: steppedMegaman
+    entities: {
+      ...entities,
+      megaman: steppedMegaman
+    },
+    didStep: true,
+    originalMegaman
   }
 }
 
@@ -794,7 +805,8 @@ const tryUseChipFromSlot = (
   const chipDefinition = chipCatalog[chip.id]
   let nextEntities = { ...current.entities }
   let barrierCharges = current.barrierCharges
-  nextEntities = applyStepToMegamanIfPresent(nextEntities, chipDefinition.effects)
+  const sourceResolution = resolveChipExecutionSource(nextEntities, chipDefinition.effects)
+  nextEntities = sourceResolution.entities
   const chipIndicatorPanels = collectChipIndicatorPanels(chipDefinition.effects, nextEntities.megaman)
   let lastEvent = `Chip used: ${chip.name} ${chip.code}`
   let megamanRecoveryTicks = chipDefinition.recoilTicks
@@ -837,6 +849,13 @@ const tryUseChipFromSlot = (
     lastEvent = `${chip.name} barrier ready`
   }
 
+  if (sourceResolution.didStep) {
+    nextEntities = {
+      ...nextEntities,
+      megaman: sourceResolution.originalMegaman
+    }
+  }
+
   const nextHand = [...current.chipHand]
   nextHand[slot] = null
 
@@ -854,6 +873,13 @@ const tryUseChipFromSlot = (
   }
 }
 
+const isOffensiveChip = (effects: string): boolean => {
+  const effectChain = splitEffectChain(effects)
+  return effectChain.some(
+    (effect) => effect.startsWith('melee:offsets=') || effect.startsWith('throw:offsets=') || effect.startsWith('hitscan:rows=')
+  )
+}
+
 const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'barrierCharges'>): number | null => {
   const { chipHand, entities, barrierCharges } = state
   const playerHpRatio = entities.megaman.maxHp > 0 ? entities.megaman.hp / entities.megaman.maxHp : 0
@@ -864,7 +890,7 @@ const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'ba
   }
 
   if (playerHpRatio <= autoRecoverHpThreshold) {
-    const recoverSlot = chipHand.findIndex((chip) => chip?.id === 'recover10')
+    const recoverSlot = chipHand.findIndex((chip) => chip?.id === 'recover10' || chip?.id === 'recover30')
     if (recoverSlot >= 0) {
       return recoverSlot
     }
@@ -877,34 +903,44 @@ const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'ba
     }
   }
 
-  const swordSlot = chipHand.findIndex((chip) => chip?.id === 'sword')
-  if (swordSlot >= 0) {
-    return swordSlot
+  let bestSlot: number | null = null
+  let bestScore = Number.NEGATIVE_INFINITY
+
+  chipHand.forEach((chip, index) => {
+    if (!chip) {
+      return
+    }
+
+    const chipDefinition = chipCatalog[chip.id]
+    if (!chipDefinition || !isOffensiveChip(chipDefinition.effects) || chipDefinition.damage <= 0) {
+      return
+    }
+
+    const steppedMegaman = getSteppedMegamanEntity(entities.megaman, entities.mettaur, chipDefinition.effects)
+    const canHit = canChipDamageHitTarget(chipDefinition, steppedMegaman, entities.mettaur)
+
+    let score = chipDefinition.damage
+    if (!canHit) {
+      score -= 1000
+    }
+
+    if (chip.id === 'stepsword') {
+      score += 12
+    } else if (chip.id === 'sword' || chip.id === 'widesword' || chip.id === 'longsword') {
+      score += 6
+    }
+
+    if (score > bestScore) {
+      bestScore = score
+      bestSlot = index
+    }
+  })
+
+  if (bestSlot !== null) {
+    return bestSlot
   }
 
-  const cannonSlot = chipHand.findIndex((chip) => chip?.id === 'cannon')
-  if (cannonSlot >= 0) {
-    return cannonSlot
-  }
-
-  const heavyShotSlot = chipHand.findIndex((chip) => chip?.id === 'hicannon' || chip?.id === 'm-cannon' || chip?.id === 'spreader')
-  if (heavyShotSlot >= 0) {
-    return heavyShotSlot
-  }
-
-  const swordFamilySlot = chipHand.findIndex(
-    (chip) => chip?.id === 'widesword' || chip?.id === 'longsword' || chip?.id === 'stepsword' || chip?.id === 'minibomb' || chip?.id === 'lilbomb'
-  )
-  if (swordFamilySlot >= 0) {
-    return swordFamilySlot
-  }
-
-  const recover30Slot = chipHand.findIndex((chip) => chip?.id === 'recover30')
-  if (recover30Slot >= 0) {
-    return recover30Slot
-  }
-
-  return null
+  return chipHand.findIndex((chip) => chip !== null)
 }
 
 const chooseMegamanAutoMove = (
