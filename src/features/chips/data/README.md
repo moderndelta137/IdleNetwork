@@ -4,6 +4,7 @@
 
 - Name
 - DMG
+- MB
 - Type
 - Description
 - Lag (seconds)
@@ -11,3 +12,7 @@
 - Effects (grammar string)
 
 `effect-grammar.csv` documents supported effect grammar sections.
+
+
+Notes:
+- `MB` is explicit metadata used for folder legality checks (do not derive from DMG).
