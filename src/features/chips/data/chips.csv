@@ -7,6 +7,8 @@ WideSword,40,8,Melee,Wide 3-panel slash,0.12,0.35,melee:offsets=1|0;1|1;1|-1
 LongSword,50,10,Melee,Long forward slash,0.14,0.38,melee:offsets=1|0;2|0
 Spreader,30,10,Hitscan,Spread shot around impact,0.2,0.42,hitscan:rows=0;-1;1;maxRange=4;pierce=false
 MiniBomb,50,10,Throw,Toss a small bomb,0.28,0.5,throw:offsets=2|0;3|0;4|0
+LilBomb,90,18,Throw,Toss a heavy bomb,0.34,0.54,throw:offsets=2|0;3|0;4|0
+StepSword,80,16,Melee,Step and slash,0.16,0.4,"step:offset=2|0,melee:offsets=1|0"
 Recover10,0,2,Support,Recover a small amount of HP,0.1,0.2,heal:amount=10
 Recover30,0,6,Support,Recover HP,0.12,0.24,heal:amount=30
 Barrier,0,8,Support,Set a single-hit barrier,0.1,0.2,barrier:charges=1
