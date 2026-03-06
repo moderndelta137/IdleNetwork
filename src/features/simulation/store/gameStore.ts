@@ -65,6 +65,7 @@ type CombatSummary = {
   programAdvanceAnimation: ProgramAdvanceAnimation | null
   lastEvent: string
   activeHitboxPanels: string[]
+  chipIndicatorPanels: string[]
 }
 
 type GameState = {
@@ -97,6 +98,8 @@ type GameState = {
   megamanControlMode: MegamanControlMode
   programAdvanceAnimation: ProgramAdvanceAnimation | null
   forceProgramAdvanceOnNextCustomDraw: boolean
+  chipIndicatorPanels: string[]
+  chipIndicatorTicksRemaining: number
   megamanAutoMoveCooldown: number
   mettaurMoveCooldown: number
   setSpeed: (speed: Speed) => void
@@ -136,9 +139,10 @@ const mettaurMoveCadenceTicks = 6
 const mettaurThreatWindowTicks = 2
 const hitFlashDurationTicks = 2
 const programAdvanceAnimationTicks = 12
-const folderMbLimit = 40
+const folderMbLimit = 200
 const boardRowCount = 3
 const boardColCount = 6
+const chipIndicatorDurationTicks = 3
 
 const chipCatalog = loadChipCatalog(baseTickMs)
 const enemyAttackCatalog = loadEnemyAttackCatalog(baseTickMs)
@@ -285,7 +289,6 @@ const getSteppedMegamanEntity = (megaman: EntityState, mettaur: EntityState, eff
 }
 
 const canChipDamageHitTarget = (chipDefinition: { effects: string }, megaman: EntityState, mettaur: EntityState): boolean => {
-  const steppedMegaman = getSteppedMegamanEntity(megaman, mettaur, chipDefinition.effects)
   const effectChain = splitEffectChain(chipDefinition.effects)
 
   const offensiveEffects = effectChain.filter((effect) =>
@@ -298,19 +301,81 @@ const canChipDamageHitTarget = (chipDefinition: { effects: string }, megaman: En
 
   return offensiveEffects.some((effect) => {
     if (effect.startsWith('melee:offsets=')) {
-      return canOffsetPatternHitTarget(steppedMegaman, mettaur, parseEffectOffsets(effect, 'melee'))
+      return canOffsetPatternHitTarget(megaman, mettaur, parseEffectOffsets(effect, 'melee'))
     }
 
     if (effect.startsWith('throw:offsets=')) {
-      return canOffsetPatternHitTarget(steppedMegaman, mettaur, parseEffectOffsets(effect, 'throw'))
+      return canOffsetPatternHitTarget(megaman, mettaur, parseEffectOffsets(effect, 'throw'))
     }
 
     if (effect.startsWith('hitscan:rows=')) {
-      return canHitscanHitTarget(steppedMegaman, mettaur, effect)
+      return canHitscanHitTarget(megaman, mettaur, effect)
     }
 
     return false
   })
+}
+
+
+const collectChipIndicatorPanels = (effects: string, megaman: EntityState): string[] => {
+  const effectChain = splitEffectChain(effects)
+  const indicatorPanels = new Set<string>()
+
+  effectChain.forEach((effect) => {
+    if (effect.startsWith('melee:offsets=')) {
+      parseEffectOffsets(effect, 'melee').forEach((offset) => {
+        const row = megaman.position.row + offset.row
+        const col = megaman.position.col + offset.col
+        if (row >= 0 && row < boardRowCount && col >= 0 && col < boardColCount) {
+          indicatorPanels.add(makePanelKey({ row, col }))
+        }
+      })
+      return
+    }
+
+    if (effect.startsWith('throw:offsets=')) {
+      parseEffectOffsets(effect, 'throw').forEach((offset) => {
+        const row = megaman.position.row + offset.row
+        const col = megaman.position.col + offset.col
+        if (row >= 0 && row < boardRowCount && col >= 0 && col < boardColCount) {
+          indicatorPanels.add(makePanelKey({ row, col }))
+        }
+      })
+      return
+    }
+
+    if (effect.startsWith('hitscan:rows=')) {
+      const rows = parseHitscanRows(effect)
+      const maxRange = parseEffectNumber(effect, 'maxRange=') ?? 6
+      rows.forEach((rowOffset) => {
+        const targetRow = megaman.position.row + rowOffset
+        if (targetRow < 0 || targetRow >= boardRowCount) {
+          return
+        }
+        for (let range = 1; range <= maxRange; range += 1) {
+          const targetCol = megaman.position.col + range
+          if (targetCol < 0 || targetCol >= boardColCount) {
+            break
+          }
+          indicatorPanels.add(makePanelKey({ row: targetRow, col: targetCol }))
+        }
+      })
+    }
+  })
+
+  return Array.from(indicatorPanels)
+}
+
+const applyStepToMegamanIfPresent = (entities: Record<EntityId, EntityState>, effects: string): Record<EntityId, EntityState> => {
+  const steppedMegaman = getSteppedMegamanEntity(entities.megaman, entities.mettaur, effects)
+  if (steppedMegaman.position.row === entities.megaman.position.row && steppedMegaman.position.col === entities.megaman.position.col) {
+    return entities
+  }
+
+  return {
+    ...entities,
+    megaman: steppedMegaman
+  }
 }
 
 const starterFolder: BattleChip[] = [
@@ -587,6 +652,7 @@ const buildCombatSummary = (
     | 'queuedChipSlot'
     | 'megamanControlMode'
     | 'programAdvanceAnimation'
+    | 'chipIndicatorPanels'
   >,
   lastEvent: string
 ): CombatSummary => {
@@ -609,7 +675,8 @@ const buildCombatSummary = (
     megamanControlMode: runtime.megamanControlMode,
     programAdvanceAnimation: runtime.programAdvanceAnimation,
     lastEvent,
-    activeHitboxPanels: buildMettaurSwingHitboxPanels(entities, runtime.mettaurTelegraphTicksRemaining)
+    activeHitboxPanels: buildMettaurSwingHitboxPanels(entities, runtime.mettaurTelegraphTicksRemaining),
+    chipIndicatorPanels: runtime.chipIndicatorPanels
   }
 }
 
@@ -705,6 +772,7 @@ const tryUseChipFromSlot = (
   chipHand: Array<BattleChip | null>
   chipDiscard: BattleChip[]
   barrierCharges: number
+  chipIndicatorPanels: string[]
   lastEvent: string
   used: boolean
   megamanRecoveryTicks: number
@@ -716,6 +784,7 @@ const tryUseChipFromSlot = (
       chipHand: current.chipHand,
       chipDiscard: current.chipDiscard,
       barrierCharges: current.barrierCharges,
+      chipIndicatorPanels: [],
       lastEvent: 'Selected chip slot is empty',
       used: false,
       megamanRecoveryTicks: 0
@@ -725,6 +794,8 @@ const tryUseChipFromSlot = (
   const chipDefinition = chipCatalog[chip.id]
   let nextEntities = { ...current.entities }
   let barrierCharges = current.barrierCharges
+  nextEntities = applyStepToMegamanIfPresent(nextEntities, chipDefinition.effects)
+  const chipIndicatorPanels = collectChipIndicatorPanels(chipDefinition.effects, nextEntities.megaman)
   let lastEvent = `Chip used: ${chip.name} ${chip.code}`
   let megamanRecoveryTicks = chipDefinition.recoilTicks
 
@@ -776,6 +847,7 @@ const tryUseChipFromSlot = (
     chipHand: nextHand,
     chipDiscard: [...current.chipDiscard, ...chipsToDiscard],
     barrierCharges,
+    chipIndicatorPanels,
     lastEvent,
     used: true,
     megamanRecoveryTicks
@@ -968,6 +1040,8 @@ type RuntimeState = Pick<
   | 'mettaurMoveCooldown'
   | 'programAdvanceAnimation'
   | 'forceProgramAdvanceOnNextCustomDraw'
+  | 'chipIndicatorPanels'
+  | 'chipIndicatorTicksRemaining'
 >
 
 const buildInitialState = (): RuntimeState => {
@@ -999,7 +1073,9 @@ const buildInitialState = (): RuntimeState => {
     megamanAutoMoveCooldown: megamanAutoMoveCadenceTicks,
     mettaurMoveCooldown: mettaurMoveCadenceTicks,
     programAdvanceAnimation: null,
-    forceProgramAdvanceOnNextCustomDraw: false
+    forceProgramAdvanceOnNextCustomDraw: false,
+    chipIndicatorPanels: [],
+    chipIndicatorTicksRemaining: 0
   }
 
   return {
@@ -1119,7 +1195,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         megamanHitstunTicks: current.megamanHitstunTicks,
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
-        programAdvanceAnimation: current.programAdvanceAnimation
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: current.chipIndicatorPanels
       }
 
       return {
@@ -1140,7 +1217,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         megamanHitstunTicks: current.megamanHitstunTicks,
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: nextMode,
-        programAdvanceAnimation: current.programAdvanceAnimation
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: current.chipIndicatorPanels
       }
 
       return {
@@ -1191,7 +1269,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         megamanHitstunTicks: current.megamanHitstunTicks,
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
-        programAdvanceAnimation: current.programAdvanceAnimation
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: current.chipIndicatorPanels
       }
 
       return {
@@ -1219,7 +1298,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           megamanHitstunTicks: current.megamanHitstunTicks,
           queuedChipSlot: index,
           megamanControlMode: current.megamanControlMode,
-          programAdvanceAnimation: current.programAdvanceAnimation
+          programAdvanceAnimation: current.programAdvanceAnimation,
+          chipIndicatorPanels: current.chipIndicatorPanels
         }
 
         return {
@@ -1239,7 +1319,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           megamanHitstunTicks: current.megamanHitstunTicks,
           queuedChipSlot: current.queuedChipSlot,
           megamanControlMode: current.megamanControlMode,
-          programAdvanceAnimation: current.programAdvanceAnimation
+          programAdvanceAnimation: current.programAdvanceAnimation,
+          chipIndicatorPanels: current.chipIndicatorPanels
         }
 
         return {
@@ -1256,7 +1337,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         megamanHitstunTicks: current.megamanHitstunTicks,
         queuedChipSlot: null,
         megamanControlMode: current.megamanControlMode,
-        programAdvanceAnimation: current.programAdvanceAnimation
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: result.chipIndicatorPanels
       }
 
       return {
@@ -1267,6 +1349,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         barrierCharges: result.barrierCharges,
         queuedChipSlot: null,
         megamanRecoveryTicks: result.megamanRecoveryTicks,
+        chipIndicatorPanels: result.chipIndicatorPanels,
+        chipIndicatorTicksRemaining: chipIndicatorDurationTicks,
         combat: buildCombatSummary(result.entities, runtime, result.lastEvent)
       }
     })
@@ -1302,7 +1386,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         megamanHitstunTicks: current.megamanHitstunTicks,
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
-        programAdvanceAnimation: current.programAdvanceAnimation
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: current.chipIndicatorPanels
       }
 
       return {
@@ -1389,6 +1474,11 @@ export const useGameStore = create<GameState>((set, get) => ({
               ? { ...current.programAdvanceAnimation, ticksRemaining: current.programAdvanceAnimation.ticksRemaining - 1 }
               : null
           let forceProgramAdvanceOnNextCustomDraw = current.forceProgramAdvanceOnNextCustomDraw
+          let chipIndicatorPanels = current.chipIndicatorPanels
+          let chipIndicatorTicksRemaining = Math.max(0, current.chipIndicatorTicksRemaining - 1)
+          if (chipIndicatorTicksRemaining === 0) {
+            chipIndicatorPanels = []
+          }
           const megamanControlMode = current.megamanControlMode
           let lastEvent = recycledDeck.didRecycle ? 'Deck recycled from discard pile' : 'Idle tick'
 
@@ -1455,6 +1545,8 @@ export const useGameStore = create<GameState>((set, get) => ({
               chipHand = queuedUse.chipHand
               chipDiscard = queuedUse.chipDiscard
               barrierCharges = queuedUse.barrierCharges
+              chipIndicatorPanels = queuedUse.chipIndicatorPanels
+              chipIndicatorTicksRemaining = chipIndicatorDurationTicks
               lastEvent = `Buffered chip resolved: ${queuedUse.lastEvent}`
               queuedChipSlot = null
               megamanRecoveryTicks = queuedUse.megamanRecoveryTicks
@@ -1482,6 +1574,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 chipHand = autoUse.chipHand
                 chipDiscard = autoUse.chipDiscard
                 barrierCharges = autoUse.barrierCharges
+                chipIndicatorPanels = autoUse.chipIndicatorPanels
+                chipIndicatorTicksRemaining = chipIndicatorDurationTicks
                 megamanRecoveryTicks = autoUse.megamanRecoveryTicks
                 lastEvent = `Auto chip: ${autoUse.lastEvent}`
               }
@@ -1574,7 +1668,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanHitstunTicks,
             queuedChipSlot,
             megamanControlMode,
-            programAdvanceAnimation
+            programAdvanceAnimation,
+            chipIndicatorPanels
           }
 
           return {
@@ -1599,7 +1694,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanAutoMoveCooldown,
             mettaurMoveCooldown,
             programAdvanceAnimation,
-            forceProgramAdvanceOnNextCustomDraw
+            forceProgramAdvanceOnNextCustomDraw,
+            chipIndicatorPanels,
+            chipIndicatorTicksRemaining
           }
         })
       }
