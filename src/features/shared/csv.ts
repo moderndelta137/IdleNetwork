@@ -8,11 +8,37 @@ export const parseCsv = (raw: string): string[][] => {
     return []
   }
 
-  return lines.map((line) =>
-    line
-      .split(',')
-      .map((cell) => cell.trim())
-  )
+  return lines.map((line) => {
+    const row: string[] = []
+    let currentCell = ''
+    let inQuotes = false
+
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index]
+      const nextChar = line[index + 1]
+
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          currentCell += '"'
+          index += 1
+        } else {
+          inQuotes = !inQuotes
+        }
+        continue
+      }
+
+      if (char === ',' && !inQuotes) {
+        row.push(currentCell.trim())
+        currentCell = ''
+        continue
+      }
+
+      currentCell += char
+    }
+
+    row.push(currentCell.trim())
+    return row
+  })
 }
 
 export const csvRowsToRecords = <T extends Record<string, string>>(rows: string[][]): T[] => {

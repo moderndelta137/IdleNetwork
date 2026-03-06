@@ -75,6 +75,7 @@ export function Board() {
   const entities = useGameStore((state) => state.entities)
   const occupiedPanels = useGameStore((state) => state.occupiedPanels)
   const activeHitboxPanels = useGameStore((state) => state.combat.activeHitboxPanels)
+  const chipIndicatorPanels = useGameStore((state) => state.combat.chipIndicatorPanels)
   const mettaurTelegraphTicksRemaining = useGameStore((state) => state.combat.mettaurTelegraphTicksRemaining)
 
   return (
@@ -86,10 +87,11 @@ export function Board() {
         const key = `${row}-${col}`
         const occupantId = occupiedPanels[key]
         const hasActiveHitbox = activeHitboxPanels.includes(key)
+        const hasChipIndicator = chipIndicatorPanels.includes(key)
         const occupant = occupantId ? entities[occupantId] : null
 
         return (
-          <div key={key} className={`panel ${side} ${occupantId ? 'occupied' : ''} ${hasActiveHitbox ? 'hitbox-active' : ''}`}>
+          <div key={key} className={`panel ${side} ${occupantId ? 'occupied' : ''} ${hasActiveHitbox ? 'hitbox-active' : ''} ${hasChipIndicator ? 'chip-indicator' : ''}`}>
             {occupant ? (
               <div className="occupant" aria-label={occupant.name}>
                 <OccupantSprite

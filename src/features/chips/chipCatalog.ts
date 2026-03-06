@@ -10,6 +10,8 @@ export type ChipRuntimeId =
   | 'longsword'
   | 'spreader'
   | 'minibomb'
+  | 'lilbomb'
+  | 'stepsword'
   | 'recover10'
   | 'recover30'
   | 'barrier'
@@ -53,6 +55,8 @@ const normalizeChipId = (name: string): ChipRuntimeId => {
     longsword: 'longsword',
     spreader: 'spreader',
     minibomb: 'minibomb',
+    lilbomb: 'lilbomb',
+    stepsword: 'stepsword',
     recover10: 'recover10',
     recover30: 'recover30',
     barrier: 'barrier',
