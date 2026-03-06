@@ -212,8 +212,11 @@ export function App() {
           {combat.programAdvanceAnimation ? <section className="pa-banner">PROGRAM ADVANCE! {combat.programAdvanceAnimation.name}</section> : null}
 
 
-          {showBattleFolderPanel ? (
-            <section className="battle-folder-panel" aria-label="Battle folder chip list">
+          <p className="control-tip">Manual mode: Move (WASD/Arrows), Buster (Space or F), Chips (1-5). Buster/swing now need row alignment, so dodging telegraphs and re-lining shots matters. Yellow panels show active non-hitscan hitboxes (e.g., Mettaur swing). Semi-auto: auto move+buster, manual chips. Full-auto: auto move+buster+chips (manual chip override still works).</p>
+
+          <section className="battle-board-shell">
+            <Board />
+            <aside className={`battle-folder-panel ${showBattleFolderPanel ? 'open' : ''}`} aria-label="Battle folder chip list">
               <header className="battle-folder-panel-header">
                 <strong>Battle Folder View</strong>
                 <span>{chipFolder.length}/30</span>
@@ -228,12 +231,8 @@ export function App() {
                   </div>
                 ))}
               </div>
-            </section>
-          ) : null}
-
-          <p className="control-tip">Manual mode: Move (WASD/Arrows), Buster (Space or F), Chips (1-5). Buster/swing now need row alignment, so dodging telegraphs and re-lining shots matters. Yellow panels show active non-hitscan hitboxes (e.g., Mettaur swing). Semi-auto: auto move+buster, manual chips. Full-auto: auto move+buster+chips (manual chip override still works).</p>
-
-          <Board />
+            </aside>
+          </section>
 
           <section className="chip-hand-bar" aria-label="Chip hand area">
         {combat.chipHand.map((chip, index) => (

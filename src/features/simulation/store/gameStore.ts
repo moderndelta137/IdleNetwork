@@ -950,10 +950,40 @@ export const useGameStore = create<GameState>((set, get) => ({
       const movingChip = current.chipFolder[index]
       const nextFolder = sortChipCollection(current.chipFolder.filter((_, chipIndex) => chipIndex !== index))
       const nextStock = sortChipCollection([...current.chipStock, movingChip])
+      let removedFromDeck = false
+      let removedFromDiscard = false
+      let removedFromHand = false
+
+      const nextDeck = current.chipDeck.filter((chip) => {
+        if (!removedFromDeck && chip.id === movingChip.id && chip.code === movingChip.code) {
+          removedFromDeck = true
+          return false
+        }
+        return true
+      })
+
+      const nextDiscard = current.chipDiscard.filter((chip) => {
+        if (!removedFromDiscard && chip.id === movingChip.id && chip.code === movingChip.code) {
+          removedFromDiscard = true
+          return false
+        }
+        return true
+      })
+
+      const nextHand = current.chipHand.map((chip) => {
+        if (!removedFromHand && chip && chip.id === movingChip.id && chip.code === movingChip.code) {
+          removedFromHand = true
+          return null
+        }
+        return chip
+      })
 
       return {
         chipFolder: nextFolder,
-        chipStock: nextStock
+        chipStock: nextStock,
+        chipDeck: nextDeck,
+        chipDiscard: nextDiscard,
+        chipHand: nextHand
       }
     })
   },
@@ -971,10 +1001,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       const movingChip = current.chipStock[stockIndex]
       const nextStock = sortChipCollection(current.chipStock.filter((_, chipIndex) => chipIndex !== stockIndex))
       const nextFolder = sortChipCollection([...current.chipFolder, movingChip])
+      const nextDiscard = [...current.chipDiscard, movingChip]
 
       return {
         chipFolder: nextFolder,
-        chipStock: nextStock
+        chipStock: nextStock,
+        chipDiscard: nextDiscard
       }
     })
   },

@@ -149,8 +149,23 @@ strong {
   border: 2px solid #64748b;
   border-radius: 8px;
   color: #111827;
-  margin: 0 0 0.75rem;
+  height: 100%;
+  max-height: 296px;
+  min-width: 320px;
+  pointer-events: none;
   padding: 0.45rem;
+  position: absolute;
+  right: 0;
+  top: 0;
+  transform: translateX(108%);
+  transition: transform 220ms ease;
+  width: 38%;
+  z-index: 4;
+}
+
+.battle-folder-panel.open {
+  pointer-events: auto;
+  transform: translateX(0);
 }
 
 .battle-folder-panel-header {
@@ -158,6 +173,15 @@ strong {
   display: flex;
   justify-content: space-between;
   margin-bottom: 0.35rem;
+}
+
+.battle-board-shell {
+  margin: 0 0 0.8rem;
+  position: relative;
+}
+
+.battle-folder-panel .folder-chip-list {
+  height: calc(100% - 34px);
 }
 
 .control-tip {
