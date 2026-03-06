@@ -10,3 +10,5 @@
 - Lag (seconds)
 - Recoil (seconds)
 - Effects (grammar string)
+- Invalid rows/effects are skipped at load time with a warning log (safe fallback).
+
