@@ -856,6 +856,13 @@ const tryUseChipFromSlot = (
     lastEvent = `${chip.name} barrier ready`
   }
 
+  if (sourceResolution.didStep) {
+    nextEntities = {
+      ...nextEntities,
+      megaman: sourceResolution.originalMegaman
+    }
+  }
+
   const nextHand = [...current.chipHand]
   nextHand[slot] = null
 
