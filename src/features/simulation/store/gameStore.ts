@@ -136,7 +136,7 @@ const mettaurMoveCadenceTicks = 6
 const mettaurThreatWindowTicks = 2
 const hitFlashDurationTicks = 2
 const programAdvanceAnimationTicks = 12
-const folderMbLimit = 300
+const folderMbLimit = 40
 
 const chipCatalog = loadChipCatalog(baseTickMs)
 const enemyAttackCatalog = loadEnemyAttackCatalog(baseTickMs)
@@ -253,11 +253,53 @@ const starterFolder: BattleChip[] = [
   { id: 'cannon', name: 'Cannon', code: 'A' },
   { id: 'cannon', name: 'Cannon', code: 'B' },
   { id: 'cannon', name: 'Cannon', code: 'C' },
-  { id: 'sword', name: 'Sword', code: 'A' },
-  { id: 'recover10', name: 'Recover10', code: 'L' },
-  { id: 'barrier', name: 'Barrier', code: 'L' },
-  { id: 'sword', name: 'Sword', code: 'B' },
+  { id: 'cannon', name: 'Cannon', code: '*' },
+  { id: 'cannon', name: 'Cannon', code: 'L' },
+  { id: 'cannon', name: 'Cannon', code: 'A' },
+  { id: 'cannon', name: 'Cannon', code: 'B' },
+  { id: 'cannon', name: 'Cannon', code: 'C' },
+  { id: 'cannon', name: 'Cannon', code: '*' },
+  { id: 'cannon', name: 'Cannon', code: 'L' },
   { id: 'recover10', name: 'Recover10', code: 'A' },
+  { id: 'recover10', name: 'Recover10', code: 'B' },
+  { id: 'recover10', name: 'Recover10', code: 'C' },
+  { id: 'recover10', name: 'Recover10', code: 'D' },
+  { id: 'recover10', name: 'Recover10', code: 'E' },
+  { id: 'recover10', name: 'Recover10', code: 'F' },
+  { id: 'recover10', name: 'Recover10', code: 'G' },
+  { id: 'recover10', name: 'Recover10', code: 'H' },
+  { id: 'recover10', name: 'Recover10', code: 'I' },
+  { id: 'recover10', name: 'Recover10', code: 'J' },
+  { id: 'recover30', name: 'Recover30', code: 'A' },
+  { id: 'recover30', name: 'Recover30', code: 'B' },
+  { id: 'recover30', name: 'Recover30', code: 'C' },
+  { id: 'recover30', name: 'Recover30', code: 'D' },
+  { id: 'recover30', name: 'Recover30', code: 'E' },
+  { id: 'barrier', name: 'Barrier', code: '*' },
+  { id: 'barrier', name: 'Barrier', code: 'A' },
+  { id: 'barrier', name: 'Barrier', code: 'B' },
+  { id: 'barrier', name: 'Barrier', code: 'C' },
+  { id: 'barrier', name: 'Barrier', code: 'D' }
+]
+
+const starterStock: BattleChip[] = [
+  ...starterFolder,
+  { id: 'cannon', name: 'Cannon', code: 'A' },
+  { id: 'hicannon', name: 'HiCannon', code: 'L' },
+  { id: 'hicannon', name: 'HiCannon', code: 'A' },
+  { id: 'm-cannon', name: 'M-Cannon', code: 'A' },
+  { id: 'sword', name: 'Sword', code: 'A' },
+  { id: 'widesword', name: 'WideSword', code: 'A' },
+  { id: 'widesword', name: 'WideSword', code: 'B' },
+  { id: 'longsword', name: 'LongSword', code: 'A' },
+  { id: 'longsword', name: 'LongSword', code: 'L' },
+  { id: 'spreader', name: 'Spreader', code: 'L' },
+  { id: 'spreader', name: 'Spreader', code: 'A' },
+  { id: 'minibomb', name: 'MiniBomb', code: '*' },
+  { id: 'minibomb', name: 'MiniBomb', code: 'B' },
+  { id: 'recover10', name: 'Recover10', code: 'L' },
+  { id: 'recover30', name: 'Recover30', code: 'L' },
+  { id: 'recover30', name: 'Recover30', code: 'A' },
   { id: 'barrier', name: 'Barrier', code: '*' }
 ]
 
