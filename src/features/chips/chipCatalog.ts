@@ -18,6 +18,7 @@ export type ChipRuntimeId =
 type ChipCsvRow = {
   Name: string
   DMG: string
+  MB: string
   Type: string
   Description: string
   Lag: string
@@ -29,6 +30,7 @@ export type ChipDefinition = {
   id: ChipRuntimeId
   name: string
   damage: number
+  mb: number
   type: string
   description: string
   lagSeconds: number
@@ -74,11 +76,14 @@ export const loadChipCatalog = (baseTickMs: number): Record<ChipRuntimeId, ChipD
     const id = normalizeChipId(record.Name)
     const lagSeconds = Number.parseFloat(record.Lag)
     const recoilSeconds = Number.parseFloat(record.Recoil)
+    const parsedMb = Number.parseInt(record.MB, 10)
+    const fallbackMb = Math.max(1, Math.ceil((Number.parseInt(record.DMG, 10) || 0) / 10))
 
     acc[id] = {
       id,
       name: record.Name,
       damage: Number.parseInt(record.DMG, 10) || 0,
+      mb: Number.isFinite(parsedMb) ? parsedMb : fallbackMb,
       type: record.Type,
       description: record.Description,
       lagSeconds,

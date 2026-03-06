@@ -118,8 +118,8 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 - M0 deployment and fallback pass are complete.
 - M1 Combat Vertical Slice is complete (Tasks 1-5).
 - M2 Chips + Rules is in progress.
-- M2 currently includes: always-on custom gauge/hand flow, deck/discard refill behavior, buffered chip use, aggressive auto-chip behavior (`fullAuto`), MegaMan control modes (`manual`, `semiAuto`, `fullAuto`), baseline movement AI, sprite board rendering with hit-flash/HP overlays, runtime debug controls (pause/step/scale), recovery windows, and initial CSV-driven chip/enemy attack catalogs with grammar-aware melee/hitscan checks.
-- Remaining M2 scope: MB/cost legality checks and expanded effect grammar execution (throw/step + validation hardening).
+- M2 currently includes: always-on custom gauge/hand flow, deck/discard refill behavior, buffered chip use, aggressive auto-chip behavior (`fullAuto`), MegaMan control modes (`manual`, `semiAuto`, `fullAuto`), baseline movement AI, sprite board rendering with hit-flash/HP overlays, runtime debug controls (pause/step/scale), recovery windows, and initial CSV-driven chip/enemy attack catalogs with grammar-aware melee/hitscan checks, plus explicit chip MB metadata and deck MB legality enforcement.
+- Remaining M2 scope: expanded effect grammar execution (throw/step) plus CSV validation hardening and runtime stability pass.
 - Detailed active handoff and task status are maintained in `docs/M1_HANDOFF.md`.
 
 ---
@@ -146,7 +146,7 @@ M0 active task checklist is maintained in `docs/M0_MILESTONE_TASKS.md`.
 - Manual chip use + aggressive auto-chip behavior
 - Simple board sprite implementation pass (MegaMan + Mettaur static sprites, text fallback retained)
 - Program Advance core implementation
-- MB/cost legality checks (lighter V1 profile)
+- MB/cost legality checks baseline (explicit MB metadata + folder cap enforcement)
 - Effect grammar executor expansion (throw/step + validation hardening)
 
 ### M3 Area Meta Loop

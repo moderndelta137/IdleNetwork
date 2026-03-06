@@ -19,6 +19,7 @@ This file captures the current implementation state and exact next work for a ne
   - CSV-driven chip catalog and enemy attack catalog.
   - Initial grammar-aware hit checks (`hitscan` lane/range and `melee` offsets) for chip damage.
   - Program Advance (PA) auto-form from hand on Custom Gauge refill, including merge animation, PA chip replacement, and debug force-next-draw control.
+  - Explicit chip MB metadata in `chips.csv` and MB-driven folder legality checks in store/UI (temporary cap: 40).
 - CI includes duplicate-helper guard script for `gameStore.ts` before build.
 
 ## Confirmed Implemented in M2 So Far
@@ -32,37 +33,33 @@ This file captures the current implementation state and exact next work for a ne
 - [x] Recovery-window pass (no immediate move/attack chaining).
 - [x] CSV authoring foundation for chips and enemy attacks.
 - [x] Program Advance core (auto-form on legal in-hand recipe, merge animation, single PA chip execution).
+- [x] MB/cost legality checks baseline (chip MB metadata + deck MB cap enforcement + UI status).
 - [x] Duplicate declaration pre-build check in CI.
 
 ## Start Here Next (Remaining M2 Work)
 Implement remaining M2 scope in this order:
 
-1. **MB/cost legality checks (lighter V1 profile)**
-   - Add chip MB/cost metadata to chip config.
-   - Validate folder legality against current MB budget.
-   - Surface legality status/errors in UI for balancing checks.
-
-2. **Effect grammar executor expansion (after baseline hit checks)**
+1. **Effect grammar executor expansion (after baseline hit checks)**
    - Expand from current melee/hitscan checks to actual grammar-driven execution:
      - `throw:offsets=...`
      - `step:offset=...` + follow-up effect chaining
      - multi-row/multi-tile fan patterns with consistent separators
    - Keep CSV as source-of-truth; avoid hardcoded effect behavior in store.
 
-3. **Data pipeline hardening for CSV workflow**
+2. **Data pipeline hardening for CSV workflow**
    - Add validation/warnings for malformed CSV rows/effects grammar.
    - Add clear fallback behavior when a row is invalid (skip row + log).
    - Consider adding tiny tests for parser/catalog loaders.
 
-4. **Stability pass on runtime behavior**
+3. **Stability pass on runtime behavior**
    - Verify manual/semi/full mode transitions do not desync queued chip state.
    - Verify AI movement + chip logic remain deterministic across long runs.
    - Keep `gameStore.ts` free of duplicate helper blocks (guard script + review).
 
 ## Acceptance Targets for Remaining M2
-- Folder legality rejects illegal MB/cost configurations.
 - CSV grammar supports more than simple melee/hitscan checks (throw/step baseline).
 - Manual/semi/full control modes remain playable with no runtime build regressions.
+- Chip CSV pipeline flags malformed MB/effect rows with safe fallback behavior.
 
 ## Known Follow-ups / Operational Notes
 - Local font wiring is now `@font-face`-based; ensure one actual font file is committed:

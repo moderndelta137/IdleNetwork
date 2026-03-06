@@ -227,7 +227,7 @@ export function App() {
                     <span className="folder-chip-row-index">{index + 1}</span>
                     <span className="folder-chip-row-name">{chip.name}</span>
                     <span className="folder-chip-row-code">{chip.code}</span>
-                    <span className="folder-chip-row-mb">{Math.max(1, Math.ceil(battleChipCatalog[chip.id].damage / 10))}MB</span>
+                    <span className="folder-chip-row-mb">{battleChipCatalog[chip.id].mb}MB</span>
                   </div>
                 ))}
               </div>

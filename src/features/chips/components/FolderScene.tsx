@@ -93,7 +93,7 @@ const buildStockStacks = (chips: ReturnType<typeof useGameStore.getState>['chipS
   })
 }
 
-const chipMb = (chipId: ChipRuntimeId) => Math.max(1, Math.ceil(chipCatalog[chipId].damage / 10))
+const chipMb = (chipId: ChipRuntimeId) => chipCatalog[chipId].mb
 
 export function FolderScene() {
   const chipFolder = useGameStore((state) => state.chipFolder)
@@ -340,7 +340,7 @@ export function FolderScene() {
                     <span className="folder-chip-row-index">{index + 1}</span>
                     <span className="folder-chip-row-name">{chip.name}</span>
                     <span className="folder-chip-row-code">{chip.code}</span>
-                    <span className="folder-chip-row-mb">{Math.max(1, Math.ceil(chipDefinition.damage / 10))}MB</span>
+                    <span className="folder-chip-row-mb">{chipDefinition.mb}MB</span>
                   </button>
                 )
               })}
@@ -392,7 +392,7 @@ export function FolderScene() {
                     <span className="folder-chip-row-name">{stack.name}</span>
                     <span className="folder-chip-row-code">{stack.code}</span>
                     <span className="folder-chip-row-mb">x{stack.count}</span>
-                    <span className="folder-chip-row-size">{Math.max(1, Math.ceil(chipDefinition.damage / 10))}MB</span>
+                    <span className="folder-chip-row-size">{chipDefinition.mb}MB</span>
                   </button>
                 )
               })}

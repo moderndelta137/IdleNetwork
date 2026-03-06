@@ -145,7 +145,7 @@ const mettaurTelegraphTicks = mettaurSwingAttack?.lagTicks ?? 4
 const mettaurHitDamage = mettaurSwingAttack?.damage ?? 6
 const mettaurSwingRecoveryTicks = mettaurSwingAttack?.recoilTicks ?? 6
 
-const getChipMb = (chip: BattleChip): number => Math.max(1, Math.ceil(chipCatalog[chip.id].damage / 10))
+const getChipMb = (chip: BattleChip): number => chipCatalog[chip.id].mb
 const getFolderTotalMb = (folder: BattleChip[]): number => folder.reduce((sum, chip) => sum + getChipMb(chip), 0)
 
 const programAdvanceRules: ProgramAdvanceRule[] = [
