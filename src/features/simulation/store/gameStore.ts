@@ -104,7 +104,7 @@ type GameState = {
   stepFrame: () => void
   setDebugSpriteScalePercent: (scale: number) => void
   moveFolderChipToStock: (index: number) => void
-  moveStockChipToFolder: (index: number) => void
+  moveStockChipToFolder: (chipId: ChipId, code: string) => void
   cycleMegamanControlMode: () => void
   debugForceNextCustomDrawProgramAdvance: () => void
   movePlayer: (deltaRow: number, deltaCol: number) => void
@@ -957,14 +957,19 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
     })
   },
-  moveStockChipToFolder: (index) => {
+  moveStockChipToFolder: (chipId, code) => {
     set((current) => {
-      if (index < 0 || index >= current.chipStock.length || current.chipFolder.length >= 30) {
+      if (current.chipFolder.length >= 30) {
         return {}
       }
 
-      const movingChip = current.chipStock[index]
-      const nextStock = sortChipCollection(current.chipStock.filter((_, chipIndex) => chipIndex !== index))
+      const stockIndex = current.chipStock.findIndex((chip) => chip.id === chipId && chip.code === code)
+      if (stockIndex < 0) {
+        return {}
+      }
+
+      const movingChip = current.chipStock[stockIndex]
+      const nextStock = sortChipCollection(current.chipStock.filter((_, chipIndex) => chipIndex !== stockIndex))
       const nextFolder = sortChipCollection([...current.chipFolder, movingChip])
 
       return {

@@ -1,16 +1,20 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { Board } from '../features/battle/components/Board'
 import { FolderScene } from '../features/chips/components/FolderScene'
+import { loadChipCatalog } from '../features/chips/chipCatalog'
 import { useGameStore } from '../features/simulation/store/gameStore'
 
 const SPEEDS = [1, 2, 4] as const
+const battleChipCatalog = loadChipCatalog(100)
 
 export function App() {
   const [scene, setScene] = useState<'battle' | 'folder'>('battle')
+  const [showBattleFolderPanel, setShowBattleFolderPanel] = useState(false)
   const ticks = useGameStore((state) => state.ticks)
   const speed = useGameStore((state) => state.speed)
   const combat = useGameStore((state) => state.combat)
   const entities = useGameStore((state) => state.entities)
+  const chipFolder = useGameStore((state) => state.chipFolder)
   const setSpeed = useGameStore((state) => state.setSpeed)
   const debugPaused = useGameStore((state) => state.debugPaused)
   const setDebugPaused = useGameStore((state) => state.setDebugPaused)
@@ -127,6 +131,9 @@ export function App() {
         <button type="button" onClick={cycleMegamanControlMode}>
           Control: {combat.megamanControlMode}
         </button>
+        <button type="button" onClick={() => setShowBattleFolderPanel((current) => !current)}>
+          {showBattleFolderPanel ? 'Hide Folder' : 'Show Folder'}
+        </button>
           </section>
 
 
@@ -203,6 +210,26 @@ export function App() {
           </section>
 
           {combat.programAdvanceAnimation ? <section className="pa-banner">PROGRAM ADVANCE! {combat.programAdvanceAnimation.name}</section> : null}
+
+
+          {showBattleFolderPanel ? (
+            <section className="battle-folder-panel" aria-label="Battle folder chip list">
+              <header className="battle-folder-panel-header">
+                <strong>Battle Folder View</strong>
+                <span>{chipFolder.length}/30</span>
+              </header>
+              <div className="folder-chip-list" role="listbox" aria-label="Battle folder list">
+                {chipFolder.map((chip, index) => (
+                  <div key={`battle-folder-chip-${index}-${chip.id}-${chip.code}`} className="folder-chip-row">
+                    <span className="folder-chip-row-index">{index + 1}</span>
+                    <span className="folder-chip-row-name">{chip.name}</span>
+                    <span className="folder-chip-row-code">{chip.code}</span>
+                    <span className="folder-chip-row-mb">{Math.max(1, Math.ceil(battleChipCatalog[chip.id].damage / 10))}MB</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <p className="control-tip">Manual mode: Move (WASD/Arrows), Buster (Space or F), Chips (1-5). Buster/swing now need row alignment, so dodging telegraphs and re-lining shots matters. Yellow panels show active non-hitscan hitboxes (e.g., Mettaur swing). Semi-auto: auto move+buster, manual chips. Full-auto: auto move+buster+chips (manual chip override still works).</p>
 

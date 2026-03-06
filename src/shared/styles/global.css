@@ -143,6 +143,23 @@ strong {
   padding: 0.4rem 0.7rem;
 }
 
+
+.battle-folder-panel {
+  background: #dadde7;
+  border: 2px solid #64748b;
+  border-radius: 8px;
+  color: #111827;
+  margin: 0 0 0.75rem;
+  padding: 0.45rem;
+}
+
+.battle-folder-panel-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
 .control-tip {
   color: #cbd5e1;
   font-size: 0.92rem;
@@ -520,4 +537,9 @@ button.active {
 .folder-chip-row.stock {
   background: #334155;
   border-color: #64748b;
+  grid-template-columns: 20px minmax(0, 1fr) 24px 34px 42px;
+}
+
+.folder-chip-row-size {
+  text-align: center;
 }

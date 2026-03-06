@@ -1,5 +1,5 @@
 import { useMemo, useState, type DragEvent } from 'react'
-import { loadChipCatalog } from '../chipCatalog'
+import { loadChipCatalog, type ChipRuntimeId } from '../chipCatalog'
 import { useGameStore } from '../../simulation/store/gameStore'
 
 const chipCatalog = loadChipCatalog(100)
@@ -8,28 +8,77 @@ type ColumnKind = 'folder' | 'stock'
 
 type SelectedChip = {
   column: ColumnKind
-  index: number
+  chipId: ChipRuntimeId
+  code: string
 }
 
-type DragChipPayload = {
-  source: ColumnKind
-  index: number
-}
-
-const clampIndex = (index: number, max: number) => Math.max(0, Math.min(index, Math.max(0, max - 1)))
+type DragChipPayload =
+  | {
+      source: 'folder'
+      index: number
+    }
+  | {
+      source: 'stock'
+      chipId: ChipRuntimeId
+      code: string
+    }
 
 const dragPayloadMimeType = 'application/x-idle-network-chip'
 
 const readDragPayload = (raw: string): DragChipPayload | null => {
   try {
     const parsed = JSON.parse(raw) as DragChipPayload
-    if ((parsed.source === 'folder' || parsed.source === 'stock') && Number.isInteger(parsed.index)) {
+    if (parsed.source === 'folder' && Number.isInteger(parsed.index)) {
       return parsed
     }
+
+    if (parsed.source === 'stock' && typeof parsed.chipId === 'string' && typeof parsed.code === 'string') {
+      return parsed
+    }
+
     return null
   } catch {
     return null
   }
+}
+
+type StockStack = {
+  chipId: ChipRuntimeId
+  name: string
+  code: string
+  count: number
+}
+
+const buildStockStacks = (chips: ReturnType<typeof useGameStore.getState>['chipStock']): StockStack[] => {
+  const stacks = new Map<string, StockStack>()
+
+  chips.forEach((chip) => {
+    const key = `${chip.id}::${chip.code}`
+    const existing = stacks.get(key)
+    if (existing) {
+      existing.count += 1
+      return
+    }
+
+    stacks.set(key, {
+      chipId: chip.id,
+      name: chip.name,
+      code: chip.code,
+      count: 1
+    })
+  })
+
+  return Array.from(stacks.values()).sort((a, b) => {
+    if (a.name !== b.name) {
+      return a.name.localeCompare(b.name)
+    }
+
+    if (a.code !== b.code) {
+      return a.code.localeCompare(b.code)
+    }
+
+    return a.chipId.localeCompare(b.chipId)
+  })
 }
 
 export function FolderScene() {
@@ -37,11 +86,31 @@ export function FolderScene() {
   const chipStock = useGameStore((state) => state.chipStock)
   const moveFolderChipToStock = useGameStore((state) => state.moveFolderChipToStock)
   const moveStockChipToFolder = useGameStore((state) => state.moveStockChipToFolder)
-  const [selectedChip, setSelectedChip] = useState<SelectedChip>({ column: 'folder', index: 0 })
+  const [selectedChip, setSelectedChip] = useState<SelectedChip | null>(null)
 
-  const selectedColumnChips = selectedChip.column === 'folder' ? chipFolder : chipStock
-  const safeSelectedIndex = clampIndex(selectedChip.index, selectedColumnChips.length)
-  const selected = selectedColumnChips[safeSelectedIndex] ?? null
+  const stockStacks = useMemo(() => buildStockStacks(chipStock), [chipStock])
+
+  const selected = useMemo(() => {
+    if (selectedChip?.column === 'folder') {
+      return chipFolder.find((chip) => chip.id === selectedChip.chipId && chip.code === selectedChip.code) ?? chipFolder[0] ?? null
+    }
+
+    if (selectedChip?.column === 'stock') {
+      const stack = stockStacks.find((entry) => entry.chipId === selectedChip.chipId && entry.code === selectedChip.code)
+      if (!stack) {
+        return chipFolder[0] ?? chipStock[0] ?? null
+      }
+
+      return {
+        id: stack.chipId,
+        name: stack.name,
+        code: stack.code
+      }
+    }
+
+    return chipFolder[0] ?? chipStock[0] ?? null
+  }, [chipFolder, chipStock, selectedChip, stockStacks])
+
   const selectedChipDefinition = selected ? chipCatalog[selected.id] : null
 
   const folderCountLabel = useMemo(() => `${chipFolder.length}/30`, [chipFolder.length])
@@ -54,18 +123,23 @@ export function FolderScene() {
       return
     }
 
-    if (target === 'folder') {
-      moveStockChipToFolder(payload.index)
-      setSelectedChip({ column: 'folder', index: 0 })
+    if (target === 'folder' && payload.source === 'stock') {
+      moveStockChipToFolder(payload.chipId, payload.code)
       return
     }
 
-    moveFolderChipToStock(payload.index)
-    setSelectedChip({ column: 'stock', index: 0 })
+    if (target === 'stock' && payload.source === 'folder') {
+      moveFolderChipToStock(payload.index)
+    }
   }
 
-  const createDragStart = (source: ColumnKind, index: number) => (event: DragEvent) => {
-    event.dataTransfer.setData(dragPayloadMimeType, JSON.stringify({ source, index } satisfies DragChipPayload))
+  const createDeckDragStart = (index: number) => (event: DragEvent) => {
+    event.dataTransfer.setData(dragPayloadMimeType, JSON.stringify({ source: 'folder', index } satisfies DragChipPayload))
+    event.dataTransfer.effectAllowed = 'move'
+  }
+
+  const createStockDragStart = (chipId: ChipRuntimeId, code: string) => (event: DragEvent) => {
+    event.dataTransfer.setData(dragPayloadMimeType, JSON.stringify({ source: 'stock', chipId, code } satisfies DragChipPayload))
     event.dataTransfer.effectAllowed = 'move'
   }
 
@@ -102,7 +176,7 @@ export function FolderScene() {
             >
               {chipFolder.map((chip, index) => {
                 const chipDefinition = chipCatalog[chip.id]
-                const isSelected = selectedChip.column === 'folder' && index === safeSelectedIndex
+                const isSelected = selectedChip?.column === 'folder' && chip.id === selectedChip.chipId && chip.code === selectedChip.code
 
                 return (
                   <button
@@ -110,13 +184,13 @@ export function FolderScene() {
                     type="button"
                     draggable
                     className={`folder-chip-row ${isSelected ? 'selected' : ''}`}
-                    onDragStart={createDragStart('folder', index)}
-                    onClick={() => setSelectedChip({ column: 'folder', index })}
+                    onDragStart={createDeckDragStart(index)}
+                    onClick={() => setSelectedChip({ column: 'folder', chipId: chip.id, code: chip.code })}
                   >
                     <span className="folder-chip-row-index">{index + 1}</span>
                     <span className="folder-chip-row-name">{chip.name}</span>
                     <span className="folder-chip-row-code">{chip.code}</span>
-                    <span className="folder-chip-row-mb">{Math.max(1, Math.ceil(chipDefinition.damage / 10))}</span>
+                    <span className="folder-chip-row-mb">{Math.max(1, Math.ceil(chipDefinition.damage / 10))}MB</span>
                   </button>
                 )
               })}
@@ -132,23 +206,25 @@ export function FolderScene() {
               onDragOver={(event) => event.preventDefault()}
               onDrop={(event) => handleDropOnColumn('stock', event)}
             >
-              {chipStock.map((chip, index) => {
-                const chipDefinition = chipCatalog[chip.id]
-                const isSelected = selectedChip.column === 'stock' && index === safeSelectedIndex
+              {stockStacks.map((stack, index) => {
+                const chipDefinition = chipCatalog[stack.chipId]
+                const isSelected =
+                  selectedChip?.column === 'stock' && selectedChip.chipId === stack.chipId && selectedChip.code === stack.code
 
                 return (
                   <button
-                    key={`stock-chip-${index}-${chip.id}-${chip.code}`}
+                    key={`stock-chip-${stack.chipId}-${stack.code}`}
                     type="button"
                     draggable
                     className={`folder-chip-row stock ${isSelected ? 'selected' : ''}`}
-                    onDragStart={createDragStart('stock', index)}
-                    onClick={() => setSelectedChip({ column: 'stock', index })}
+                    onDragStart={createStockDragStart(stack.chipId, stack.code)}
+                    onClick={() => setSelectedChip({ column: 'stock', chipId: stack.chipId, code: stack.code })}
                   >
                     <span className="folder-chip-row-index">{index + 1}</span>
-                    <span className="folder-chip-row-name">{chip.name}</span>
-                    <span className="folder-chip-row-code">{chip.code}</span>
-                    <span className="folder-chip-row-mb">{Math.max(1, Math.ceil(chipDefinition.damage / 10))}</span>
+                    <span className="folder-chip-row-name">{stack.name}</span>
+                    <span className="folder-chip-row-code">{stack.code}</span>
+                    <span className="folder-chip-row-mb">x{stack.count}</span>
+                    <span className="folder-chip-row-size">{Math.max(1, Math.ceil(chipDefinition.damage / 10))}MB</span>
                   </button>
                 )
               })}
