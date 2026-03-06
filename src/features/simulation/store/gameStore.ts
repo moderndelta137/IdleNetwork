@@ -136,6 +136,7 @@ const mettaurMoveCadenceTicks = 6
 const mettaurThreatWindowTicks = 2
 const hitFlashDurationTicks = 2
 const programAdvanceAnimationTicks = 12
+const folderMbLimit = 300
 
 const chipCatalog = loadChipCatalog(baseTickMs)
 const enemyAttackCatalog = loadEnemyAttackCatalog(baseTickMs)
@@ -143,6 +144,9 @@ const mettaurSwingAttack = enemyAttackCatalog.MettaurSwing
 const mettaurTelegraphTicks = mettaurSwingAttack?.lagTicks ?? 4
 const mettaurHitDamage = mettaurSwingAttack?.damage ?? 6
 const mettaurSwingRecoveryTicks = mettaurSwingAttack?.recoilTicks ?? 6
+
+const getChipMb = (chip: BattleChip): number => Math.max(1, Math.ceil(chipCatalog[chip.id].damage / 10))
+const getFolderTotalMb = (folder: BattleChip[]): number => folder.reduce((sum, chip) => sum + getChipMb(chip), 0)
 
 const programAdvanceRules: ProgramAdvanceRule[] = [
   {
@@ -999,6 +1003,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       const movingChip = current.chipStock[stockIndex]
+      const nextFolderMb = getFolderTotalMb(current.chipFolder) + getChipMb(movingChip)
+      if (nextFolderMb > folderMbLimit) {
+        return {}
+      }
+
       const nextStock = sortChipCollection(current.chipStock.filter((_, chipIndex) => chipIndex !== stockIndex))
       const nextFolder = sortChipCollection([...current.chipFolder, movingChip])
       const nextDiscard = [...current.chipDiscard, movingChip]

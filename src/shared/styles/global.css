@@ -517,10 +517,28 @@ button.active {
   gap: 0.3rem;
 }
 
+.folder-chip-panel-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
 .folder-chip-panel h3 {
   color: #111827;
   font-size: 1.2rem;
   margin: 0;
+}
+
+.folder-mb-widget {
+  background: #1f2937;
+  border-radius: 999px;
+  color: #facc15;
+  font-size: 0.95rem;
+  padding: 0.14rem 0.48rem;
+}
+
+.folder-mb-widget.error-flash {
+  animation: mb-limit-flash 180ms ease-in-out 3;
 }
 .folder-chip-list {
   background: #cbd5e1;
@@ -568,6 +586,12 @@ button.active {
   text-align: center;
 }
 
+.folder-chip-row-mb,
+.folder-chip-row-size {
+  color: #facc15;
+  font-weight: 700;
+}
+
 .folder-chip-row.stock {
   background: #334155;
   border-color: #64748b;
@@ -589,4 +613,16 @@ button.active {
   font-weight: 700;
   justify-content: center;
   min-height: 30px;
+}
+
+@keyframes mb-limit-flash {
+  0%,
+  100% {
+    background: #1f2937;
+    color: #facc15;
+  }
+  50% {
+    background: #7f1d1d;
+    color: #fecaca;
+  }
 }

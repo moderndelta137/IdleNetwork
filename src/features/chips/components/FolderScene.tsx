@@ -1,16 +1,22 @@
-import { useMemo, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { loadChipCatalog, type ChipRuntimeId } from '../chipCatalog'
 import { useGameStore } from '../../simulation/store/gameStore'
 
 const chipCatalog = loadChipCatalog(100)
+const folderMbLimit = 300
 
 type ColumnKind = 'folder' | 'stock'
 
-type SelectedChip = {
-  column: ColumnKind
-  chipId: ChipRuntimeId
-  code: string
-}
+type SelectedChip =
+  | {
+      column: 'folder'
+      index: number
+    }
+  | {
+      column: 'stock'
+      chipId: ChipRuntimeId
+      code: string
+    }
 
 type DragChipPayload =
   | {
@@ -87,6 +93,8 @@ const buildStockStacks = (chips: ReturnType<typeof useGameStore.getState>['chipS
   })
 }
 
+const chipMb = (chipId: ChipRuntimeId) => Math.max(1, Math.ceil(chipCatalog[chipId].damage / 10))
+
 export function FolderScene() {
   const chipFolder = useGameStore((state) => state.chipFolder)
   const chipStock = useGameStore((state) => state.chipStock)
@@ -97,9 +105,19 @@ export function FolderScene() {
   const [hoveredChip, setHoveredChip] = useState<SelectedChip | null>(null)
   const [draggingPayload, setDraggingPayload] = useState<DragChipPayload | null>(null)
   const [dropTargetHint, setDropTargetHint] = useState<DropTargetHint | null>(null)
+  const [mbLimitFlash, setMbLimitFlash] = useState(false)
 
   const deckListRef = useRef<HTMLDivElement | null>(null)
   const stockListRef = useRef<HTMLDivElement | null>(null)
+  const mbFlashTimeoutRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (mbFlashTimeoutRef.current !== null) {
+        window.clearTimeout(mbFlashTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const stockStacks = useMemo(() => buildStockStacks(chipStock), [chipStock])
 
@@ -107,7 +125,7 @@ export function FolderScene() {
     const activePreview = hoveredChip ?? selectedChip
 
     if (activePreview?.column === 'folder') {
-      return chipFolder.find((chip) => chip.id === activePreview.chipId && chip.code === activePreview.code) ?? chipFolder[0] ?? null
+      return chipFolder[activePreview.index] ?? chipFolder[0] ?? null
     }
 
     if (activePreview?.column === 'stock') {
@@ -130,6 +148,17 @@ export function FolderScene() {
 
   const folderCountLabel = useMemo(() => `${chipFolder.length}/30`, [chipFolder.length])
   const stockCountLabel = useMemo(() => `${chipStock.length}`, [chipStock.length])
+  const folderMbTotal = useMemo(() => chipFolder.reduce((sum, chip) => sum + chipMb(chip.id), 0), [chipFolder])
+
+  const flashMbLimit = () => {
+    setMbLimitFlash(true)
+    if (mbFlashTimeoutRef.current !== null) {
+      window.clearTimeout(mbFlashTimeoutRef.current)
+    }
+    mbFlashTimeoutRef.current = window.setTimeout(() => {
+      setMbLimitFlash(false)
+    }, 520)
+  }
 
   const setDropHintAndScroll = (nextHint: DropTargetHint | null) => {
     setDropTargetHint((current) => {
@@ -180,6 +209,14 @@ export function FolderScene() {
     return null
   }
 
+  const canAddToFolder = (payload: Extract<DragChipPayload, { source: 'stock' }>) => {
+    if (chipFolder.length >= 30) {
+      return false
+    }
+
+    return folderMbTotal + chipMb(payload.chipId) <= folderMbLimit
+  }
+
   const handleDropOnColumn = (target: ColumnKind, event: DragEvent) => {
     event.preventDefault()
     const payload = readDragPayload(event.dataTransfer.getData(dragPayloadMimeType))
@@ -189,8 +226,15 @@ export function FolderScene() {
     }
 
     if (target === 'folder' && payload.source === 'stock') {
+      if (!canAddToFolder(payload)) {
+        flashMbLimit()
+        setDropHintAndScroll(null)
+        setDraggingPayload(null)
+        return
+      }
+
       moveStockChipToFolder(payload.chipId, payload.code)
-      setSelectedChip({ column: 'folder', chipId: payload.chipId, code: payload.code })
+      setSelectedChip({ column: 'folder', index: 0 })
     }
 
     if (target === 'stock' && payload.source === 'folder') {
@@ -216,7 +260,7 @@ export function FolderScene() {
     event.dataTransfer.setData(dragPayloadMimeType, JSON.stringify(payload))
     event.dataTransfer.effectAllowed = 'move'
     setDraggingPayload(payload)
-    setSelectedChip({ column: 'folder', chipId: chip.id, code: chip.code })
+    setSelectedChip({ column: 'folder', index })
   }
 
   const createStockDragStart = (chipId: ChipRuntimeId, code: string) => (event: DragEvent) => {
@@ -250,7 +294,12 @@ export function FolderScene() {
 
         <div className="folder-chip-columns">
           <div className="folder-chip-panel">
-            <h3>DECK (MAX 30)</h3>
+            <header className="folder-chip-panel-header">
+              <h3>DECK (MAX 30)</h3>
+              <span className={`folder-mb-widget ${mbLimitFlash ? 'error-flash' : ''}`}>
+                MB {folderMbTotal}/{folderMbLimit}
+              </span>
+            </header>
             <div
               ref={deckListRef}
               className={`folder-chip-list ${dropTargetHint?.column === 'folder' ? 'drop-target' : ''}`}
@@ -261,13 +310,16 @@ export function FolderScene() {
                 const payload = readDragPayload(event.dataTransfer.getData(dragPayloadMimeType))
                 if (payload) {
                   setDropHintAndScroll(resolveDropHint('folder', payload))
+                  if (payload.source === 'stock' && !canAddToFolder(payload)) {
+                    flashMbLimit()
+                  }
                 }
               }}
               onDrop={(event) => handleDropOnColumn('folder', event)}
             >
               {chipFolder.map((chip, index) => {
                 const chipDefinition = chipCatalog[chip.id]
-                const isSelected = selectedChip?.column === 'folder' && chip.id === selectedChip.chipId && chip.code === selectedChip.code
+                const isSelected = selectedChip?.column === 'folder' && selectedChip.index === index
                 const isDragging = draggingPayload?.source === 'folder' && draggingPayload.index === index
 
                 return (
@@ -281,9 +333,9 @@ export function FolderScene() {
                       setDraggingPayload(null)
                       setDropHintAndScroll(null)
                     }}
-                    onMouseEnter={() => setHoveredChip({ column: 'folder', chipId: chip.id, code: chip.code })}
+                    onMouseEnter={() => setHoveredChip({ column: 'folder', index })}
                     onMouseLeave={() => setHoveredChip(null)}
-                    onClick={() => setSelectedChip({ column: 'folder', chipId: chip.id, code: chip.code })}
+                    onClick={() => setSelectedChip({ column: 'folder', index })}
                   >
                     <span className="folder-chip-row-index">{index + 1}</span>
                     <span className="folder-chip-row-name">{chip.name}</span>
