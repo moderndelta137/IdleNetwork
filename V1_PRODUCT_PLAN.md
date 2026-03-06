@@ -121,6 +121,7 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 - M2 currently includes: always-on custom gauge/hand flow, deck/discard refill behavior, buffered chip use, aggressive auto-chip behavior (`fullAuto`), MegaMan control modes (`manual`, `semiAuto`, `fullAuto`), baseline movement AI, sprite board rendering with hit-flash/HP overlays, runtime debug controls (pause/step/scale), recovery windows, and initial CSV-driven chip/enemy attack catalogs with grammar-aware melee/hitscan checks, plus explicit chip MB metadata and deck MB legality enforcement.
 - Remaining M2 scope: expanded effect grammar execution (throw/step) plus CSV validation hardening and runtime stability pass.
 - Detailed active handoff and task status are maintained in `docs/M1_HANDOFF.md`.
+- New thread onboarding/read order is also maintained in `docs/M1_HANDOFF.md` under "New Thread Read Order (Carry-Over Pack)".
 
 ---
 

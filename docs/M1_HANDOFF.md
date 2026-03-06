@@ -75,6 +75,21 @@ Implement remaining M2 scope in this order:
 - `src/features/enemies/enemyAttackCatalog.ts`
 - `src/app/App.tsx`
 
+## New Thread Read Order (Carry-Over Pack)
+Before coding in a new thread, read these in order:
+1. `docs/M1_HANDOFF.md` (this file; exact implementation state + next tasks)
+2. `V1_PRODUCT_PLAN.md` (locked scope and milestone alignment)
+3. `GDD.md` (design intent and gameplay-system context)
+4. `AGENT.md` (working model + communication expectations)
+5. `src/features/chips/data/chips.csv`
+6. `src/features/chips/data/effect-grammar.csv`
+7. `src/features/chips/data/README.md`
+8. `src/features/enemies/data/enemy-attacks.csv`
+9. `src/features/enemies/data/README.md`
+10. `public/fonts/jersey-10/README.md` (runtime asset note)
+
+If schema changes are made (CSV columns/grammar), update the relevant data README in the same PR.
+
 ## Notes for New Thread
 - Run checks before opening PR:
   - `npm run check:game-store-duplicates`
