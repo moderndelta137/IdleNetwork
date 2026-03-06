@@ -542,6 +542,18 @@ const recycleDeckIfEmpty = (
   }
 }
 
+const sanitizeQueuedChipSlot = (chipHand: Array<BattleChip | null>, queuedChipSlot: number | null): number | null => {
+  if (queuedChipSlot === null) {
+    return null
+  }
+
+  if (queuedChipSlot < 0 || queuedChipSlot >= chipHand.length) {
+    return null
+  }
+
+  return chipHand[queuedChipSlot] ? queuedChipSlot : null
+}
+
 const findProgramAdvanceMatchSlots = (hand: Array<BattleChip | null>, rule: ProgramAdvanceRule): number[] | null => {
   const matched: number[] = []
 
@@ -1257,6 +1269,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   cycleMegamanControlMode: () => {
     set((current) => {
       const nextMode = cycleControlMode(current.megamanControlMode)
+      const sanitizedQueuedChipSlot = sanitizeQueuedChipSlot(current.chipHand, current.queuedChipSlot)
       const runtime = {
         mettaurTelegraphTicksRemaining: current.mettaurTelegraphTicksRemaining,
         customGaugeTicks: current.customGaugeTicks,
@@ -1264,7 +1277,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipHand: current.chipHand,
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
-        queuedChipSlot: current.queuedChipSlot,
+        queuedChipSlot: sanitizedQueuedChipSlot,
         megamanControlMode: nextMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
         chipIndicatorPanels: current.chipIndicatorPanels
@@ -1272,6 +1285,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       return {
         megamanControlMode: nextMode,
+        queuedChipSlot: sanitizedQueuedChipSlot,
         combat: buildCombatSummary(current.entities, runtime, `Control mode set to ${nextMode}`)
       }
     })
@@ -1338,6 +1352,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const megamanBusy = !current.entities.megaman.alive || current.megamanHitstunTicks > 0 || current.megamanRecoveryTicks > 0
 
       if (megamanBusy) {
+        const bufferedSlot = sanitizeQueuedChipSlot(current.chipHand, index)
         const runtime = {
           mettaurTelegraphTicksRemaining: current.mettaurTelegraphTicksRemaining,
           customGaugeTicks: current.customGaugeTicks,
@@ -1345,15 +1360,21 @@ export const useGameStore = create<GameState>((set, get) => ({
           chipHand: current.chipHand,
           barrierCharges: current.barrierCharges,
           megamanHitstunTicks: current.megamanHitstunTicks,
-          queuedChipSlot: index,
+          queuedChipSlot: bufferedSlot,
           megamanControlMode: current.megamanControlMode,
           programAdvanceAnimation: current.programAdvanceAnimation,
           chipIndicatorPanels: current.chipIndicatorPanels
         }
 
         return {
-          queuedChipSlot: index,
-          combat: buildCombatSummary(current.entities, runtime, `Buffered ${current.chipHand[index]?.name ?? 'empty slot'} for next action`)
+          queuedChipSlot: bufferedSlot,
+          combat: buildCombatSummary(
+            current.entities,
+            runtime,
+            bufferedSlot === null
+              ? 'Cannot buffer empty chip slot'
+              : `Buffered ${current.chipHand[index]?.name ?? 'empty slot'} for next action`
+          )
         }
       }
 
@@ -1568,6 +1589,8 @@ export const useGameStore = create<GameState>((set, get) => ({
               lastEvent = 'Custom Gauge full. Hand refilled from deck.'
             }
           }
+
+          queuedChipSlot = sanitizeQueuedChipSlot(chipHand, queuedChipSlot)
 
           const megamanBusy = !nextEntities.megaman.alive || megamanHitstunTicks > 0 || megamanRecoveryTicks > 0
 
