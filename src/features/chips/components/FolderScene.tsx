@@ -3,7 +3,7 @@ import { loadChipCatalog, type ChipRuntimeId } from '../chipCatalog'
 import { useGameStore } from '../../simulation/store/gameStore'
 
 const chipCatalog = loadChipCatalog(100)
-const folderMbLimit = 40
+const folderMbLimit = 200
 
 type ColumnKind = 'folder' | 'stock'
 
