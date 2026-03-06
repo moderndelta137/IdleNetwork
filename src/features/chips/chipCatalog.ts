@@ -1,7 +1,19 @@
 import chipsCsvRaw from './data/chips.csv?raw'
 import { csvRowsToRecords, parseCsv, secondsToTicks } from '../shared/csv'
 
-export type ChipRuntimeId = 'cannon' | 'sword' | 'recover10' | 'barrier'
+export type ChipRuntimeId =
+  | 'cannon'
+  | 'hicannon'
+  | 'm-cannon'
+  | 'sword'
+  | 'widesword'
+  | 'longsword'
+  | 'spreader'
+  | 'minibomb'
+  | 'recover10'
+  | 'recover30'
+  | 'barrier'
+  | 'zcannon'
 
 type ChipCsvRow = {
   Name: string
@@ -28,8 +40,27 @@ export type ChipDefinition = {
 
 const normalizeChipId = (name: string): ChipRuntimeId => {
   const normalized = name.toLowerCase().replace(/\s+/g, '')
-  if (normalized === 'cannon' || normalized === 'sword' || normalized === 'recover10' || normalized === 'barrier') {
-    return normalized
+
+  const aliasToId: Record<string, ChipRuntimeId> = {
+    cannon: 'cannon',
+    hicannon: 'hicannon',
+    'm-cannon': 'm-cannon',
+    mcannon: 'm-cannon',
+    sword: 'sword',
+    widesword: 'widesword',
+    longsword: 'longsword',
+    spreader: 'spreader',
+    minibomb: 'minibomb',
+    recover10: 'recover10',
+    recover30: 'recover30',
+    barrier: 'barrier',
+    'z-cannon': 'zcannon',
+    zcannon: 'zcannon'
+  }
+
+  const id = aliasToId[normalized]
+  if (id) {
+    return id
   }
 
   throw new Error(`Unsupported chip name in CSV: ${name}`)
