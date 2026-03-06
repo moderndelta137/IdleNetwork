@@ -137,6 +137,8 @@ const mettaurThreatWindowTicks = 2
 const hitFlashDurationTicks = 2
 const programAdvanceAnimationTicks = 12
 const folderMbLimit = 40
+const boardRowCount = 3
+const boardColCount = 6
 
 const chipCatalog = loadChipCatalog(baseTickMs)
 const enemyAttackCatalog = loadEnemyAttackCatalog(baseTickMs)
@@ -163,7 +165,7 @@ const programAdvanceRules: ProgramAdvanceRule[] = [
 ]
 
 const parseEffectNumber = (effects: string, prefix: string): number | null => {
-  const match = effects.match(new RegExp(`${prefix}(\\d+)`))
+  const match = effects.match(new RegExp(`${prefix}(\d+)`))
   if (!match) {
     return null
   }
@@ -171,13 +173,14 @@ const parseEffectNumber = (effects: string, prefix: string): number | null => {
   return Number.parseInt(match[1], 10)
 }
 
-const parseMeleeOffsets = (effects: string): PanelPosition[] => {
-  const match = effects.match(/melee:offsets=([^;]+)/)
-  if (!match) {
-    return []
-  }
+const splitEffectChain = (effects: string): string[] =>
+  effects
+    .split(',')
+    .map((effect) => effect.trim())
+    .filter((effect) => effect.length > 0)
 
-  return match[1]
+const parseOffsetPairs = (encodedOffsets: string): PanelPosition[] =>
+  encodedOffsets
     .split(';')
     .map((pair) => pair.trim())
     .filter((pair) => pair.length > 0)
@@ -189,15 +192,37 @@ const parseMeleeOffsets = (effects: string): PanelPosition[] => {
       }
     })
     .filter((offset) => Number.isFinite(offset.row) && Number.isFinite(offset.col))
+
+const parseEffectOffsets = (effect: string, key: 'melee' | 'throw'): PanelPosition[] => {
+  const prefix = `${key}:offsets=`
+  const startIndex = effect.indexOf(prefix)
+  if (startIndex < 0) {
+    return []
+  }
+
+  const encodedOffsets = effect.slice(startIndex + prefix.length)
+  return parseOffsetPairs(encodedOffsets)
 }
 
-const parseHitscanRows = (effects: string): number[] => {
-  const rowsStart = effects.indexOf('hitscan:rows=')
+const parseStepOffset = (effect: string): PanelPosition | null => {
+  const match = effect.match(/step:offset=(-?\d+)\|(-?\d+)/)
+  if (!match) {
+    return null
+  }
+
+  return {
+    row: Number.parseInt(match[2], 10),
+    col: Number.parseInt(match[1], 10)
+  }
+}
+
+const parseHitscanRows = (effect: string): number[] => {
+  const rowsStart = effect.indexOf('hitscan:rows=')
   if (rowsStart < 0) {
     return []
   }
 
-  const afterRows = effects.slice(rowsStart + 'hitscan:rows='.length)
+  const afterRows = effect.slice(rowsStart + 'hitscan:rows='.length)
   const rowsSection = afterRows.split(';maxRange=')[0]
 
   return rowsSection
@@ -206,28 +231,25 @@ const parseHitscanRows = (effects: string): number[] => {
     .filter((value) => Number.isFinite(value))
 }
 
-const canMeleeHitTarget = (megaman: EntityState, mettaur: EntityState, effects: string): boolean => {
-  const offsets = parseMeleeOffsets(effects)
-
-  return offsets.some((offset) => {
+const canOffsetPatternHitTarget = (source: EntityState, target: EntityState, offsets: PanelPosition[]): boolean =>
+  offsets.some((offset) => {
     const targetPanel = {
-      row: megaman.position.row + offset.row,
-      col: megaman.position.col + offset.col
+      row: source.position.row + offset.row,
+      col: source.position.col + offset.col
     }
 
-    return targetPanel.row === mettaur.position.row && targetPanel.col === mettaur.position.col
+    return targetPanel.row === target.position.row && targetPanel.col === target.position.col
   })
-}
 
-const canHitscanHitTarget = (megaman: EntityState, mettaur: EntityState, effects: string): boolean => {
-  const rowOffsets = parseHitscanRows(effects)
-  const maxRange = parseEffectNumber(effects, 'maxRange=') ?? 6
-  const colDelta = mettaur.position.col - megaman.position.col
+const canHitscanHitTarget = (source: EntityState, target: EntityState, effect: string): boolean => {
+  const rowOffsets = parseHitscanRows(effect)
+  const maxRange = parseEffectNumber(effect, 'maxRange=') ?? 6
+  const colDelta = target.position.col - source.position.col
   if (colDelta <= 0 || colDelta > maxRange) {
     return false
   }
 
-  const rowDelta = mettaur.position.row - megaman.position.row
+  const rowDelta = target.position.row - source.position.row
   if (!rowOffsets.includes(rowDelta)) {
     return false
   }
@@ -235,18 +257,60 @@ const canHitscanHitTarget = (megaman: EntityState, mettaur: EntityState, effects
   return true
 }
 
-const canChipDamageHitTarget = (chipDefinition: { type: string; effects: string }, megaman: EntityState, mettaur: EntityState): boolean => {
-  const chipType = chipDefinition.type.toLowerCase()
-
-  if (chipType === 'melee') {
-    return canMeleeHitTarget(megaman, mettaur, chipDefinition.effects)
+const getSteppedMegamanEntity = (megaman: EntityState, mettaur: EntityState, effects: string): EntityState => {
+  const effectChain = splitEffectChain(effects)
+  const stepEffect = effectChain.find((effect) => effect.startsWith('step:offset='))
+  if (!stepEffect) {
+    return megaman
   }
 
-  if (chipType === 'hitscan') {
-    return canHitscanHitTarget(megaman, mettaur, chipDefinition.effects)
+  const stepOffset = parseStepOffset(stepEffect)
+  if (!stepOffset) {
+    return megaman
   }
 
-  return true
+  const targetPosition = {
+    row: Math.max(0, Math.min(boardRowCount - 1, megaman.position.row + stepOffset.row)),
+    col: Math.max(0, Math.min(boardColCount - 1, megaman.position.col + stepOffset.col))
+  }
+
+  if (targetPosition.row === mettaur.position.row && targetPosition.col === mettaur.position.col) {
+    return megaman
+  }
+
+  return {
+    ...megaman,
+    position: targetPosition
+  }
+}
+
+const canChipDamageHitTarget = (chipDefinition: { effects: string }, megaman: EntityState, mettaur: EntityState): boolean => {
+  const steppedMegaman = getSteppedMegamanEntity(megaman, mettaur, chipDefinition.effects)
+  const effectChain = splitEffectChain(chipDefinition.effects)
+
+  const offensiveEffects = effectChain.filter((effect) =>
+    effect.startsWith('melee:offsets=') || effect.startsWith('throw:offsets=') || effect.startsWith('hitscan:rows=')
+  )
+
+  if (offensiveEffects.length === 0) {
+    return true
+  }
+
+  return offensiveEffects.some((effect) => {
+    if (effect.startsWith('melee:offsets=')) {
+      return canOffsetPatternHitTarget(steppedMegaman, mettaur, parseEffectOffsets(effect, 'melee'))
+    }
+
+    if (effect.startsWith('throw:offsets=')) {
+      return canOffsetPatternHitTarget(steppedMegaman, mettaur, parseEffectOffsets(effect, 'throw'))
+    }
+
+    if (effect.startsWith('hitscan:rows=')) {
+      return canHitscanHitTarget(steppedMegaman, mettaur, effect)
+    }
+
+    return false
+  })
 }
 
 const starterFolder: BattleChip[] = [
@@ -297,6 +361,8 @@ const starterStock: BattleChip[] = [
   { id: 'spreader', name: 'Spreader', code: 'A' },
   { id: 'minibomb', name: 'MiniBomb', code: '*' },
   { id: 'minibomb', name: 'MiniBomb', code: 'B' },
+  { id: 'lilbomb', name: 'LilBomb', code: 'B' },
+  { id: 'stepsword', name: 'StepSword', code: 'S' },
   { id: 'recover10', name: 'Recover10', code: 'L' },
   { id: 'recover30', name: 'Recover30', code: 'L' },
   { id: 'recover30', name: 'Recover30', code: 'A' },
@@ -754,7 +820,9 @@ const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'ba
     return heavyShotSlot
   }
 
-  const swordFamilySlot = chipHand.findIndex((chip) => chip?.id === 'widesword' || chip?.id === 'longsword' || chip?.id === 'minibomb')
+  const swordFamilySlot = chipHand.findIndex(
+    (chip) => chip?.id === 'widesword' || chip?.id === 'longsword' || chip?.id === 'stepsword' || chip?.id === 'minibomb' || chip?.id === 'lilbomb'
+  )
   if (swordFamilySlot >= 0) {
     return swordFamilySlot
   }
