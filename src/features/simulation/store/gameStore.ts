@@ -94,6 +94,8 @@ type GameState = {
   megamanHitstunTicks: number
   megamanRecoveryTicks: number
   mettaurRecoveryTicks: number
+  pendingStepReturnPosition: PanelPosition | null
+  pendingStepReturnTicks: number
   autoChipCooldown: number
   megamanControlMode: MegamanControlMode
   programAdvanceAnimation: ProgramAdvanceAnimation | null
@@ -784,6 +786,8 @@ const tryUseChipFromSlot = (
   chipDiscard: BattleChip[]
   barrierCharges: number
   chipIndicatorPanels: string[]
+  pendingStepReturnPosition: PanelPosition | null
+  pendingStepReturnTicks: number
   lastEvent: string
   used: boolean
   megamanRecoveryTicks: number
@@ -796,6 +800,8 @@ const tryUseChipFromSlot = (
       chipDiscard: current.chipDiscard,
       barrierCharges: current.barrierCharges,
       chipIndicatorPanels: [],
+      pendingStepReturnPosition: null,
+      pendingStepReturnTicks: 0,
       lastEvent: 'Selected chip slot is empty',
       used: false,
       megamanRecoveryTicks: 0
@@ -808,6 +814,7 @@ const tryUseChipFromSlot = (
   const sourceResolution = resolveChipExecutionSource(nextEntities, chipDefinition.effects)
   nextEntities = sourceResolution.entities
   const chipIndicatorPanels = collectChipIndicatorPanels(chipDefinition.effects, nextEntities.megaman)
+  const pendingStepReturnPosition = sourceResolution.didStep ? sourceResolution.originalMegaman.position : null
   let lastEvent = `Chip used: ${chip.name} ${chip.code}`
   let megamanRecoveryTicks = chipDefinition.recoilTicks
 
@@ -867,6 +874,8 @@ const tryUseChipFromSlot = (
     chipDiscard: [...current.chipDiscard, ...chipsToDiscard],
     barrierCharges,
     chipIndicatorPanels,
+    pendingStepReturnPosition,
+    pendingStepReturnTicks: sourceResolution.didStep ? megamanRecoveryTicks : 0,
     lastEvent,
     used: true,
     megamanRecoveryTicks
@@ -1070,6 +1079,8 @@ type RuntimeState = Pick<
   | 'megamanHitstunTicks'
   | 'megamanRecoveryTicks'
   | 'mettaurRecoveryTicks'
+  | 'pendingStepReturnPosition'
+  | 'pendingStepReturnTicks'
   | 'autoChipCooldown'
   | 'megamanControlMode'
   | 'megamanAutoMoveCooldown'
@@ -1104,6 +1115,8 @@ const buildInitialState = (): RuntimeState => {
     megamanHitstunTicks: 0,
     megamanRecoveryTicks: 0,
     mettaurRecoveryTicks: 0,
+    pendingStepReturnPosition: null,
+    pendingStepReturnTicks: 0,
     autoChipCooldown: autoChipCadenceTicks,
     megamanControlMode: 'semiAuto',
     megamanAutoMoveCooldown: megamanAutoMoveCadenceTicks,
@@ -1385,6 +1398,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         barrierCharges: result.barrierCharges,
         queuedChipSlot: null,
         megamanRecoveryTicks: result.megamanRecoveryTicks,
+        pendingStepReturnPosition: result.pendingStepReturnPosition,
+        pendingStepReturnTicks: result.pendingStepReturnTicks,
         chipIndicatorPanels: result.chipIndicatorPanels,
         chipIndicatorTicksRemaining: chipIndicatorDurationTicks,
         combat: buildCombatSummary(result.entities, runtime, result.lastEvent)
@@ -1502,6 +1517,18 @@ export const useGameStore = create<GameState>((set, get) => ({
           let megamanHitstunTicks = Math.max(0, current.megamanHitstunTicks - 1)
           let megamanRecoveryTicks = Math.max(0, current.megamanRecoveryTicks - 1)
           let mettaurRecoveryTicks = Math.max(0, current.mettaurRecoveryTicks - 1)
+          let pendingStepReturnPosition = current.pendingStepReturnPosition
+          let pendingStepReturnTicks = Math.max(0, current.pendingStepReturnTicks - 1)
+          if (pendingStepReturnPosition && pendingStepReturnTicks === 0) {
+            nextEntities = {
+              ...nextEntities,
+              megaman: {
+                ...nextEntities.megaman,
+                position: pendingStepReturnPosition
+              }
+            }
+            pendingStepReturnPosition = null
+          }
           let autoChipCooldown = Math.max(0, current.autoChipCooldown - 1)
           let megamanAutoMoveCooldown = Math.max(0, current.megamanAutoMoveCooldown - 1)
           let mettaurMoveCooldown = Math.max(0, current.mettaurMoveCooldown - 1)
@@ -1586,6 +1613,8 @@ export const useGameStore = create<GameState>((set, get) => ({
               lastEvent = `Buffered chip resolved: ${queuedUse.lastEvent}`
               queuedChipSlot = null
               megamanRecoveryTicks = queuedUse.megamanRecoveryTicks
+              pendingStepReturnPosition = queuedUse.pendingStepReturnPosition
+              pendingStepReturnTicks = queuedUse.pendingStepReturnTicks
               autoChipCooldown = autoChipCadenceTicks
             } else {
               queuedChipSlot = null
@@ -1613,6 +1642,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 chipIndicatorPanels = autoUse.chipIndicatorPanels
                 chipIndicatorTicksRemaining = chipIndicatorDurationTicks
                 megamanRecoveryTicks = autoUse.megamanRecoveryTicks
+                pendingStepReturnPosition = autoUse.pendingStepReturnPosition
+                pendingStepReturnTicks = autoUse.pendingStepReturnTicks
                 lastEvent = `Auto chip: ${autoUse.lastEvent}`
               }
             }
@@ -1726,6 +1757,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanHitstunTicks,
             megamanRecoveryTicks,
             mettaurRecoveryTicks,
+            pendingStepReturnPosition,
+            pendingStepReturnTicks,
             autoChipCooldown,
             megamanAutoMoveCooldown,
             mettaurMoveCooldown,
