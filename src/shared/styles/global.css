@@ -244,6 +244,12 @@ button.active {
   color: #111827;
 }
 
+.panel.chip-indicator {
+  background: #22d3ee;
+  border: 2px dashed #a5f3fc;
+  color: #082f49;
+}
+
 .panel.occupied {
   border: 2px solid #f8fafc;
 }

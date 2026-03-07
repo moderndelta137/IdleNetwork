@@ -4,6 +4,7 @@ This file captures the current implementation state and exact next work for a ne
 
 ## Current State (post-M1, active M2)
 - M0 foundation/deployment pass is in place (Vite + React + TypeScript + Zustand + Pages workflow).
+- CSV data pipeline hardening pass complete (row validation, grammar validation, skip+warn fallback, parser/loader tests).
 - M1 Combat Vertical Slice is complete.
 - M2 implementation is in progress and currently includes:
   - Always-on chip hand with 5 slots.
@@ -20,6 +21,8 @@ This file captures the current implementation state and exact next work for a ne
   - Initial grammar-aware hit checks (`hitscan` lane/range and `melee` offsets) for chip damage.
   - Program Advance (PA) auto-form from hand on Custom Gauge refill, including merge animation, PA chip replacement, and debug force-next-draw control.
   - Explicit chip MB metadata in `chips.csv` and MB-driven folder legality checks in store/UI (temporary cap: 40).
+  - Queued chip-slot sanitization across mode switches and post-refill hand mutation.
+  - Deterministic deck/discard reshuffle seeding baseline for stability checks.
 - CI includes duplicate-helper guard script for `gameStore.ts` before build.
 
 ## Confirmed Implemented in M2 So Far
@@ -46,14 +49,14 @@ Implement remaining M2 scope in this order:
      - multi-row/multi-tile fan patterns with consistent separators
    - Keep CSV as source-of-truth; avoid hardcoded effect behavior in store.
 
-2. **Data pipeline hardening for CSV workflow**
-   - Add validation/warnings for malformed CSV rows/effects grammar.
-   - Add clear fallback behavior when a row is invalid (skip row + log).
-   - Consider adding tiny tests for parser/catalog loaders.
+2. **Data pipeline hardening for CSV workflow** ✅ complete
+   - Validation/warnings added for malformed CSV rows/effects grammar.
+   - Safe fallback behavior added (invalid row skipped + warning log).
+   - Parser/catalog loader tests added.
 
-3. **Stability pass on runtime behavior**
-   - Verify manual/semi/full mode transitions do not desync queued chip state.
-   - Verify AI movement + chip logic remain deterministic across long runs.
+3. **Stability pass on runtime behavior** (active)
+   - ✅ Queue-slot desync guard added for mode switches and draw/refill mutation paths.
+   - Verify AI movement + chip logic remain deterministic across long runs (seeded reshuffle baseline added).
    - Keep `gameStore.ts` free of duplicate helper blocks (guard script + review).
 
 ## Acceptance Targets for Remaining M2
