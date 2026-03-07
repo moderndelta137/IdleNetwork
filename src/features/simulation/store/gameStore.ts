@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { loadChipCatalog, type ChipRuntimeId } from '../../chips/chipCatalog'
 import { loadEnemyAttackCatalog } from '../../enemies/enemyAttackCatalog'
+import { sanitizeQueuedChipSlot, shuffleChipsDeterministic } from './stabilityUtils'
 
 type Speed = 1 | 2 | 4
 type MegamanControlMode = 'manual' | 'semiAuto' | 'fullAuto'
@@ -468,17 +469,6 @@ const createInitialEntities = (): Record<EntityId, EntityState> => ({
   }
 })
 
-const shuffleChips = (chips: BattleChip[]): BattleChip[] => {
-  const shuffled = [...chips]
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1))
-    const temp = shuffled[i]
-    shuffled[i] = shuffled[j]
-    shuffled[j] = temp
-  }
-  return shuffled
-}
-
 const sortChipCollection = (chips: BattleChip[]): BattleChip[] =>
   [...chips].sort((a, b) => {
     if (a.name !== b.name) {
@@ -495,7 +485,8 @@ const sortChipCollection = (chips: BattleChip[]): BattleChip[] =>
 const fillHandSlots = (
   hand: Array<BattleChip | null>,
   deck: BattleChip[],
-  discard: BattleChip[]
+  discard: BattleChip[],
+  reshuffleSeed: number
 ): { chipHand: Array<BattleChip | null>; chipDeck: BattleChip[]; chipDiscard: BattleChip[] } => {
   const nextHand = [...hand]
   let nextDeck = [...deck]
@@ -507,7 +498,7 @@ const fillHandSlots = (
     }
 
     if (nextDeck.length === 0 && nextDiscard.length > 0) {
-      nextDeck = shuffleChips(nextDiscard)
+      nextDeck = shuffleChipsDeterministic(nextDiscard, reshuffleSeed)
       nextDiscard = []
     }
 
@@ -529,14 +520,15 @@ const fillHandSlots = (
 
 const recycleDeckIfEmpty = (
   deck: BattleChip[],
-  discard: BattleChip[]
+  discard: BattleChip[],
+  reshuffleSeed: number
 ): { chipDeck: BattleChip[]; chipDiscard: BattleChip[]; didRecycle: boolean } => {
   if (deck.length > 0 || discard.length === 0) {
     return { chipDeck: deck, chipDiscard: discard, didRecycle: false }
   }
 
   return {
-    chipDeck: shuffleChips(discard),
+    chipDeck: shuffleChipsDeterministic(discard, reshuffleSeed),
     chipDiscard: [],
     didRecycle: true
   }
@@ -1105,9 +1097,9 @@ type RuntimeState = Pick<
 
 const buildInitialState = (): RuntimeState => {
   const entities = createInitialEntities()
-  const initialDeck = shuffleChips(starterFolder)
+  const initialDeck = shuffleChipsDeterministic(starterFolder, 1)
   const initialHand = Array.from({ length: defaultChipHandSize }, () => null as BattleChip | null)
-  const firstFill = fillHandSlots(initialHand, initialDeck, [])
+  const firstFill = fillHandSlots(initialHand, initialDeck, [], 1)
 
   const runtime: Omit<RuntimeState, 'ticks' | 'entities' | 'occupiedPanels' | 'combat'> = {
     megamanBusterCooldown: megamanBusterCadenceTicks,
@@ -1530,7 +1522,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           let chipHand = current.chipHand
           let chipDeck = current.chipDeck
           let chipDiscard = current.chipDiscard
-          const recycledDeck = recycleDeckIfEmpty(chipDeck, chipDiscard)
+          const recycledDeck = recycleDeckIfEmpty(chipDeck, chipDiscard, nextTicks)
           chipDeck = recycledDeck.chipDeck
           chipDiscard = recycledDeck.chipDiscard
           let queuedChipSlot = current.queuedChipSlot
@@ -1567,7 +1559,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           let lastEvent = recycledDeck.didRecycle ? 'Deck recycled from discard pile' : 'Idle tick'
 
           if (gaugeTicks >= current.customGaugeMaxTicks) {
-            const refill = fillHandSlots(chipHand, chipDeck, chipDiscard)
+            const refill = fillHandSlots(chipHand, chipDeck, chipDiscard, nextTicks)
             chipHand = refill.chipHand
             chipDeck = refill.chipDeck
             chipDiscard = refill.chipDiscard
