@@ -534,6 +534,18 @@ const recycleDeckIfEmpty = (
   }
 }
 
+const sanitizeQueuedChipSlot = (chipHand: Array<BattleChip | null>, queuedChipSlot: number | null): number | null => {
+  if (queuedChipSlot === null) {
+    return null
+  }
+
+  if (queuedChipSlot < 0 || queuedChipSlot >= chipHand.length) {
+    return null
+  }
+
+  return chipHand[queuedChipSlot] ? queuedChipSlot : null
+}
+
 const findProgramAdvanceMatchSlots = (hand: Array<BattleChip | null>, rule: ProgramAdvanceRule): number[] | null => {
   const matched: number[] = []
 
@@ -846,6 +858,13 @@ const tryUseChipFromSlot = (
   if (barrierAmount) {
     barrierCharges = barrierAmount
     lastEvent = `${chip.name} barrier ready`
+  }
+
+  if (sourceResolution.didStep) {
+    nextEntities = {
+      ...nextEntities,
+      megaman: sourceResolution.originalMegaman
+    }
   }
 
   const nextHand = [...current.chipHand]
