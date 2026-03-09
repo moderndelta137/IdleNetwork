@@ -54,14 +54,14 @@ Implement remaining M2 scope in this order:
    - Safe fallback behavior added (invalid row skipped + warning log).
    - Parser/catalog loader tests added.
 
-3. **Stability pass on runtime behavior** (active)
+3. **Stability pass on runtime behavior** ✅ complete
    - ✅ Queue-slot desync guard added for mode switches and draw/refill mutation paths.
-   - Verify AI movement + chip logic remain deterministic across long runs (seeded reshuffle baseline added).
-   - Keep `gameStore.ts` free of duplicate helper blocks (guard script + review).
+   - ✅ AI movement + chip logic determinism baseline verified via deterministic reshuffle utility tests and long-run replay coverage.
+   - ✅ `gameStore.ts` duplicate helper guard remains active in CI (`check:game-store-duplicates`).
 
 ## Acceptance Targets for Remaining M2
 - CSV grammar supports more than simple melee/hitscan checks (throw/step baseline).
-- Manual/semi/full control modes remain playable with no runtime build regressions.
+- ✅ Manual/semi/full control modes remain playable with no runtime build regressions.
 - Chip CSV pipeline flags malformed MB/effect rows with safe fallback behavior.
 
 ## Known Follow-ups / Operational Notes
