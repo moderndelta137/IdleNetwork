@@ -171,8 +171,10 @@ const programAdvanceRules: ProgramAdvanceRule[] = [
   }
 ]
 
+const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 const parseEffectNumber = (effects: string, prefix: string): number | null => {
-  const match = effects.match(new RegExp(`${prefix}(\d+)`))
+  const match = effects.match(new RegExp(`${escapeRegex(prefix)}(-?\\d+)`))
   if (!match) {
     return null
   }
@@ -229,14 +231,19 @@ const parseHitscanRows = (effect: string): number[] => {
     return []
   }
 
-  const afterRows = effect.slice(rowsStart + 'hitscan:rows='.length)
-  const rowsSection = afterRows.split(';maxRange=')[0]
-
-  return rowsSection
+  const body = effect.slice(rowsStart + 'hitscan:rows='.length)
+  return body
     .split(';')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0 && !part.startsWith('maxRange=') && !part.startsWith('pierce='))
     .map((value) => Number.parseInt(value, 10))
     .filter((value) => Number.isFinite(value))
 }
+
+const clampPanelPosition = (position: PanelPosition): PanelPosition => ({
+  row: Math.max(0, Math.min(boardRowCount - 1, position.row)),
+  col: Math.max(0, Math.min(boardColCount - 1, position.col))
+})
 
 const canOffsetPatternHitTarget = (source: EntityState, target: EntityState, offsets: PanelPosition[]): boolean =>
   offsets.some((offset) => {
@@ -264,29 +271,23 @@ const canHitscanHitTarget = (source: EntityState, target: EntityState, effect: s
   return true
 }
 
-const getSteppedMegamanEntity = (megaman: EntityState, mettaur: EntityState, effects: string): EntityState => {
-  const effectChain = splitEffectChain(effects)
-  const stepEffect = effectChain.find((effect) => effect.startsWith('step:offset='))
-  if (!stepEffect) {
-    return megaman
-  }
-
-  const stepOffset = parseStepOffset(stepEffect)
+const applyStepOffset = (source: EntityState, blocker: EntityState, effect: string): EntityState => {
+  const stepOffset = parseStepOffset(effect)
   if (!stepOffset) {
-    return megaman
+    return source
   }
 
-  const targetPosition = {
-    row: Math.max(0, Math.min(boardRowCount - 1, megaman.position.row + stepOffset.row)),
-    col: Math.max(0, Math.min(boardColCount - 1, megaman.position.col + stepOffset.col))
-  }
+  const targetPosition = clampPanelPosition({
+    row: source.position.row + stepOffset.row,
+    col: source.position.col + stepOffset.col
+  })
 
-  if (targetPosition.row === mettaur.position.row && targetPosition.col === mettaur.position.col) {
-    return megaman
+  if (targetPosition.row === blocker.position.row && targetPosition.col === blocker.position.col) {
+    return source
   }
 
   return {
-    ...megaman,
+    ...source,
     position: targetPosition
   }
 }
@@ -294,41 +295,57 @@ const getSteppedMegamanEntity = (megaman: EntityState, mettaur: EntityState, eff
 const canChipDamageHitTarget = (chipDefinition: { effects: string }, megaman: EntityState, mettaur: EntityState): boolean => {
   const effectChain = splitEffectChain(chipDefinition.effects)
 
-  const offensiveEffects = effectChain.filter((effect) =>
-    effect.startsWith('melee:offsets=') || effect.startsWith('throw:offsets=') || effect.startsWith('hitscan:rows=')
-  )
+  let currentSource = megaman
+  let hasOffensiveEffect = false
 
-  if (offensiveEffects.length === 0) {
-    return true
-  }
+  for (const effect of effectChain) {
+    if (effect.startsWith('step:offset=')) {
+      currentSource = applyStepOffset(currentSource, mettaur, effect)
+      continue
+    }
 
-  return offensiveEffects.some((effect) => {
     if (effect.startsWith('melee:offsets=')) {
-      return canOffsetPatternHitTarget(megaman, mettaur, parseEffectOffsets(effect, 'melee'))
+      hasOffensiveEffect = true
+      if (canOffsetPatternHitTarget(currentSource, mettaur, parseEffectOffsets(effect, 'melee'))) {
+        return true
+      }
+      continue
     }
 
     if (effect.startsWith('throw:offsets=')) {
-      return canOffsetPatternHitTarget(megaman, mettaur, parseEffectOffsets(effect, 'throw'))
+      hasOffensiveEffect = true
+      if (canOffsetPatternHitTarget(currentSource, mettaur, parseEffectOffsets(effect, 'throw'))) {
+        return true
+      }
+      continue
     }
 
     if (effect.startsWith('hitscan:rows=')) {
-      return canHitscanHitTarget(megaman, mettaur, effect)
+      hasOffensiveEffect = true
+      if (canHitscanHitTarget(currentSource, mettaur, effect)) {
+        return true
+      }
     }
+  }
 
-    return false
-  })
+  return !hasOffensiveEffect
 }
 
-
-const collectChipIndicatorPanels = (effects: string, megaman: EntityState): string[] => {
+const collectChipIndicatorPanels = (effects: string, megaman: EntityState, mettaur: EntityState): string[] => {
   const effectChain = splitEffectChain(effects)
   const indicatorPanels = new Set<string>()
+  let currentSource = megaman
 
   effectChain.forEach((effect) => {
+    if (effect.startsWith('step:offset=')) {
+      currentSource = applyStepOffset(currentSource, mettaur, effect)
+      return
+    }
+
     if (effect.startsWith('melee:offsets=')) {
       parseEffectOffsets(effect, 'melee').forEach((offset) => {
-        const row = megaman.position.row + offset.row
-        const col = megaman.position.col + offset.col
+        const row = currentSource.position.row + offset.row
+        const col = currentSource.position.col + offset.col
         if (row >= 0 && row < boardRowCount && col >= 0 && col < boardColCount) {
           indicatorPanels.add(makePanelKey({ row, col }))
         }
@@ -338,8 +355,8 @@ const collectChipIndicatorPanels = (effects: string, megaman: EntityState): stri
 
     if (effect.startsWith('throw:offsets=')) {
       parseEffectOffsets(effect, 'throw').forEach((offset) => {
-        const row = megaman.position.row + offset.row
-        const col = megaman.position.col + offset.col
+        const row = currentSource.position.row + offset.row
+        const col = currentSource.position.col + offset.col
         if (row >= 0 && row < boardRowCount && col >= 0 && col < boardColCount) {
           indicatorPanels.add(makePanelKey({ row, col }))
         }
@@ -351,12 +368,12 @@ const collectChipIndicatorPanels = (effects: string, megaman: EntityState): stri
       const rows = parseHitscanRows(effect)
       const maxRange = parseEffectNumber(effect, 'maxRange=') ?? 6
       rows.forEach((rowOffset) => {
-        const targetRow = megaman.position.row + rowOffset
+        const targetRow = currentSource.position.row + rowOffset
         if (targetRow < 0 || targetRow >= boardRowCount) {
           return
         }
         for (let range = 1; range <= maxRange; range += 1) {
-          const targetCol = megaman.position.col + range
+          const targetCol = currentSource.position.col + range
           if (targetCol < 0 || targetCol >= boardColCount) {
             break
           }
@@ -374,7 +391,14 @@ const resolveChipExecutionSource = (
   effects: string
 ): { entities: Record<EntityId, EntityState>; didStep: boolean; originalMegaman: EntityState } => {
   const originalMegaman = entities.megaman
-  const steppedMegaman = getSteppedMegamanEntity(originalMegaman, entities.mettaur, effects)
+  let steppedMegaman = originalMegaman
+
+  splitEffectChain(effects).forEach((effect) => {
+    if (effect.startsWith('step:offset=')) {
+      steppedMegaman = applyStepOffset(steppedMegaman, entities.mettaur, effect)
+    }
+  })
+
   const didStep =
     steppedMegaman.position.row !== originalMegaman.position.row || steppedMegaman.position.col !== originalMegaman.position.col
 
@@ -532,18 +556,6 @@ const recycleDeckIfEmpty = (
     chipDiscard: [],
     didRecycle: true
   }
-}
-
-const sanitizeQueuedChipSlot = (chipHand: Array<BattleChip | null>, queuedChipSlot: number | null): number | null => {
-  if (queuedChipSlot === null) {
-    return null
-  }
-
-  if (queuedChipSlot < 0 || queuedChipSlot >= chipHand.length) {
-    return null
-  }
-
-  return chipHand[queuedChipSlot] ? queuedChipSlot : null
 }
 
 const findProgramAdvanceMatchSlots = (hand: Array<BattleChip | null>, rule: ProgramAdvanceRule): number[] | null => {
@@ -817,7 +829,7 @@ const tryUseChipFromSlot = (
   let barrierCharges = current.barrierCharges
   const sourceResolution = resolveChipExecutionSource(nextEntities, chipDefinition.effects)
   nextEntities = sourceResolution.entities
-  const chipIndicatorPanels = collectChipIndicatorPanels(chipDefinition.effects, nextEntities.megaman)
+  const chipIndicatorPanels = collectChipIndicatorPanels(chipDefinition.effects, nextEntities.megaman, nextEntities.mettaur)
   const pendingStepReturnPosition = sourceResolution.didStep ? sourceResolution.originalMegaman.position : null
   let lastEvent = `Chip used: ${chip.name} ${chip.code}`
   let megamanRecoveryTicks = chipDefinition.recoilTicks
@@ -858,13 +870,6 @@ const tryUseChipFromSlot = (
   if (barrierAmount) {
     barrierCharges = barrierAmount
     lastEvent = `${chip.name} barrier ready`
-  }
-
-  if (sourceResolution.didStep) {
-    nextEntities = {
-      ...nextEntities,
-      megaman: sourceResolution.originalMegaman
-    }
   }
 
   const nextHand = [...current.chipHand]
@@ -929,8 +934,7 @@ const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'ba
       return
     }
 
-    const steppedMegaman = getSteppedMegamanEntity(entities.megaman, entities.mettaur, chipDefinition.effects)
-    const canHit = canChipDamageHitTarget(chipDefinition, steppedMegaman, entities.mettaur)
+    const canHit = canChipDamageHitTarget(chipDefinition, entities.megaman, entities.mettaur)
 
     let score = chipDefinition.damage
     if (!canHit) {
