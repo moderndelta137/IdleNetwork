@@ -39,15 +39,16 @@ This file captures the current implementation state and exact next work for a ne
 - [x] MB/cost legality checks baseline (chip MB metadata + deck MB cap enforcement + UI status).
 - [x] Duplicate declaration pre-build check in CI.
 
-## Start Here Next (Remaining M2 Work)
-Implement remaining M2 scope in this order:
+## Start Here Next
+- ✅ M2 effect grammar executor expansion complete (`throw`, `step` chaining, and row/fan pattern execution from CSV grammar).
+- Next milestone focus: M3 Area Meta Loop (map unlock gates, 10-wave FSM, boss retry behavior, shop/gacha/folder flows).
 
-1. **Effect grammar executor expansion (after baseline hit checks)**
-   - Expand from current melee/hitscan checks to actual grammar-driven execution:
-     - `throw:offsets=...`
-     - `step:offset=...` + follow-up effect chaining
-     - multi-row/multi-tile fan patterns with consistent separators
-   - Keep CSV as source-of-truth; avoid hardcoded effect behavior in store.
+## M2 Completion Checklist
+1. **Effect grammar executor expansion (after baseline hit checks)** ✅ complete
+   - Added grammar-driven execution for `throw:offsets=...`.
+   - Added sequential `step:offset=...` processing with follow-up effect chaining.
+   - Added consistent multi-row/multi-tile fan handling for hitscan patterns.
+   - CSV remains source-of-truth (no chip-specific hardcoded effect logic).
 
 2. **Data pipeline hardening for CSV workflow** ✅ complete
    - Validation/warnings added for malformed CSV rows/effects grammar.
@@ -59,10 +60,10 @@ Implement remaining M2 scope in this order:
    - ✅ AI movement + chip logic determinism baseline verified via deterministic reshuffle utility tests and long-run replay coverage.
    - ✅ `gameStore.ts` duplicate helper guard remains active in CI (`check:game-store-duplicates`).
 
-## Acceptance Targets for Remaining M2
-- CSV grammar supports more than simple melee/hitscan checks (throw/step baseline).
+## M2 Acceptance Targets
+- ✅ CSV grammar supports more than simple melee/hitscan checks (throw/step baseline).
 - ✅ Manual/semi/full control modes remain playable with no runtime build regressions.
-- Chip CSV pipeline flags malformed MB/effect rows with safe fallback behavior.
+- ✅ Chip CSV pipeline flags malformed MB/effect rows with safe fallback behavior.
 
 ## Known Follow-ups / Operational Notes
 - Local font wiring is now `@font-face`-based; ensure one actual font file is committed:
