@@ -42,6 +42,8 @@ This file captures the current implementation state and exact next work for a ne
 ## Start Here Next
 - ✅ M2 effect grammar executor expansion complete (`throw`, `step` chaining, and row/fan pattern execution from CSV grammar).
 - ✅ M3 Task 1 complete: baseline 10-wave level FSM now drives in-battle wave progression.
+- ✅ Added post-wave Result popup (DeleteTime, Busting LV, RNG rewards) and 1-second `BATTLE START` banner gating next-wave unpause.
+- ✅ Wave scaling now increases per-wave virus count (sequential spawns) and power, capped at 6 viruses per wave.
 - Next M3 implementation order:
   1. Wave-10 boss retry button behavior
   2. Area map UI + unlock gates

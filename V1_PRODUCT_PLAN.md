@@ -119,7 +119,7 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 - M1 Combat Vertical Slice is complete (Tasks 1-5).
 - M2 Chips + Rules is complete.
 - M2 currently includes: always-on custom gauge/hand flow, deck/discard refill behavior, buffered chip use, aggressive auto-chip behavior (`fullAuto`), MegaMan control modes (`manual`, `semiAuto`, `fullAuto`), baseline movement AI, sprite board rendering with hit-flash/HP overlays, runtime debug controls (pause/step/scale), recovery windows, and CSV-driven chip/enemy attack catalogs with grammar-aware melee/hitscan/throw/step execution, plus explicit chip MB metadata and deck MB legality enforcement.
-- M2 scope is complete; M3 is in progress with baseline 10-wave level FSM implemented first.
+- M2 scope is complete; M3 is in progress with baseline 10-wave level FSM plus wave-clear Result popup, BATTLE START pre-wave banner, and wave-scaled virus count/power (cap: 6 per wave).
 - Detailed active handoff and task status are maintained in `docs/M1_HANDOFF.md`.
 - New thread onboarding/read order is also maintained in `docs/M1_HANDOFF.md` under "New Thread Read Order (Carry-Over Pack)".
 
