@@ -20,7 +20,8 @@ type WaveResultSummary = {
   reward: WaveReward
 }
 
-type EntityId = 'megaman' | 'mettaur'
+type VirusEntityId = 'mettaur' | 'mettaur2' | 'mettaur3' | 'mettaur4' | 'mettaur5' | 'mettaur6'
+type EntityId = 'megaman' | VirusEntityId
 
 type ChipId = ChipRuntimeId
 
@@ -195,6 +196,16 @@ const mettaurTelegraphTicks = mettaurSwingAttack?.lagTicks ?? 4
 const mettaurHitDamage = mettaurSwingAttack?.damage ?? 6
 const mettaurSwingRecoveryTicks = mettaurSwingAttack?.recoilTicks ?? 6
 
+const virusEntityIds: VirusEntityId[] = ['mettaur', 'mettaur2', 'mettaur3', 'mettaur4', 'mettaur5', 'mettaur6']
+const virusSpawnPositions: PanelPosition[] = [
+  { row: 0, col: 3 },
+  { row: 1, col: 3 },
+  { row: 2, col: 3 },
+  { row: 0, col: 4 },
+  { row: 1, col: 4 },
+  { row: 2, col: 4 }
+]
+
 const getWaveEnemyMaxHp = (wave: number): number => {
   const clampedWave = Math.max(1, Math.min(maxWavesPerLevel, wave))
   const baseHp = 90 + (clampedWave - 1) * waveHpStep
@@ -210,6 +221,100 @@ const getWaveVirusSpawnHp = (wave: number, spawnIndex: number): number => {
   return baseHp + Math.max(0, spawnIndex - 1) * 12
 }
 
+
+const getAliveVirusIds = (entities: Record<EntityId, EntityState>): VirusEntityId[] =>
+  virusEntityIds.filter((id) => entities[id]?.alive)
+
+const getActiveVirusId = (entities: Record<EntityId, EntityState>): VirusEntityId | null => {
+  const alive = getAliveVirusIds(entities)
+  if (alive.length === 0) {
+    return null
+  }
+
+  return alive.sort((a, b) => {
+    const first = entities[a]
+    const second = entities[b]
+    if (first.position.col !== second.position.col) {
+      return first.position.col - second.position.col
+    }
+    return first.position.row - second.position.row
+  })[0]
+}
+
+const projectCombatEntities = (
+  entities: Record<EntityId, EntityState>
+): { combatEntities: Record<EntityId, EntityState>; activeVirusId: VirusEntityId | null } => {
+  const activeVirusId = getActiveVirusId(entities)
+  if (!activeVirusId) {
+    return {
+      combatEntities: {
+        ...entities,
+        mettaur: {
+          ...entities.mettaur,
+          alive: false,
+          hp: 0
+        }
+      },
+      activeVirusId: null
+    }
+  }
+
+  return {
+    combatEntities: {
+      ...entities,
+      mettaur: { ...entities[activeVirusId] }
+    },
+    activeVirusId
+  }
+}
+
+const mergeCombatEntities = (
+  base: Record<EntityId, EntityState>,
+  combat: Record<EntityId, EntityState>,
+  activeVirusId: VirusEntityId | null
+): Record<EntityId, EntityState> => {
+  const next = { ...base, megaman: combat.megaman }
+  if (activeVirusId) {
+    next[activeVirusId] = { ...combat.mettaur, id: activeVirusId }
+  }
+  return next
+}
+
+const setupWaveViruses = (
+  entities: Record<EntityId, EntityState>,
+  wave: number,
+  virusesTotal: number
+): Record<EntityId, EntityState> => {
+  const next = { ...entities }
+  virusEntityIds.forEach((id, index) => {
+    if (index < virusesTotal) {
+      const hp = getWaveVirusSpawnHp(wave, index + 1)
+      const position = virusSpawnPositions[index]
+      next[id] = {
+        ...next[id],
+        id,
+        name: 'Mettaur',
+        alive: true,
+        hp,
+        maxHp: hp,
+        position,
+        hitFlashTicks: 0
+      }
+    } else {
+      next[id] = {
+        ...next[id],
+        id,
+        name: 'Mettaur',
+        alive: false,
+        hp: 0,
+        maxHp: next[id].maxHp || 90,
+        hitFlashTicks: 0
+      }
+    }
+  })
+
+  return next
+}
 
 const randomCode = (): string => {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ*'
@@ -593,8 +698,53 @@ const createInitialEntities = (): Record<EntityId, EntityState> => ({
     id: 'mettaur',
     name: 'Mettaur',
     position: { row: 1, col: 4 },
-    alive: true,
-    hp: 90,
+    alive: false,
+    hp: 0,
+    maxHp: 90,
+    hitFlashTicks: 0
+  },
+  mettaur2: {
+    id: 'mettaur2',
+    name: 'Mettaur',
+    position: { row: 0, col: 4 },
+    alive: false,
+    hp: 0,
+    maxHp: 90,
+    hitFlashTicks: 0
+  },
+  mettaur3: {
+    id: 'mettaur3',
+    name: 'Mettaur',
+    position: { row: 2, col: 4 },
+    alive: false,
+    hp: 0,
+    maxHp: 90,
+    hitFlashTicks: 0
+  },
+  mettaur4: {
+    id: 'mettaur4',
+    name: 'Mettaur',
+    position: { row: 0, col: 5 },
+    alive: false,
+    hp: 0,
+    maxHp: 90,
+    hitFlashTicks: 0
+  },
+  mettaur5: {
+    id: 'mettaur5',
+    name: 'Mettaur',
+    position: { row: 1, col: 5 },
+    alive: false,
+    hp: 0,
+    maxHp: 90,
+    hitFlashTicks: 0
+  },
+  mettaur6: {
+    id: 'mettaur6',
+    name: 'Mettaur',
+    position: { row: 2, col: 5 },
+    alive: false,
+    hp: 0,
     maxHp: 90,
     hitFlashTicks: 0
   }
@@ -756,8 +906,9 @@ const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedP
 
 
 const buildMettaurSwingHitboxPanels = (entities: Record<EntityId, EntityState>, telegraphTicks: number): string[] => {
-  const mettaur = entities.mettaur
-  if (!mettaur.alive || telegraphTicks <= 0) {
+  const activeVirusId = getActiveVirusId(entities)
+  const mettaur = activeVirusId ? entities[activeVirusId] : null
+  if (!mettaur || !mettaur.alive || telegraphTicks <= 0) {
     return []
   }
 
@@ -802,7 +953,8 @@ const buildCombatSummary = (
   lastEvent: string
 ): CombatSummary => {
   const player = entities.megaman
-  const target = entities.mettaur
+  const activeVirusId = getActiveVirusId(entities)
+  const target = activeVirusId ? entities[activeVirusId] : entities.mettaur
 
   return {
     playerHp: player.hp,
@@ -829,8 +981,8 @@ const buildCombatSummary = (
     waveResult: runtime.waveResult ?? null,
     battleStartBannerTicks: runtime.battleStartBannerTicks ?? 0,
     totalZenny: runtime.totalZenny ?? 0,
-    virusesRemaining: runtime.virusesRemaining ?? 1,
-    virusesTotal: runtime.virusesTotal ?? 1
+    virusesRemaining: runtime.virusesRemaining ?? getAliveVirusIds(entities).length,
+    virusesTotal: runtime.virusesTotal ?? Math.max(1, getAliveVirusIds(entities).length)
   }
 }
 
@@ -951,20 +1103,22 @@ const tryUseChipFromSlot = (
 
   const chipDefinition = chipCatalog[chip.id]
   let nextEntities = { ...current.entities }
+  const { combatEntities, activeVirusId } = projectCombatEntities(nextEntities)
+  let combatState = combatEntities
   let barrierCharges = current.barrierCharges
-  const sourceResolution = resolveChipExecutionSource(nextEntities, chipDefinition.effects)
-  nextEntities = sourceResolution.entities
-  const chipIndicatorPanels = collectChipIndicatorPanels(chipDefinition.effects, nextEntities.megaman, nextEntities.mettaur)
+  const sourceResolution = resolveChipExecutionSource(combatState, chipDefinition.effects)
+  combatState = sourceResolution.entities
+  const chipIndicatorPanels = collectChipIndicatorPanels(chipDefinition.effects, combatState.megaman, combatState.mettaur)
   const pendingStepReturnPosition = sourceResolution.didStep ? sourceResolution.originalMegaman.position : null
   let lastEvent = `Chip used: ${chip.name} ${chip.code}`
   let megamanRecoveryTicks = chipDefinition.recoilTicks
 
   if (chipDefinition.damage > 0) {
-    const canHit = canChipDamageHitTarget(chipDefinition, nextEntities.megaman, nextEntities.mettaur)
+    const canHit = canChipDamageHitTarget(chipDefinition, combatState.megaman, combatState.mettaur)
     if (canHit) {
-      const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, chipDefinition.damage)
-      nextEntities = {
-        ...nextEntities,
+      const result = applyDamage(combatState.megaman, combatState.mettaur, chipDefinition.damage)
+      combatState = {
+        ...combatState,
         megaman: result.source,
         mettaur: result.target
       }
@@ -978,18 +1132,20 @@ const tryUseChipFromSlot = (
 
   const healAmount = parseEffectNumber(chipDefinition.effects, 'heal:amount=')
   if (healAmount) {
-    const nextHp = Math.min(nextEntities.megaman.maxHp, nextEntities.megaman.hp + healAmount)
-    const healedAmount = nextHp - nextEntities.megaman.hp
-    nextEntities = {
-      ...nextEntities,
+    const nextHp = Math.min(combatState.megaman.maxHp, combatState.megaman.hp + healAmount)
+    const healedAmount = nextHp - combatState.megaman.hp
+    combatState = {
+      ...combatState,
       megaman: {
-        ...nextEntities.megaman,
+        ...combatState.megaman,
         hp: nextHp,
         alive: nextHp > 0
       }
     }
     lastEvent = `${chip.name} healed ${healedAmount}`
   }
+
+  nextEntities = mergeCombatEntities(nextEntities, combatState, activeVirusId)
 
   const barrierAmount = parseEffectNumber(chipDefinition.effects, 'barrier:charges=')
   if (barrierAmount) {
@@ -1236,12 +1392,11 @@ type RuntimeState = Pick<
 >
 
 const buildInitialState = (): RuntimeState => {
-  const entities = createInitialEntities()
+  let entities = createInitialEntities()
   const initialLevel = 1
   const initialWave = 1
   const initialVirusesTotal = getWaveVirusCount(initialWave)
-  entities.mettaur.maxHp = getWaveVirusSpawnHp(initialWave, 1)
-  entities.mettaur.hp = entities.mettaur.maxHp
+  entities = setupWaveViruses(entities, initialWave, initialVirusesTotal)
   const initialDeck = shuffleChipsDeterministic(starterFolder, 1)
   const initialHand = Array.from({ length: defaultChipHandSize }, () => null as BattleChip | null)
   const firstFill = fillHandSlots(initialHand, initialDeck, [], 1)
@@ -1658,15 +1813,20 @@ export const useGameStore = create<GameState>((set, get) => ({
         return {}
       }
 
-      const canHit = canMegamanBusterHit(current.entities.megaman, current.entities.mettaur)
+      const { combatEntities, activeVirusId } = projectCombatEntities(current.entities)
+      const canHit = canMegamanBusterHit(combatEntities.megaman, combatEntities.mettaur)
       const result = canHit
-        ? applyDamage(current.entities.megaman, current.entities.mettaur, megamanHitDamage)
-        : { source: current.entities.megaman, target: current.entities.mettaur, didHit: false }
-      const nextEntities = {
-        ...current.entities,
-        megaman: result.source,
-        mettaur: result.target
-      }
+        ? applyDamage(combatEntities.megaman, combatEntities.mettaur, megamanHitDamage)
+        : { source: combatEntities.megaman, target: combatEntities.mettaur, didHit: false }
+      const nextEntities = mergeCombatEntities(
+        current.entities,
+        {
+          ...combatEntities,
+          megaman: result.source,
+          mettaur: result.target
+        },
+        activeVirusId
+      )
       const runtime = {
         mettaurTelegraphTicksRemaining: current.mettaurTelegraphTicksRemaining,
         customGaugeTicks: current.customGaugeTicks,
@@ -1715,18 +1875,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         currentWave = Math.min(maxWavesPerLevel, current.currentWave + 1)
         virusesTotal = getWaveVirusCount(currentWave)
         virusesRemaining = virusesTotal
-        const nextEnemyMaxHp = getWaveVirusSpawnHp(currentWave, 1)
-        nextEntities = {
-          ...current.entities,
-          mettaur: {
-            ...current.entities.mettaur,
-            hp: nextEnemyMaxHp,
-            maxHp: nextEnemyMaxHp,
-            alive: true,
-            position: { row: 1, col: 4 },
-            hitFlashTicks: 0
-          }
-        }
+        nextEntities = setupWaveViruses(current.entities, currentWave, virusesTotal)
         waveStatus = 'inProgress'
         waveStartedAtTick = current.ticks
         battleStartBannerTicks = battleStartBannerDurationTicks
@@ -1820,12 +1969,17 @@ export const useGameStore = create<GameState>((set, get) => ({
             megaman: {
               ...current.entities.megaman,
               hitFlashTicks: Math.max(0, current.entities.megaman.hitFlashTicks - 1)
-            },
-            mettaur: {
-              ...current.entities.mettaur,
-              hitFlashTicks: Math.max(0, current.entities.mettaur.hitFlashTicks - 1)
             }
           }
+          virusEntityIds.forEach((virusId) => {
+            nextEntities = {
+              ...nextEntities,
+              [virusId]: {
+                ...nextEntities[virusId],
+                hitFlashTicks: Math.max(0, nextEntities[virusId].hitFlashTicks - 1)
+              }
+            }
+          })
           let megamanBusterCooldown = Math.max(0, current.megamanBusterCooldown - 1)
           let mettaurAttackCooldown = Math.max(0, current.mettaurAttackCooldown - 1)
           let mettaurTelegraphTicksRemaining = current.mettaurTelegraphTicksRemaining
@@ -1939,17 +2093,20 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanAutoMoveCooldown = megamanAutoMoveCadenceTicks
           }
 
-          if (combatActive && nextEntities.mettaur.alive && mettaurMoveCooldown === 0 && mettaurTelegraphTicksRemaining === 0 && mettaurRecoveryTicks === 0) {
-            const autoMove = chooseMettaurAutoMove(nextEntities, {
-              megamanBusterCooldown,
-              mettaurTelegraphTicksRemaining
-            })
-            const movedEntities = moveEntityIfPossible(nextEntities, 'mettaur', autoMove)
-            if (movedEntities !== nextEntities) {
-              nextEntities = movedEntities
-              lastEvent = 'Mettaur repositioned'
+          if (combatActive && mettaurMoveCooldown === 0 && mettaurTelegraphTicksRemaining === 0 && mettaurRecoveryTicks === 0) {
+            const projected = projectCombatEntities(nextEntities)
+            if (projected.activeVirusId && projected.combatEntities.mettaur.alive) {
+              const autoMove = chooseMettaurAutoMove(projected.combatEntities, {
+                megamanBusterCooldown,
+                mettaurTelegraphTicksRemaining
+              })
+              const movedEntities = moveEntityIfPossible(projected.combatEntities, 'mettaur', autoMove)
+              if (movedEntities !== projected.combatEntities) {
+                nextEntities = mergeCombatEntities(nextEntities, movedEntities, projected.activeVirusId)
+                lastEvent = 'Mettaur repositioned'
+              }
+              mettaurMoveCooldown = mettaurMoveCadenceTicks
             }
-            mettaurMoveCooldown = mettaurMoveCadenceTicks
           }
 
           if (combatActive && queuedChipSlot !== null && !megamanBusy) {
@@ -2007,11 +2164,18 @@ export const useGameStore = create<GameState>((set, get) => ({
 
           if (combatActive && debugCompleteWaveRequested) {
             virusesRemaining = 1
-            nextEntities.mettaur = {
-              ...nextEntities.mettaur,
-              hp: 0,
-              alive: false,
-              hitFlashTicks: 0
+            const projected = projectCombatEntities(nextEntities)
+            if (projected.activeVirusId) {
+              const killed = {
+                ...projected.combatEntities,
+                mettaur: {
+                  ...projected.combatEntities.mettaur,
+                  hp: 0,
+                  alive: false,
+                  hitFlashTicks: 0
+                }
+              }
+              nextEntities = mergeCombatEntities(nextEntities, killed, projected.activeVirusId)
             }
             debugCompleteWaveRequested = false
             lastEvent = 'Debug: current wave completion forced'
@@ -2023,7 +2187,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             lastEvent = `Wave ${currentWave} failed. Reset battle to retry.`
           }
 
-          if (combatActive && !nextEntities.mettaur.alive && waveTransitionTick === null) {
+          if (combatActive && (projectCombatEntities(nextEntities).activeVirusId === null || !projectCombatEntities(nextEntities).combatEntities.mettaur.alive) && waveTransitionTick === null) {
             const deleteTicks = nextTicks - waveStartedAtTick
             const hpRatio = nextEntities.megaman.maxHp > 0 ? nextEntities.megaman.hp / nextEntities.megaman.maxHp : 0
             const bustingLv = computeBustingLv(deleteTicks, hpRatio)
@@ -2041,16 +2205,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
             if (virusesRemaining > 1) {
               virusesRemaining -= 1
-              const spawnIndex = virusesTotal - virusesRemaining + 1
-              const nextEnemyMaxHp = getWaveVirusSpawnHp(currentWave, spawnIndex)
-              nextEntities.mettaur = {
-                ...nextEntities.mettaur,
-                hp: nextEnemyMaxHp,
-                maxHp: nextEnemyMaxHp,
-                alive: true,
-                position: { row: 1, col: 4 },
-                hitFlashTicks: 0
-              }
               mettaurAttackCooldown = mettaurAttackCadenceTicks
               mettaurTelegraphTicksRemaining = 0
               mettaurRecoveryTicks = 0
@@ -2067,13 +2221,18 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
 
           if (combatActive && !megamanBusy && megamanControlMode !== 'manual' && megamanBusterCooldown === 0) {
-            if (canMegamanBusterHit(nextEntities.megaman, nextEntities.mettaur)) {
-              const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, megamanHitDamage)
-              nextEntities = {
-                ...nextEntities,
-                megaman: result.source,
-                mettaur: result.target
-              }
+            const projected = projectCombatEntities(nextEntities)
+            if (projected.activeVirusId && canMegamanBusterHit(projected.combatEntities.megaman, projected.combatEntities.mettaur)) {
+              const result = applyDamage(projected.combatEntities.megaman, projected.combatEntities.mettaur, megamanHitDamage)
+              nextEntities = mergeCombatEntities(
+                nextEntities,
+                {
+                  ...projected.combatEntities,
+                  megaman: result.source,
+                  mettaur: result.target
+                },
+                projected.activeVirusId
+              )
               if (result.didHit) {
                 lastEvent = `MegaBuster hit for ${megamanHitDamage}`
               }
@@ -2084,22 +2243,27 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanRecoveryTicks = megamanBusterRecoveryTicks
           }
 
-          if (combatActive && nextEntities.mettaur.alive && nextEntities.megaman.alive) {
+          const projectedForEnemy = projectCombatEntities(nextEntities)
+          if (combatActive && projectedForEnemy.activeVirusId && projectedForEnemy.combatEntities.mettaur.alive && projectedForEnemy.combatEntities.megaman.alive) {
             if (mettaurTelegraphTicksRemaining > 0) {
               mettaurTelegraphTicksRemaining -= 1
 
               if (mettaurTelegraphTicksRemaining === 0) {
-                if (canMettaurSwingHit(nextEntities.mettaur, nextEntities.megaman)) {
+                if (canMettaurSwingHit(projectedForEnemy.combatEntities.mettaur, projectedForEnemy.combatEntities.megaman)) {
                   if (barrierCharges > 0) {
                     barrierCharges -= 1
                     lastEvent = 'Barrier blocked Mettaur swing'
                   } else {
-                    const result = applyDamage(nextEntities.mettaur, nextEntities.megaman, mettaurHitDamage)
-                    nextEntities = {
-                      ...nextEntities,
-                      mettaur: result.source,
-                      megaman: result.target
-                    }
+                    const result = applyDamage(projectedForEnemy.combatEntities.mettaur, projectedForEnemy.combatEntities.megaman, mettaurHitDamage)
+                    nextEntities = mergeCombatEntities(
+                      nextEntities,
+                      {
+                        ...projectedForEnemy.combatEntities,
+                        mettaur: result.source,
+                        megaman: result.target
+                      },
+                      projectedForEnemy.activeVirusId
+                    )
                     if (result.didHit) {
                       megamanHitstunTicks = megamanHitstunTicksOnHit
                       lastEvent = `Mettaur swing hit for ${mettaurHitDamage}`

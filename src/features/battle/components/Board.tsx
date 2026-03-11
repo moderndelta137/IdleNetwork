@@ -40,7 +40,8 @@ type OccupantSpriteProps = {
 function OccupantSprite({ entityId, fallbackLabel, isAttacking, isFlashing }: OccupantSpriteProps) {
   const [attemptIndex, setAttemptIndex] = useState(0)
 
-  const spriteSources = SPRITES_BY_ENTITY[entityId]
+  const normalizedEntityId = entityId.startsWith('mettaur') ? 'mettaur' : entityId
+  const spriteSources = SPRITES_BY_ENTITY[normalizedEntityId]
   const candidates = useMemo(() => {
     if (!spriteSources) {
       return []
@@ -77,6 +78,7 @@ export function Board() {
   const activeHitboxPanels = useGameStore((state) => state.combat.activeHitboxPanels)
   const chipIndicatorPanels = useGameStore((state) => state.combat.chipIndicatorPanels)
   const mettaurTelegraphTicksRemaining = useGameStore((state) => state.combat.mettaurTelegraphTicksRemaining)
+  const targetId = useGameStore((state) => state.combat.targetId)
 
   return (
     <section className="board" aria-label="Battlefield grid">
@@ -97,7 +99,7 @@ export function Board() {
                 <OccupantSprite
                   entityId={occupant.id}
                   fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : 'Mettaur'}
-                  isAttacking={occupant.id === 'mettaur' && mettaurTelegraphTicksRemaining > 0}
+                  isAttacking={occupant.id === targetId && mettaurTelegraphTicksRemaining > 0}
                   isFlashing={occupant.hitFlashTicks > 0}
                 />
                 {occupant.id !== 'megaman' ? <span className="occupant-hp">{occupant.hp}</span> : null}
