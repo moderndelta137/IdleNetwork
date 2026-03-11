@@ -22,6 +22,7 @@ export function App() {
   const debugSpriteScalePercent = useGameStore((state) => state.debugSpriteScalePercent)
   const setDebugSpriteScalePercent = useGameStore((state) => state.setDebugSpriteScalePercent)
   const debugForceNextCustomDrawProgramAdvance = useGameStore((state) => state.debugForceNextCustomDrawProgramAdvance)
+  const debugCompleteCurrentWave = useGameStore((state) => state.debugCompleteCurrentWave)
   const movePlayer = useGameStore((state) => state.movePlayer)
   const cycleMegamanControlMode = useGameStore((state) => state.cycleMegamanControlMode)
   const useChipSlot = useGameStore((state) => state.useChipSlot)
@@ -155,6 +156,9 @@ export function App() {
           <span>Recovery: MegaMan {megamanRecoveryTicks}t / Mettaur {mettaurRecoveryTicks}t</span>
           <button type="button" onClick={debugForceNextCustomDrawProgramAdvance}>
             Force PA on Next Draw
+          </button>
+          <button type="button" onClick={debugCompleteCurrentWave}>
+            Complete Wave (Debug)
           </button>
         </div>
         <label className="sprite-scale-control" htmlFor="sprite-scale-slider">

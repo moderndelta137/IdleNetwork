@@ -138,6 +138,7 @@ type GameState = {
   chipIndicatorTicksRemaining: number
   megamanAutoMoveCooldown: number
   mettaurMoveCooldown: number
+  debugCompleteWaveRequested: boolean
   setSpeed: (speed: Speed) => void
   setDebugPaused: (paused: boolean) => void
   stepFrame: () => void
@@ -146,6 +147,7 @@ type GameState = {
   moveStockChipToFolder: (chipId: ChipId, code: string) => void
   cycleMegamanControlMode: () => void
   debugForceNextCustomDrawProgramAdvance: () => void
+  debugCompleteCurrentWave: () => void
   movePlayer: (deltaRow: number, deltaCol: number) => void
   useChipSlot: (index: number) => void
   useLeftmostChip: () => void
@@ -201,7 +203,7 @@ const getWaveEnemyMaxHp = (wave: number): number => {
 
 const isBossWave = (wave: number): boolean => wave === maxWavesPerLevel
 
-const getWaveVirusCount = (wave: number): number => Math.min(1 + Math.floor((Math.max(1, wave) - 1) / 2), 6)
+const getWaveVirusCount = (wave: number): number => Math.min(1 + Math.floor(Math.max(1, wave) / 2), 6)
 
 const getWaveVirusSpawnHp = (wave: number, spawnIndex: number): number => {
   const baseHp = getWaveEnemyMaxHp(wave)
@@ -238,21 +240,25 @@ const computeBustingLv = (deleteTicks: number, megamanHpRatio: number): number =
 }
 
 const rollWaveReward = (bustingLv: number): WaveReward => {
-  const zenny = 80 + bustingLv * 35 + Math.floor(Math.random() * 90)
-  const chipChance = Math.min(0.15 + bustingLv * 0.07, 0.85)
-  const chips: BattleChip[] = []
+  const highBustingChipThreshold = 8
 
-  if (Math.random() < chipChance) {
+  if (bustingLv >= highBustingChipThreshold && Math.random() < 0.6) {
     const chipIds = Object.keys(chipCatalog).filter((id) => id !== 'zcannon') as ChipRuntimeId[]
     const picked = chipIds[Math.floor(Math.random() * chipIds.length)]
-    chips.push({
-      id: picked,
-      name: chipCatalog[picked].name,
-      code: randomCode()
-    })
+    return {
+      zenny: 0,
+      chips: [
+        {
+          id: picked,
+          name: chipCatalog[picked].name,
+          code: randomCode()
+        }
+      ]
+    }
   }
 
-  return { zenny, chips }
+  const zenny = 80 + bustingLv * 35 + Math.floor(Math.random() * 90)
+  return { zenny, chips: [] }
 }
 
 const getChipMb = (chip: BattleChip): number => chipCatalog[chip.id].mb
@@ -1226,6 +1232,7 @@ type RuntimeState = Pick<
   | 'forceProgramAdvanceOnNextCustomDraw'
   | 'chipIndicatorPanels'
   | 'chipIndicatorTicksRemaining'
+  | 'debugCompleteWaveRequested'
 >
 
 const buildInitialState = (): RuntimeState => {
@@ -1276,7 +1283,8 @@ const buildInitialState = (): RuntimeState => {
     programAdvanceAnimation: null,
     forceProgramAdvanceOnNextCustomDraw: false,
     chipIndicatorPanels: [],
-    chipIndicatorTicksRemaining: 0
+    chipIndicatorTicksRemaining: 0,
+    debugCompleteWaveRequested: false
   }
 
   return {
@@ -1382,6 +1390,35 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipFolder: nextFolder,
         chipStock: nextStock,
         chipDiscard: nextDiscard
+      }
+    })
+  },
+  debugCompleteCurrentWave: () => {
+    set((current) => {
+      const runtime = {
+        mettaurTelegraphTicksRemaining: current.mettaurTelegraphTicksRemaining,
+        customGaugeTicks: current.customGaugeTicks,
+        customGaugeMaxTicks: current.customGaugeMaxTicks,
+        chipHand: current.chipHand,
+        barrierCharges: current.barrierCharges,
+        megamanHitstunTicks: current.megamanHitstunTicks,
+        queuedChipSlot: current.queuedChipSlot,
+        megamanControlMode: current.megamanControlMode,
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus,
+        waveResult: current.waveResult,
+        battleStartBannerTicks: current.battleStartBannerTicks,
+        totalZenny: current.totalZenny,
+        virusesRemaining: current.virusesRemaining,
+        virusesTotal: current.virusesTotal
+      }
+
+      return {
+        debugCompleteWaveRequested: true,
+        combat: buildCombatSummary(current.entities, runtime, 'Debug: complete current wave requested')
       }
     })
   },
@@ -1733,6 +1770,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         mettaurAttackCooldown,
         mettaurTelegraphTicksRemaining,
         mettaurRecoveryTicks,
+        debugCompleteWaveRequested: false,
         combat: buildCombatSummary(nextEntities, runtime, lastEvent)
       }
     })
@@ -1802,6 +1840,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           let totalZenny = current.totalZenny
           let virusesRemaining = current.virusesRemaining
           let virusesTotal = current.virusesTotal
+          let debugCompleteWaveRequested = current.debugCompleteWaveRequested
           const battlePaused = waveResult !== null || battleStartBannerTicks > 0
           let gaugeTicks = battlePaused ? current.customGaugeTicks : current.customGaugeTicks + 1
           let chipHand = current.chipHand
@@ -1966,6 +2005,18 @@ export const useGameStore = create<GameState>((set, get) => ({
             autoChipCooldown = autoChipCadenceTicks
           }
 
+          if (combatActive && debugCompleteWaveRequested) {
+            virusesRemaining = 1
+            nextEntities.mettaur = {
+              ...nextEntities.mettaur,
+              hp: 0,
+              alive: false,
+              hitFlashTicks: 0
+            }
+            debugCompleteWaveRequested = false
+            lastEvent = 'Debug: current wave completion forced'
+          }
+
           if (combatActive && !nextEntities.megaman.alive) {
             waveStatus = 'failed'
             waveTransitionTick = null
@@ -2128,7 +2179,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             programAdvanceAnimation,
             forceProgramAdvanceOnNextCustomDraw,
             chipIndicatorPanels,
-            chipIndicatorTicksRemaining
+            chipIndicatorTicksRemaining,
+            debugCompleteWaveRequested
           }
         })
       }
