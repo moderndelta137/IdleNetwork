@@ -1,2 +1,2 @@
 Name,Actor,DMG,Type,Description,Lag,Recoil,Effects
-MettaurSwing,mettaur,6,Melee,Telegraphed hammer swing,0.4,0.6,melee:offsets=-1|0|-2|0
+MettaurSwing,mettaur,6,Melee,Telegraphed hammer swing,0.4,0.6,melee:offsets=-1|0;-2|0
