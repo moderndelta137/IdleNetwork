@@ -5,6 +5,20 @@ import { sanitizeQueuedChipSlot, shuffleChipsDeterministic } from './stabilityUt
 
 type Speed = 1 | 2 | 4
 type MegamanControlMode = 'manual' | 'semiAuto' | 'fullAuto'
+type WaveStatus = 'inProgress' | 'waveCleared' | 'levelCleared' | 'failed'
+
+type WaveReward = {
+  zenny: number
+  chips: BattleChip[]
+}
+
+type WaveResultSummary = {
+  wave: number
+  level: number
+  deleteTimeLabel: string
+  bustingLv: number
+  reward: WaveReward
+}
 
 type EntityId = 'megaman' | 'mettaur'
 
@@ -67,6 +81,15 @@ type CombatSummary = {
   lastEvent: string
   activeHitboxPanels: string[]
   chipIndicatorPanels: string[]
+  currentLevel: number
+  currentWave: number
+  isBossWave: boolean
+  waveStatus: WaveStatus
+  waveResult: WaveResultSummary | null
+  battleStartBannerTicks: number
+  totalZenny: number
+  virusesRemaining: number
+  virusesTotal: number
 }
 
 type GameState = {
@@ -82,6 +105,16 @@ type GameState = {
   mettaurAttackCooldown: number
   mettaurTelegraphTicksRemaining: number
   mettaurRespawnTick: number | null
+  currentLevel: number
+  currentWave: number
+  waveStatus: WaveStatus
+  waveTransitionTick: number | null
+  waveStartedAtTick: number
+  waveResult: WaveResultSummary | null
+  battleStartBannerTicks: number
+  totalZenny: number
+  virusesRemaining: number
+  virusesTotal: number
   customGaugeTicks: number
   customGaugeMaxTicks: number
   chipHandSize: number
@@ -117,6 +150,7 @@ type GameState = {
   useChipSlot: (index: number) => void
   useLeftmostChip: () => void
   manualFireBuster: () => void
+  closeWaveResult: () => void
   resetBattle: () => void
   start: () => () => void
 }
@@ -146,6 +180,11 @@ const folderMbLimit = 200
 const boardRowCount = 3
 const boardColCount = 6
 const chipIndicatorDurationTicks = 3
+const maxWavesPerLevel = 10
+const waveTransitionDelayTicks = 20
+const bossWaveHpMultiplier = 1.6
+const waveHpStep = 8
+const battleStartBannerDurationTicks = 10
 
 const chipCatalog = loadChipCatalog(baseTickMs)
 const enemyAttackCatalog = loadEnemyAttackCatalog(baseTickMs)
@@ -153,6 +192,68 @@ const mettaurSwingAttack = enemyAttackCatalog.MettaurSwing
 const mettaurTelegraphTicks = mettaurSwingAttack?.lagTicks ?? 4
 const mettaurHitDamage = mettaurSwingAttack?.damage ?? 6
 const mettaurSwingRecoveryTicks = mettaurSwingAttack?.recoilTicks ?? 6
+
+const getWaveEnemyMaxHp = (wave: number): number => {
+  const clampedWave = Math.max(1, Math.min(maxWavesPerLevel, wave))
+  const baseHp = 90 + (clampedWave - 1) * waveHpStep
+  return clampedWave === maxWavesPerLevel ? Math.round(baseHp * bossWaveHpMultiplier) : baseHp
+}
+
+const isBossWave = (wave: number): boolean => wave === maxWavesPerLevel
+
+const getWaveVirusCount = (wave: number): number => Math.min(1 + Math.floor((Math.max(1, wave) - 1) / 2), 6)
+
+const getWaveVirusSpawnHp = (wave: number, spawnIndex: number): number => {
+  const baseHp = getWaveEnemyMaxHp(wave)
+  return baseHp + Math.max(0, spawnIndex - 1) * 12
+}
+
+
+const randomCode = (): string => {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ*'
+  return alphabet[Math.floor(Math.random() * alphabet.length)]
+}
+
+const formatDeleteTime = (ticks: number): string => {
+  const clamped = Math.max(0, ticks)
+  const totalCentiseconds = clamped * 10
+  const minutes = Math.floor(totalCentiseconds / 6000)
+  const seconds = Math.floor((totalCentiseconds % 6000) / 100)
+  const centiseconds = totalCentiseconds % 100
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}:${String(centiseconds).padStart(2, '0')}`
+}
+
+const computeBustingLv = (deleteTicks: number, megamanHpRatio: number): number => {
+  let score = 10
+  if (deleteTicks > 180) score -= 4
+  else if (deleteTicks > 120) score -= 3
+  else if (deleteTicks > 80) score -= 2
+  else if (deleteTicks > 50) score -= 1
+
+  if (megamanHpRatio < 0.35) score -= 3
+  else if (megamanHpRatio < 0.6) score -= 2
+  else if (megamanHpRatio < 0.85) score -= 1
+
+  return Math.max(1, Math.min(10, score))
+}
+
+const rollWaveReward = (bustingLv: number): WaveReward => {
+  const zenny = 80 + bustingLv * 35 + Math.floor(Math.random() * 90)
+  const chipChance = Math.min(0.15 + bustingLv * 0.07, 0.85)
+  const chips: BattleChip[] = []
+
+  if (Math.random() < chipChance) {
+    const chipIds = Object.keys(chipCatalog).filter((id) => id !== 'zcannon') as ChipRuntimeId[]
+    const picked = chipIds[Math.floor(Math.random() * chipIds.length)]
+    chips.push({
+      id: picked,
+      name: chipCatalog[picked].name,
+      code: randomCode()
+    })
+  }
+
+  return { zenny, chips }
+}
 
 const getChipMb = (chip: BattleChip): number => chipCatalog[chip.id].mb
 const getFolderTotalMb = (folder: BattleChip[]): number => folder.reduce((sum, chip) => sum + getChipMb(chip), 0)
@@ -171,8 +272,10 @@ const programAdvanceRules: ProgramAdvanceRule[] = [
   }
 ]
 
+const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 const parseEffectNumber = (effects: string, prefix: string): number | null => {
-  const match = effects.match(new RegExp(`${prefix}(\d+)`))
+  const match = effects.match(new RegExp(`${escapeRegex(prefix)}(-?\\d+)`))
   if (!match) {
     return null
   }
@@ -229,14 +332,19 @@ const parseHitscanRows = (effect: string): number[] => {
     return []
   }
 
-  const afterRows = effect.slice(rowsStart + 'hitscan:rows='.length)
-  const rowsSection = afterRows.split(';maxRange=')[0]
-
-  return rowsSection
+  const body = effect.slice(rowsStart + 'hitscan:rows='.length)
+  return body
     .split(';')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0 && !part.startsWith('maxRange=') && !part.startsWith('pierce='))
     .map((value) => Number.parseInt(value, 10))
     .filter((value) => Number.isFinite(value))
 }
+
+const clampPanelPosition = (position: PanelPosition): PanelPosition => ({
+  row: Math.max(0, Math.min(boardRowCount - 1, position.row)),
+  col: Math.max(0, Math.min(boardColCount - 1, position.col))
+})
 
 const canOffsetPatternHitTarget = (source: EntityState, target: EntityState, offsets: PanelPosition[]): boolean =>
   offsets.some((offset) => {
@@ -264,29 +372,23 @@ const canHitscanHitTarget = (source: EntityState, target: EntityState, effect: s
   return true
 }
 
-const getSteppedMegamanEntity = (megaman: EntityState, mettaur: EntityState, effects: string): EntityState => {
-  const effectChain = splitEffectChain(effects)
-  const stepEffect = effectChain.find((effect) => effect.startsWith('step:offset='))
-  if (!stepEffect) {
-    return megaman
-  }
-
-  const stepOffset = parseStepOffset(stepEffect)
+const applyStepOffset = (source: EntityState, blocker: EntityState, effect: string): EntityState => {
+  const stepOffset = parseStepOffset(effect)
   if (!stepOffset) {
-    return megaman
+    return source
   }
 
-  const targetPosition = {
-    row: Math.max(0, Math.min(boardRowCount - 1, megaman.position.row + stepOffset.row)),
-    col: Math.max(0, Math.min(boardColCount - 1, megaman.position.col + stepOffset.col))
-  }
+  const targetPosition = clampPanelPosition({
+    row: source.position.row + stepOffset.row,
+    col: source.position.col + stepOffset.col
+  })
 
-  if (targetPosition.row === mettaur.position.row && targetPosition.col === mettaur.position.col) {
-    return megaman
+  if (targetPosition.row === blocker.position.row && targetPosition.col === blocker.position.col) {
+    return source
   }
 
   return {
-    ...megaman,
+    ...source,
     position: targetPosition
   }
 }
@@ -294,41 +396,57 @@ const getSteppedMegamanEntity = (megaman: EntityState, mettaur: EntityState, eff
 const canChipDamageHitTarget = (chipDefinition: { effects: string }, megaman: EntityState, mettaur: EntityState): boolean => {
   const effectChain = splitEffectChain(chipDefinition.effects)
 
-  const offensiveEffects = effectChain.filter((effect) =>
-    effect.startsWith('melee:offsets=') || effect.startsWith('throw:offsets=') || effect.startsWith('hitscan:rows=')
-  )
+  let currentSource = megaman
+  let hasOffensiveEffect = false
 
-  if (offensiveEffects.length === 0) {
-    return true
-  }
+  for (const effect of effectChain) {
+    if (effect.startsWith('step:offset=')) {
+      currentSource = applyStepOffset(currentSource, mettaur, effect)
+      continue
+    }
 
-  return offensiveEffects.some((effect) => {
     if (effect.startsWith('melee:offsets=')) {
-      return canOffsetPatternHitTarget(megaman, mettaur, parseEffectOffsets(effect, 'melee'))
+      hasOffensiveEffect = true
+      if (canOffsetPatternHitTarget(currentSource, mettaur, parseEffectOffsets(effect, 'melee'))) {
+        return true
+      }
+      continue
     }
 
     if (effect.startsWith('throw:offsets=')) {
-      return canOffsetPatternHitTarget(megaman, mettaur, parseEffectOffsets(effect, 'throw'))
+      hasOffensiveEffect = true
+      if (canOffsetPatternHitTarget(currentSource, mettaur, parseEffectOffsets(effect, 'throw'))) {
+        return true
+      }
+      continue
     }
 
     if (effect.startsWith('hitscan:rows=')) {
-      return canHitscanHitTarget(megaman, mettaur, effect)
+      hasOffensiveEffect = true
+      if (canHitscanHitTarget(currentSource, mettaur, effect)) {
+        return true
+      }
     }
+  }
 
-    return false
-  })
+  return !hasOffensiveEffect
 }
 
-
-const collectChipIndicatorPanels = (effects: string, megaman: EntityState): string[] => {
+const collectChipIndicatorPanels = (effects: string, megaman: EntityState, mettaur: EntityState): string[] => {
   const effectChain = splitEffectChain(effects)
   const indicatorPanels = new Set<string>()
+  let currentSource = megaman
 
   effectChain.forEach((effect) => {
+    if (effect.startsWith('step:offset=')) {
+      currentSource = applyStepOffset(currentSource, mettaur, effect)
+      return
+    }
+
     if (effect.startsWith('melee:offsets=')) {
       parseEffectOffsets(effect, 'melee').forEach((offset) => {
-        const row = megaman.position.row + offset.row
-        const col = megaman.position.col + offset.col
+        const row = currentSource.position.row + offset.row
+        const col = currentSource.position.col + offset.col
         if (row >= 0 && row < boardRowCount && col >= 0 && col < boardColCount) {
           indicatorPanels.add(makePanelKey({ row, col }))
         }
@@ -338,8 +456,8 @@ const collectChipIndicatorPanels = (effects: string, megaman: EntityState): stri
 
     if (effect.startsWith('throw:offsets=')) {
       parseEffectOffsets(effect, 'throw').forEach((offset) => {
-        const row = megaman.position.row + offset.row
-        const col = megaman.position.col + offset.col
+        const row = currentSource.position.row + offset.row
+        const col = currentSource.position.col + offset.col
         if (row >= 0 && row < boardRowCount && col >= 0 && col < boardColCount) {
           indicatorPanels.add(makePanelKey({ row, col }))
         }
@@ -351,12 +469,12 @@ const collectChipIndicatorPanels = (effects: string, megaman: EntityState): stri
       const rows = parseHitscanRows(effect)
       const maxRange = parseEffectNumber(effect, 'maxRange=') ?? 6
       rows.forEach((rowOffset) => {
-        const targetRow = megaman.position.row + rowOffset
+        const targetRow = currentSource.position.row + rowOffset
         if (targetRow < 0 || targetRow >= boardRowCount) {
           return
         }
         for (let range = 1; range <= maxRange; range += 1) {
-          const targetCol = megaman.position.col + range
+          const targetCol = currentSource.position.col + range
           if (targetCol < 0 || targetCol >= boardColCount) {
             break
           }
@@ -374,7 +492,14 @@ const resolveChipExecutionSource = (
   effects: string
 ): { entities: Record<EntityId, EntityState>; didStep: boolean; originalMegaman: EntityState } => {
   const originalMegaman = entities.megaman
-  const steppedMegaman = getSteppedMegamanEntity(originalMegaman, entities.mettaur, effects)
+  let steppedMegaman = originalMegaman
+
+  splitEffectChain(effects).forEach((effect) => {
+    if (effect.startsWith('step:offset=')) {
+      steppedMegaman = applyStepOffset(steppedMegaman, entities.mettaur, effect)
+    }
+  })
+
   const didStep =
     steppedMegaman.position.row !== originalMegaman.position.row || steppedMegaman.position.col !== originalMegaman.position.col
 
@@ -534,18 +659,6 @@ const recycleDeckIfEmpty = (
   }
 }
 
-const sanitizeQueuedChipSlot = (chipHand: Array<BattleChip | null>, queuedChipSlot: number | null): number | null => {
-  if (queuedChipSlot === null) {
-    return null
-  }
-
-  if (queuedChipSlot < 0 || queuedChipSlot >= chipHand.length) {
-    return null
-  }
-
-  return chipHand[queuedChipSlot] ? queuedChipSlot : null
-}
-
 const findProgramAdvanceMatchSlots = (hand: Array<BattleChip | null>, rule: ProgramAdvanceRule): number[] | null => {
   const matched: number[] = []
 
@@ -656,21 +769,30 @@ const buildMettaurSwingHitboxPanels = (entities: Record<EntityId, EntityState>, 
   return tiles
 }
 
+type CombatSummaryRuntime = {
+  mettaurTelegraphTicksRemaining: number
+  customGaugeTicks: number
+  customGaugeMaxTicks: number
+  chipHand: Array<BattleChip | null>
+  barrierCharges: number
+  megamanHitstunTicks: number
+  queuedChipSlot: number | null
+  megamanControlMode: MegamanControlMode
+  programAdvanceAnimation: ProgramAdvanceAnimation | null
+  chipIndicatorPanels: string[]
+  currentLevel: number
+  currentWave: number
+  waveStatus: WaveStatus
+  waveResult?: WaveResultSummary | null
+  battleStartBannerTicks?: number
+  totalZenny?: number
+  virusesRemaining?: number
+  virusesTotal?: number
+}
+
 const buildCombatSummary = (
   entities: Record<EntityId, EntityState>,
-  runtime: Pick<
-    GameState,
-    | 'mettaurTelegraphTicksRemaining'
-    | 'customGaugeTicks'
-    | 'customGaugeMaxTicks'
-    | 'chipHand'
-    | 'barrierCharges'
-    | 'megamanHitstunTicks'
-    | 'queuedChipSlot'
-    | 'megamanControlMode'
-    | 'programAdvanceAnimation'
-    | 'chipIndicatorPanels'
-  >,
+  runtime: CombatSummaryRuntime,
   lastEvent: string
 ): CombatSummary => {
   const player = entities.megaman
@@ -693,7 +815,16 @@ const buildCombatSummary = (
     programAdvanceAnimation: runtime.programAdvanceAnimation,
     lastEvent,
     activeHitboxPanels: buildMettaurSwingHitboxPanels(entities, runtime.mettaurTelegraphTicksRemaining),
-    chipIndicatorPanels: runtime.chipIndicatorPanels
+    chipIndicatorPanels: runtime.chipIndicatorPanels,
+    currentLevel: runtime.currentLevel,
+    currentWave: runtime.currentWave,
+    isBossWave: isBossWave(runtime.currentWave),
+    waveStatus: runtime.waveStatus,
+    waveResult: runtime.waveResult ?? null,
+    battleStartBannerTicks: runtime.battleStartBannerTicks ?? 0,
+    totalZenny: runtime.totalZenny ?? 0,
+    virusesRemaining: runtime.virusesRemaining ?? 1,
+    virusesTotal: runtime.virusesTotal ?? 1
   }
 }
 
@@ -817,7 +948,7 @@ const tryUseChipFromSlot = (
   let barrierCharges = current.barrierCharges
   const sourceResolution = resolveChipExecutionSource(nextEntities, chipDefinition.effects)
   nextEntities = sourceResolution.entities
-  const chipIndicatorPanels = collectChipIndicatorPanels(chipDefinition.effects, nextEntities.megaman)
+  const chipIndicatorPanels = collectChipIndicatorPanels(chipDefinition.effects, nextEntities.megaman, nextEntities.mettaur)
   const pendingStepReturnPosition = sourceResolution.didStep ? sourceResolution.originalMegaman.position : null
   let lastEvent = `Chip used: ${chip.name} ${chip.code}`
   let megamanRecoveryTicks = chipDefinition.recoilTicks
@@ -858,13 +989,6 @@ const tryUseChipFromSlot = (
   if (barrierAmount) {
     barrierCharges = barrierAmount
     lastEvent = `${chip.name} barrier ready`
-  }
-
-  if (sourceResolution.didStep) {
-    nextEntities = {
-      ...nextEntities,
-      megaman: sourceResolution.originalMegaman
-    }
   }
 
   const nextHand = [...current.chipHand]
@@ -929,8 +1053,7 @@ const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'ba
       return
     }
 
-    const steppedMegaman = getSteppedMegamanEntity(entities.megaman, entities.mettaur, chipDefinition.effects)
-    const canHit = canChipDamageHitTarget(chipDefinition, steppedMegaman, entities.mettaur)
+    const canHit = canChipDamageHitTarget(chipDefinition, entities.megaman, entities.mettaur)
 
     let score = chipDefinition.damage
     if (!canHit) {
@@ -1070,6 +1193,16 @@ type RuntimeState = Pick<
   | 'mettaurAttackCooldown'
   | 'mettaurTelegraphTicksRemaining'
   | 'mettaurRespawnTick'
+  | 'currentLevel'
+  | 'currentWave'
+  | 'waveStatus'
+  | 'waveTransitionTick'
+  | 'waveStartedAtTick'
+  | 'waveResult'
+  | 'battleStartBannerTicks'
+  | 'totalZenny'
+  | 'virusesRemaining'
+  | 'virusesTotal'
   | 'customGaugeTicks'
   | 'customGaugeMaxTicks'
   | 'chipHandSize'
@@ -1097,6 +1230,11 @@ type RuntimeState = Pick<
 
 const buildInitialState = (): RuntimeState => {
   const entities = createInitialEntities()
+  const initialLevel = 1
+  const initialWave = 1
+  const initialVirusesTotal = getWaveVirusCount(initialWave)
+  entities.mettaur.maxHp = getWaveVirusSpawnHp(initialWave, 1)
+  entities.mettaur.hp = entities.mettaur.maxHp
   const initialDeck = shuffleChipsDeterministic(starterFolder, 1)
   const initialHand = Array.from({ length: defaultChipHandSize }, () => null as BattleChip | null)
   const firstFill = fillHandSlots(initialHand, initialDeck, [], 1)
@@ -1106,6 +1244,16 @@ const buildInitialState = (): RuntimeState => {
     mettaurAttackCooldown: mettaurAttackCadenceTicks,
     mettaurTelegraphTicksRemaining: 0,
     mettaurRespawnTick: null,
+    currentLevel: initialLevel,
+    currentWave: initialWave,
+    waveStatus: 'inProgress',
+    waveTransitionTick: null,
+    waveStartedAtTick: 0,
+    waveResult: null,
+    battleStartBannerTicks: battleStartBannerDurationTicks,
+    totalZenny: 0,
+    virusesRemaining: initialVirusesTotal,
+    virusesTotal: initialVirusesTotal,
     customGaugeTicks: 0,
     customGaugeMaxTicks,
     chipHandSize: defaultChipHandSize,
@@ -1249,7 +1397,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
-        chipIndicatorPanels: current.chipIndicatorPanels
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus
       }
 
       return {
@@ -1272,7 +1423,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot: sanitizedQueuedChipSlot,
         megamanControlMode: nextMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
-        chipIndicatorPanels: current.chipIndicatorPanels
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus
       }
 
       return {
@@ -1284,7 +1438,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   movePlayer: (deltaRow, deltaCol) => {
     set((current) => {
-      if (current.megamanControlMode !== 'manual') {
+      if (current.megamanControlMode !== 'manual' || current.waveResult !== null || current.battleStartBannerTicks > 0) {
         return {}
       }
 
@@ -1325,7 +1479,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
-        chipIndicatorPanels: current.chipIndicatorPanels
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus
       }
 
       return {
@@ -1339,6 +1496,29 @@ export const useGameStore = create<GameState>((set, get) => ({
     set((current) => {
       if (index < 0 || index >= current.chipHand.length) {
         return {}
+      }
+
+      if (current.waveResult !== null || current.battleStartBannerTicks > 0) {
+        return {
+          combat: buildCombatSummary(current.entities, {
+            mettaurTelegraphTicksRemaining: current.mettaurTelegraphTicksRemaining,
+            customGaugeTicks: current.customGaugeTicks,
+            customGaugeMaxTicks: current.customGaugeMaxTicks,
+            chipHand: current.chipHand,
+            barrierCharges: current.barrierCharges,
+            megamanHitstunTicks: current.megamanHitstunTicks,
+            queuedChipSlot: current.queuedChipSlot,
+            megamanControlMode: current.megamanControlMode,
+            programAdvanceAnimation: current.programAdvanceAnimation,
+            chipIndicatorPanels: current.chipIndicatorPanels,
+            currentLevel: current.currentLevel,
+            currentWave: current.currentWave,
+            waveStatus: current.waveStatus,
+            waveResult: current.waveResult,
+            battleStartBannerTicks: current.battleStartBannerTicks,
+            totalZenny: current.totalZenny
+          }, 'Battle paused for results/start banner')
+        }
       }
 
       const megamanBusy = !current.entities.megaman.alive || current.megamanHitstunTicks > 0 || current.megamanRecoveryTicks > 0
@@ -1355,7 +1535,10 @@ export const useGameStore = create<GameState>((set, get) => ({
           queuedChipSlot: bufferedSlot,
           megamanControlMode: current.megamanControlMode,
           programAdvanceAnimation: current.programAdvanceAnimation,
-          chipIndicatorPanels: current.chipIndicatorPanels
+          chipIndicatorPanels: current.chipIndicatorPanels,
+          currentLevel: current.currentLevel,
+          currentWave: current.currentWave,
+          waveStatus: current.waveStatus
         }
 
         return {
@@ -1382,7 +1565,10 @@ export const useGameStore = create<GameState>((set, get) => ({
           queuedChipSlot: current.queuedChipSlot,
           megamanControlMode: current.megamanControlMode,
           programAdvanceAnimation: current.programAdvanceAnimation,
-          chipIndicatorPanels: current.chipIndicatorPanels
+          chipIndicatorPanels: current.chipIndicatorPanels,
+          currentLevel: current.currentLevel,
+          currentWave: current.currentWave,
+          waveStatus: current.waveStatus
         }
 
         return {
@@ -1400,7 +1586,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot: null,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
-        chipIndicatorPanels: result.chipIndicatorPanels
+        chipIndicatorPanels: result.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus
       }
 
       return {
@@ -1428,7 +1617,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   manualFireBuster: () => {
     set((current) => {
-      if (current.megamanControlMode !== 'manual' || current.megamanBusterCooldown > 0 || current.megamanRecoveryTicks > 0) {
+      if (current.waveResult !== null || current.battleStartBannerTicks > 0 || current.megamanControlMode !== 'manual' || current.megamanBusterCooldown > 0 || current.megamanRecoveryTicks > 0) {
         return {}
       }
 
@@ -1451,7 +1640,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
-        chipIndicatorPanels: current.chipIndicatorPanels
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus
       }
 
       return {
@@ -1460,6 +1652,88 @@ export const useGameStore = create<GameState>((set, get) => ({
         megamanBusterCooldown: megamanBusterCadenceTicks,
         megamanRecoveryTicks: megamanBusterRecoveryTicks,
         combat: buildCombatSummary(nextEntities, runtime, result.didHit ? `Manual MegaBuster hit for ${megamanHitDamage}` : 'Manual MegaBuster missed (out of line)')
+      }
+    })
+  },
+  closeWaveResult: () => {
+    set((current) => {
+      if (!current.waveResult) {
+        return {}
+      }
+
+      let currentWave = current.currentWave
+      let currentLevel = current.currentLevel
+      let waveStatus = current.waveStatus
+      let nextEntities = current.entities
+      let mettaurAttackCooldown = current.mettaurAttackCooldown
+      let mettaurTelegraphTicksRemaining = current.mettaurTelegraphTicksRemaining
+      let mettaurRecoveryTicks = current.mettaurRecoveryTicks
+      let waveStartedAtTick = current.waveStartedAtTick
+      let battleStartBannerTicks = 0
+      let virusesTotal = current.virusesTotal
+      let virusesRemaining = current.virusesRemaining
+      let lastEvent = `Wave ${current.waveResult.wave} results confirmed`
+
+      if (current.waveStatus === 'waveCleared') {
+        currentWave = Math.min(maxWavesPerLevel, current.currentWave + 1)
+        virusesTotal = getWaveVirusCount(currentWave)
+        virusesRemaining = virusesTotal
+        const nextEnemyMaxHp = getWaveVirusSpawnHp(currentWave, 1)
+        nextEntities = {
+          ...current.entities,
+          mettaur: {
+            ...current.entities.mettaur,
+            hp: nextEnemyMaxHp,
+            maxHp: nextEnemyMaxHp,
+            alive: true,
+            position: { row: 1, col: 4 },
+            hitFlashTicks: 0
+          }
+        }
+        waveStatus = 'inProgress'
+        waveStartedAtTick = current.ticks
+        battleStartBannerTicks = battleStartBannerDurationTicks
+        mettaurAttackCooldown = mettaurAttackCadenceTicks
+        mettaurTelegraphTicksRemaining = 0
+        mettaurRecoveryTicks = 0
+        lastEvent = isBossWave(currentWave) ? 'BATTLE START — Boss wave' : 'BATTLE START'
+      }
+
+      const runtime = {
+        mettaurTelegraphTicksRemaining,
+        customGaugeTicks: current.customGaugeTicks,
+        customGaugeMaxTicks: current.customGaugeMaxTicks,
+        chipHand: current.chipHand,
+        barrierCharges: current.barrierCharges,
+        megamanHitstunTicks: current.megamanHitstunTicks,
+        queuedChipSlot: current.queuedChipSlot,
+        megamanControlMode: current.megamanControlMode,
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel,
+        currentWave,
+        waveStatus,
+        waveResult: null,
+        battleStartBannerTicks,
+        totalZenny: current.totalZenny,
+        virusesRemaining,
+        virusesTotal
+      }
+
+      return {
+        entities: nextEntities,
+        occupiedPanels: buildOccupiedPanels(nextEntities),
+        currentLevel,
+        currentWave,
+        waveStatus,
+        waveTransitionTick: null,
+        waveStartedAtTick,
+        waveResult: null,
+        battleStartBannerTicks,
+        mettaurAttackCooldown,
+        mettaurTelegraphTicksRemaining,
+        mettaurRecoveryTicks,
+        combat: buildCombatSummary(nextEntities, runtime, lastEvent)
       }
     })
   },
@@ -1518,11 +1792,25 @@ export const useGameStore = create<GameState>((set, get) => ({
           let mettaurAttackCooldown = Math.max(0, current.mettaurAttackCooldown - 1)
           let mettaurTelegraphTicksRemaining = current.mettaurTelegraphTicksRemaining
           let mettaurRespawnTick = current.mettaurRespawnTick
-          let gaugeTicks = current.customGaugeTicks + 1
+          let currentLevel = current.currentLevel
+          let currentWave = current.currentWave
+          let waveStatus = current.waveStatus
+          let waveTransitionTick = current.waveTransitionTick
+          let waveStartedAtTick = current.waveStartedAtTick
+          let waveResult = current.waveResult
+          let battleStartBannerTicks = Math.max(0, current.battleStartBannerTicks - 1)
+          let totalZenny = current.totalZenny
+          let virusesRemaining = current.virusesRemaining
+          let virusesTotal = current.virusesTotal
+          const battlePaused = waveResult !== null || battleStartBannerTicks > 0
+          let gaugeTicks = battlePaused ? current.customGaugeTicks : current.customGaugeTicks + 1
           let chipHand = current.chipHand
+          let chipStock = current.chipStock
           let chipDeck = current.chipDeck
           let chipDiscard = current.chipDiscard
-          const recycledDeck = recycleDeckIfEmpty(chipDeck, chipDiscard, nextTicks)
+          const recycledDeck = battlePaused
+            ? { chipDeck, chipDiscard, didRecycle: false }
+            : recycleDeckIfEmpty(chipDeck, chipDiscard, nextTicks)
           chipDeck = recycledDeck.chipDeck
           chipDiscard = recycledDeck.chipDiscard
           let queuedChipSlot = current.queuedChipSlot
@@ -1551,14 +1839,26 @@ export const useGameStore = create<GameState>((set, get) => ({
               : null
           let forceProgramAdvanceOnNextCustomDraw = current.forceProgramAdvanceOnNextCustomDraw
           let chipIndicatorPanels = current.chipIndicatorPanels
-          let chipIndicatorTicksRemaining = Math.max(0, current.chipIndicatorTicksRemaining - 1)
+          let chipIndicatorTicksRemaining = battlePaused ? current.chipIndicatorTicksRemaining : Math.max(0, current.chipIndicatorTicksRemaining - 1)
           if (chipIndicatorTicksRemaining === 0) {
             chipIndicatorPanels = []
           }
           const megamanControlMode = current.megamanControlMode
-          let lastEvent = recycledDeck.didRecycle ? 'Deck recycled from discard pile' : 'Idle tick'
+          if (battlePaused) {
+            megamanBusterCooldown = current.megamanBusterCooldown
+            mettaurAttackCooldown = current.mettaurAttackCooldown
+            megamanHitstunTicks = current.megamanHitstunTicks
+            megamanRecoveryTicks = current.megamanRecoveryTicks
+            mettaurRecoveryTicks = current.mettaurRecoveryTicks
+            pendingStepReturnTicks = current.pendingStepReturnTicks
+            autoChipCooldown = current.autoChipCooldown
+            megamanAutoMoveCooldown = current.megamanAutoMoveCooldown
+            mettaurMoveCooldown = current.mettaurMoveCooldown
+          }
+          const combatActive = !battlePaused && waveStatus === 'inProgress'
+          let lastEvent = waveResult ? `Wave ${waveResult.wave} clear results ready` : battleStartBannerTicks > 0 ? 'BATTLE START' : recycledDeck.didRecycle ? 'Deck recycled from discard pile' : 'Idle tick'
 
-          if (gaugeTicks >= current.customGaugeMaxTicks) {
+          if (!battlePaused && gaugeTicks >= current.customGaugeMaxTicks) {
             const refill = fillHandSlots(chipHand, chipDeck, chipDiscard, nextTicks)
             chipHand = refill.chipHand
             chipDeck = refill.chipDeck
@@ -1586,7 +1886,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
           const megamanBusy = !nextEntities.megaman.alive || megamanHitstunTicks > 0 || megamanRecoveryTicks > 0
 
-          if (nextEntities.megaman.alive && megamanControlMode !== 'manual' && megamanAutoMoveCooldown === 0) {
+          if (combatActive && nextEntities.megaman.alive && megamanControlMode !== 'manual' && megamanAutoMoveCooldown === 0) {
             const autoMove = chooseMegamanAutoMove(nextEntities, {
               mettaurTelegraphTicksRemaining,
               mettaurAttackCooldown,
@@ -1600,7 +1900,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanAutoMoveCooldown = megamanAutoMoveCadenceTicks
           }
 
-          if (nextEntities.mettaur.alive && mettaurMoveCooldown === 0 && mettaurTelegraphTicksRemaining === 0 && mettaurRecoveryTicks === 0) {
+          if (combatActive && nextEntities.mettaur.alive && mettaurMoveCooldown === 0 && mettaurTelegraphTicksRemaining === 0 && mettaurRecoveryTicks === 0) {
             const autoMove = chooseMettaurAutoMove(nextEntities, {
               megamanBusterCooldown,
               mettaurTelegraphTicksRemaining
@@ -1613,7 +1913,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             mettaurMoveCooldown = mettaurMoveCadenceTicks
           }
 
-          if (queuedChipSlot !== null && !megamanBusy) {
+          if (combatActive && queuedChipSlot !== null && !megamanBusy) {
             const queuedUse = tryUseChipFromSlot(
               { chipHand, chipDiscard, entities: nextEntities, barrierCharges },
               queuedChipSlot
@@ -1636,7 +1936,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             }
           }
 
-          if (megamanControlMode === 'fullAuto' && queuedChipSlot === null && autoChipCooldown === 0 && !megamanBusy) {
+          if (combatActive && megamanControlMode === 'fullAuto' && queuedChipSlot === null && autoChipCooldown === 0 && !megamanBusy) {
             const autoSlot = chooseAutoChipSlot({
               chipHand,
               entities: nextEntities,
@@ -1666,27 +1966,56 @@ export const useGameStore = create<GameState>((set, get) => ({
             autoChipCooldown = autoChipCadenceTicks
           }
 
-          if (!nextEntities.mettaur.alive && mettaurRespawnTick === null) {
-            mettaurRespawnTick = nextTicks + mettaurRespawnDelayTicks
-            lastEvent = `Mettaur KO. Respawn in ${mettaurRespawnDelayTicks} ticks`
+          if (combatActive && !nextEntities.megaman.alive) {
+            waveStatus = 'failed'
+            waveTransitionTick = null
+            lastEvent = `Wave ${currentWave} failed. Reset battle to retry.`
           }
 
-          if (mettaurRespawnTick !== null && nextTicks >= mettaurRespawnTick) {
-            nextEntities.mettaur = {
-              ...nextEntities.mettaur,
-              hp: nextEntities.mettaur.maxHp,
-              alive: true,
-              position: { row: 1, col: 4 },
-              hitFlashTicks: 0
+          if (combatActive && !nextEntities.mettaur.alive && waveTransitionTick === null) {
+            const deleteTicks = nextTicks - waveStartedAtTick
+            const hpRatio = nextEntities.megaman.maxHp > 0 ? nextEntities.megaman.hp / nextEntities.megaman.maxHp : 0
+            const bustingLv = computeBustingLv(deleteTicks, hpRatio)
+            const reward = rollWaveReward(bustingLv)
+            totalZenny += reward.zenny
+            const nextStock = sortChipCollection([...chipStock, ...reward.chips])
+            chipStock = nextStock
+            waveResult = {
+              wave: currentWave,
+              level: currentLevel,
+              deleteTimeLabel: formatDeleteTime(deleteTicks),
+              bustingLv,
+              reward
             }
-            mettaurRespawnTick = null
-            mettaurAttackCooldown = mettaurAttackCadenceTicks
-            mettaurTelegraphTicksRemaining = 0
-            mettaurRecoveryTicks = 0
-            lastEvent = 'Mettaur respawned'
+
+            if (virusesRemaining > 1) {
+              virusesRemaining -= 1
+              const spawnIndex = virusesTotal - virusesRemaining + 1
+              const nextEnemyMaxHp = getWaveVirusSpawnHp(currentWave, spawnIndex)
+              nextEntities.mettaur = {
+                ...nextEntities.mettaur,
+                hp: nextEnemyMaxHp,
+                maxHp: nextEnemyMaxHp,
+                alive: true,
+                position: { row: 1, col: 4 },
+                hitFlashTicks: 0
+              }
+              mettaurAttackCooldown = mettaurAttackCadenceTicks
+              mettaurTelegraphTicksRemaining = 0
+              mettaurRecoveryTicks = 0
+              waveStartedAtTick = nextTicks
+              lastEvent = `Virus deleted. ${virusesRemaining} remaining in wave ${currentWave}.`
+            } else if (isBossWave(currentWave)) {
+              waveStatus = 'levelCleared'
+              lastEvent = `Boss wave cleared! Level ${currentLevel} complete.`
+            } else {
+              waveStatus = 'waveCleared'
+              lastEvent = `Wave ${currentWave} cleared! Results ready.`
+            }
+            waveTransitionTick = null
           }
 
-          if (!megamanBusy && megamanControlMode !== 'manual' && megamanBusterCooldown === 0) {
+          if (combatActive && !megamanBusy && megamanControlMode !== 'manual' && megamanBusterCooldown === 0) {
             if (canMegamanBusterHit(nextEntities.megaman, nextEntities.mettaur)) {
               const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, megamanHitDamage)
               nextEntities = {
@@ -1704,7 +2033,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanRecoveryTicks = megamanBusterRecoveryTicks
           }
 
-          if (nextEntities.mettaur.alive && nextEntities.megaman.alive) {
+          if (combatActive && nextEntities.mettaur.alive && nextEntities.megaman.alive) {
             if (mettaurTelegraphTicksRemaining > 0) {
               mettaurTelegraphTicksRemaining -= 1
 
@@ -1751,7 +2080,15 @@ export const useGameStore = create<GameState>((set, get) => ({
             queuedChipSlot,
             megamanControlMode,
             programAdvanceAnimation,
-            chipIndicatorPanels
+            chipIndicatorPanels,
+            currentLevel,
+            currentWave,
+            waveStatus,
+            waveResult,
+            battleStartBannerTicks,
+            totalZenny,
+            virusesRemaining,
+            virusesTotal
           }
 
           return {
@@ -1763,7 +2100,18 @@ export const useGameStore = create<GameState>((set, get) => ({
             mettaurAttackCooldown,
             mettaurTelegraphTicksRemaining,
             mettaurRespawnTick,
+            currentLevel,
+            currentWave,
+            waveStatus,
+            waveTransitionTick,
+            waveStartedAtTick,
+            waveResult,
+            battleStartBannerTicks,
+            totalZenny,
+            virusesRemaining,
+            virusesTotal,
             customGaugeTicks: gaugeTicks,
+            chipStock,
             chipHand,
             chipDeck,
             chipDiscard,
