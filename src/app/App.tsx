@@ -99,8 +99,8 @@ export function App() {
   return (
     <main className="app-shell" style={{ '--sprite-scale': `${debugSpriteScalePercent / 100}` } as CSSProperties}>
       <header>
-        <h1>Idle Network — M2 Chips Vertical Slice</h1>
-        <p>Always-on chip hand flow with gauge refill, deck/discard reshuffle, and buffered use.</p>
+        <h1>Idle Network — M3 Wave FSM Vertical Slice</h1>
+        <p>Wave-based progression baseline: 10-wave FSM with boss wave gate, while preserving M2 combat/chip systems.</p>
       </header>
 
       <section className="scene-taskbar top" aria-label="Scene navigation">
@@ -134,6 +134,8 @@ export function App() {
         <button type="button" onClick={() => setShowBattleFolderPanel((current) => !current)}>
           {showBattleFolderPanel ? 'Hide Folder' : 'Show Folder'}
         </button>
+        <span>Level {combat.currentLevel} · Wave {combat.currentWave}/10 {combat.isBossWave ? '(Boss)' : ''}</span>
+        <span>Wave state: {combat.waveStatus}</span>
           </section>
 
 

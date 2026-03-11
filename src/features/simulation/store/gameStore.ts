@@ -5,6 +5,7 @@ import { sanitizeQueuedChipSlot, shuffleChipsDeterministic } from './stabilityUt
 
 type Speed = 1 | 2 | 4
 type MegamanControlMode = 'manual' | 'semiAuto' | 'fullAuto'
+type WaveStatus = 'inProgress' | 'waveCleared' | 'levelCleared' | 'failed'
 
 type EntityId = 'megaman' | 'mettaur'
 
@@ -67,6 +68,10 @@ type CombatSummary = {
   lastEvent: string
   activeHitboxPanels: string[]
   chipIndicatorPanels: string[]
+  currentLevel: number
+  currentWave: number
+  isBossWave: boolean
+  waveStatus: WaveStatus
 }
 
 type GameState = {
@@ -82,6 +87,10 @@ type GameState = {
   mettaurAttackCooldown: number
   mettaurTelegraphTicksRemaining: number
   mettaurRespawnTick: number | null
+  currentLevel: number
+  currentWave: number
+  waveStatus: WaveStatus
+  waveTransitionTick: number | null
   customGaugeTicks: number
   customGaugeMaxTicks: number
   chipHandSize: number
@@ -146,6 +155,10 @@ const folderMbLimit = 200
 const boardRowCount = 3
 const boardColCount = 6
 const chipIndicatorDurationTicks = 3
+const maxWavesPerLevel = 10
+const waveTransitionDelayTicks = 20
+const bossWaveHpMultiplier = 1.6
+const waveHpStep = 8
 
 const chipCatalog = loadChipCatalog(baseTickMs)
 const enemyAttackCatalog = loadEnemyAttackCatalog(baseTickMs)
@@ -153,6 +166,14 @@ const mettaurSwingAttack = enemyAttackCatalog.MettaurSwing
 const mettaurTelegraphTicks = mettaurSwingAttack?.lagTicks ?? 4
 const mettaurHitDamage = mettaurSwingAttack?.damage ?? 6
 const mettaurSwingRecoveryTicks = mettaurSwingAttack?.recoilTicks ?? 6
+
+const getWaveEnemyMaxHp = (wave: number): number => {
+  const clampedWave = Math.max(1, Math.min(maxWavesPerLevel, wave))
+  const baseHp = 90 + (clampedWave - 1) * waveHpStep
+  return clampedWave === maxWavesPerLevel ? Math.round(baseHp * bossWaveHpMultiplier) : baseHp
+}
+
+const isBossWave = (wave: number): boolean => wave === maxWavesPerLevel
 
 const getChipMb = (chip: BattleChip): number => chipCatalog[chip.id].mb
 const getFolderTotalMb = (folder: BattleChip[]): number => folder.reduce((sum, chip) => sum + getChipMb(chip), 0)
@@ -682,6 +703,9 @@ const buildCombatSummary = (
     | 'megamanControlMode'
     | 'programAdvanceAnimation'
     | 'chipIndicatorPanels'
+    | 'currentLevel'
+    | 'currentWave'
+    | 'waveStatus'
   >,
   lastEvent: string
 ): CombatSummary => {
@@ -705,7 +729,11 @@ const buildCombatSummary = (
     programAdvanceAnimation: runtime.programAdvanceAnimation,
     lastEvent,
     activeHitboxPanels: buildMettaurSwingHitboxPanels(entities, runtime.mettaurTelegraphTicksRemaining),
-    chipIndicatorPanels: runtime.chipIndicatorPanels
+    chipIndicatorPanels: runtime.chipIndicatorPanels,
+    currentLevel: runtime.currentLevel,
+    currentWave: runtime.currentWave,
+    isBossWave: isBossWave(runtime.currentWave),
+    waveStatus: runtime.waveStatus
   }
 }
 
@@ -1074,6 +1102,10 @@ type RuntimeState = Pick<
   | 'mettaurAttackCooldown'
   | 'mettaurTelegraphTicksRemaining'
   | 'mettaurRespawnTick'
+  | 'currentLevel'
+  | 'currentWave'
+  | 'waveStatus'
+  | 'waveTransitionTick'
   | 'customGaugeTicks'
   | 'customGaugeMaxTicks'
   | 'chipHandSize'
@@ -1101,6 +1133,10 @@ type RuntimeState = Pick<
 
 const buildInitialState = (): RuntimeState => {
   const entities = createInitialEntities()
+  const initialLevel = 1
+  const initialWave = 1
+  entities.mettaur.maxHp = getWaveEnemyMaxHp(initialWave)
+  entities.mettaur.hp = entities.mettaur.maxHp
   const initialDeck = shuffleChipsDeterministic(starterFolder, 1)
   const initialHand = Array.from({ length: defaultChipHandSize }, () => null as BattleChip | null)
   const firstFill = fillHandSlots(initialHand, initialDeck, [], 1)
@@ -1110,6 +1146,10 @@ const buildInitialState = (): RuntimeState => {
     mettaurAttackCooldown: mettaurAttackCadenceTicks,
     mettaurTelegraphTicksRemaining: 0,
     mettaurRespawnTick: null,
+    currentLevel: initialLevel,
+    currentWave: initialWave,
+    waveStatus: 'inProgress',
+    waveTransitionTick: null,
     customGaugeTicks: 0,
     customGaugeMaxTicks,
     chipHandSize: defaultChipHandSize,
@@ -1253,7 +1293,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
-        chipIndicatorPanels: current.chipIndicatorPanels
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus
       }
 
       return {
@@ -1276,7 +1319,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot: sanitizedQueuedChipSlot,
         megamanControlMode: nextMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
-        chipIndicatorPanels: current.chipIndicatorPanels
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus
       }
 
       return {
@@ -1329,7 +1375,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
-        chipIndicatorPanels: current.chipIndicatorPanels
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus
       }
 
       return {
@@ -1359,7 +1408,10 @@ export const useGameStore = create<GameState>((set, get) => ({
           queuedChipSlot: bufferedSlot,
           megamanControlMode: current.megamanControlMode,
           programAdvanceAnimation: current.programAdvanceAnimation,
-          chipIndicatorPanels: current.chipIndicatorPanels
+          chipIndicatorPanels: current.chipIndicatorPanels,
+          currentLevel: current.currentLevel,
+          currentWave: current.currentWave,
+          waveStatus: current.waveStatus
         }
 
         return {
@@ -1386,7 +1438,10 @@ export const useGameStore = create<GameState>((set, get) => ({
           queuedChipSlot: current.queuedChipSlot,
           megamanControlMode: current.megamanControlMode,
           programAdvanceAnimation: current.programAdvanceAnimation,
-          chipIndicatorPanels: current.chipIndicatorPanels
+          chipIndicatorPanels: current.chipIndicatorPanels,
+          currentLevel: current.currentLevel,
+          currentWave: current.currentWave,
+          waveStatus: current.waveStatus
         }
 
         return {
@@ -1404,7 +1459,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot: null,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
-        chipIndicatorPanels: result.chipIndicatorPanels
+        chipIndicatorPanels: result.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus
       }
 
       return {
@@ -1455,7 +1513,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
-        chipIndicatorPanels: current.chipIndicatorPanels
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus
       }
 
       return {
@@ -1522,6 +1583,10 @@ export const useGameStore = create<GameState>((set, get) => ({
           let mettaurAttackCooldown = Math.max(0, current.mettaurAttackCooldown - 1)
           let mettaurTelegraphTicksRemaining = current.mettaurTelegraphTicksRemaining
           let mettaurRespawnTick = current.mettaurRespawnTick
+          let currentLevel = current.currentLevel
+          let currentWave = current.currentWave
+          let waveStatus = current.waveStatus
+          let waveTransitionTick = current.waveTransitionTick
           let gaugeTicks = current.customGaugeTicks + 1
           let chipHand = current.chipHand
           let chipDeck = current.chipDeck
@@ -1590,7 +1655,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
           const megamanBusy = !nextEntities.megaman.alive || megamanHitstunTicks > 0 || megamanRecoveryTicks > 0
 
-          if (nextEntities.megaman.alive && megamanControlMode !== 'manual' && megamanAutoMoveCooldown === 0) {
+          if (waveStatus === 'inProgress' && nextEntities.megaman.alive && megamanControlMode !== 'manual' && megamanAutoMoveCooldown === 0) {
             const autoMove = chooseMegamanAutoMove(nextEntities, {
               mettaurTelegraphTicksRemaining,
               mettaurAttackCooldown,
@@ -1604,7 +1669,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanAutoMoveCooldown = megamanAutoMoveCadenceTicks
           }
 
-          if (nextEntities.mettaur.alive && mettaurMoveCooldown === 0 && mettaurTelegraphTicksRemaining === 0 && mettaurRecoveryTicks === 0) {
+          if (waveStatus === 'inProgress' && nextEntities.mettaur.alive && mettaurMoveCooldown === 0 && mettaurTelegraphTicksRemaining === 0 && mettaurRecoveryTicks === 0) {
             const autoMove = chooseMettaurAutoMove(nextEntities, {
               megamanBusterCooldown,
               mettaurTelegraphTicksRemaining
@@ -1617,7 +1682,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             mettaurMoveCooldown = mettaurMoveCadenceTicks
           }
 
-          if (queuedChipSlot !== null && !megamanBusy) {
+          if (waveStatus === 'inProgress' && queuedChipSlot !== null && !megamanBusy) {
             const queuedUse = tryUseChipFromSlot(
               { chipHand, chipDiscard, entities: nextEntities, barrierCharges },
               queuedChipSlot
@@ -1640,7 +1705,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             }
           }
 
-          if (megamanControlMode === 'fullAuto' && queuedChipSlot === null && autoChipCooldown === 0 && !megamanBusy) {
+          if (waveStatus === 'inProgress' && megamanControlMode === 'fullAuto' && queuedChipSlot === null && autoChipCooldown === 0 && !megamanBusy) {
             const autoSlot = chooseAutoChipSlot({
               chipHand,
               entities: nextEntities,
@@ -1670,27 +1735,45 @@ export const useGameStore = create<GameState>((set, get) => ({
             autoChipCooldown = autoChipCadenceTicks
           }
 
-          if (!nextEntities.mettaur.alive && mettaurRespawnTick === null) {
-            mettaurRespawnTick = nextTicks + mettaurRespawnDelayTicks
-            lastEvent = `Mettaur KO. Respawn in ${mettaurRespawnDelayTicks} ticks`
+          if (waveStatus === 'inProgress' && !nextEntities.megaman.alive) {
+            waveStatus = 'failed'
+            waveTransitionTick = null
+            lastEvent = `Wave ${currentWave} failed. Reset battle to retry.`
           }
 
-          if (mettaurRespawnTick !== null && nextTicks >= mettaurRespawnTick) {
+          if (waveStatus === 'inProgress' && !nextEntities.mettaur.alive && waveTransitionTick === null) {
+            if (isBossWave(currentWave)) {
+              waveStatus = 'levelCleared'
+              waveTransitionTick = null
+              lastEvent = `Boss wave cleared! Level ${currentLevel} complete.`
+            } else {
+              waveStatus = 'waveCleared'
+              waveTransitionTick = nextTicks + waveTransitionDelayTicks
+              lastEvent = `Wave ${currentWave} cleared. Next wave in ${waveTransitionDelayTicks} ticks.`
+            }
+          }
+
+          if (waveStatus === 'waveCleared' && waveTransitionTick !== null && nextTicks >= waveTransitionTick) {
+            currentWave = Math.min(maxWavesPerLevel, currentWave + 1)
+            const nextEnemyMaxHp = getWaveEnemyMaxHp(currentWave)
             nextEntities.mettaur = {
               ...nextEntities.mettaur,
-              hp: nextEntities.mettaur.maxHp,
+              hp: nextEnemyMaxHp,
+              maxHp: nextEnemyMaxHp,
               alive: true,
               position: { row: 1, col: 4 },
               hitFlashTicks: 0
             }
+            waveStatus = 'inProgress'
+            waveTransitionTick = null
             mettaurRespawnTick = null
             mettaurAttackCooldown = mettaurAttackCadenceTicks
             mettaurTelegraphTicksRemaining = 0
             mettaurRecoveryTicks = 0
-            lastEvent = 'Mettaur respawned'
+            lastEvent = isBossWave(currentWave) ? `Wave ${currentWave} started: Boss gate active.` : `Wave ${currentWave} started.`
           }
 
-          if (!megamanBusy && megamanControlMode !== 'manual' && megamanBusterCooldown === 0) {
+          if (waveStatus === 'inProgress' && !megamanBusy && megamanControlMode !== 'manual' && megamanBusterCooldown === 0) {
             if (canMegamanBusterHit(nextEntities.megaman, nextEntities.mettaur)) {
               const result = applyDamage(nextEntities.megaman, nextEntities.mettaur, megamanHitDamage)
               nextEntities = {
@@ -1708,7 +1791,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanRecoveryTicks = megamanBusterRecoveryTicks
           }
 
-          if (nextEntities.mettaur.alive && nextEntities.megaman.alive) {
+          if (waveStatus === 'inProgress' && nextEntities.mettaur.alive && nextEntities.megaman.alive) {
             if (mettaurTelegraphTicksRemaining > 0) {
               mettaurTelegraphTicksRemaining -= 1
 
@@ -1755,7 +1838,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             queuedChipSlot,
             megamanControlMode,
             programAdvanceAnimation,
-            chipIndicatorPanels
+            chipIndicatorPanels,
+            currentLevel,
+            currentWave,
+            waveStatus
           }
 
           return {
@@ -1767,6 +1853,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             mettaurAttackCooldown,
             mettaurTelegraphTicksRemaining,
             mettaurRespawnTick,
+            currentLevel,
+            currentWave,
+            waveStatus,
+            waveTransitionTick,
             customGaugeTicks: gaugeTicks,
             chipHand,
             chipDeck,

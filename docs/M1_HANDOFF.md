@@ -1,12 +1,12 @@
-# Active Handoff Notes (M2)
+# Active Handoff Notes (M3)
 
 This file captures the current implementation state and exact next work for a new thread.
 
-## Current State (post-M1, active M2)
+## Current State (post-M2, active M3)
 - M0 foundation/deployment pass is in place (Vite + React + TypeScript + Zustand + Pages workflow).
 - CSV data pipeline hardening pass complete (row validation, grammar validation, skip+warn fallback, parser/loader tests).
 - M1 Combat Vertical Slice is complete.
-- M2 implementation is in progress and currently includes:
+- M2 implementation is complete and includes:
   - Always-on chip hand with 5 slots.
   - Custom Gauge refill into hand slots.
   - Deck/discard reshuffle behavior when deck empties.
@@ -41,7 +41,11 @@ This file captures the current implementation state and exact next work for a ne
 
 ## Start Here Next
 - ✅ M2 effect grammar executor expansion complete (`throw`, `step` chaining, and row/fan pattern execution from CSV grammar).
-- Next milestone focus: M3 Area Meta Loop (map unlock gates, 10-wave FSM, boss retry behavior, shop/gacha/folder flows).
+- ✅ M3 Task 1 complete: baseline 10-wave level FSM now drives in-battle wave progression.
+- Next M3 implementation order:
+  1. Wave-10 boss retry button behavior
+  2. Area map UI + unlock gates
+  3. Shop + gacha + basic folder management
 
 ## M2 Completion Checklist
 1. **Effect grammar executor expansion (after baseline hit checks)** ✅ complete
@@ -71,13 +75,12 @@ This file captures the current implementation state and exact next work for a ne
   - or `public/fonts/jersey-10/Jersey10-Regular.ttf`
 - Build currently succeeds even when the font file is missing, but emits runtime-resolve warnings.
 
-## Files to Extend First
+## Files to Extend First (M3 Wave FSM first)
 - `src/features/simulation/store/gameStore.ts`
-- `src/features/chips/data/chips.csv`
-- `src/features/enemies/data/enemy-attacks.csv`
-- `src/features/chips/chipCatalog.ts`
-- `src/features/enemies/enemyAttackCatalog.ts`
 - `src/app/App.tsx`
+- `src/features/world/` (new area/wave FSM + unlock state modules)
+- `src/features/progression/` (new wave progression + boss retry state modules)
+- `src/features/economy/` (new shop/gacha modules after wave/map flow)
 
 ## New Thread Read Order (Carry-Over Pack)
 Before coding in a new thread, read these in order:
