@@ -122,6 +122,8 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 - M2 scope is complete; M3 is in progress with baseline 10-wave level FSM plus wave-clear Result popup, BATTLE START pre-wave banner, and wave-scaled virus count/power (cap: 6 per wave).
 - Detailed active handoff and task status are maintained in `docs/M1_HANDOFF.md`.
 - New thread onboarding/read order is also maintained in `docs/M1_HANDOFF.md` under "New Thread Read Order (Carry-Over Pack)".
+- GDD remains design-intent level; runtime implementation specifics and active next-thread actions are tracked in `docs/M1_HANDOFF.md`.
+- Immediate operational priority: resolve user-reported build errors in a dedicated triage thread (see `docs/M3_BUILD_ERROR_THREAD.md`).
 
 ---
 

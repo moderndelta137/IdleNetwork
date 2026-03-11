@@ -1045,6 +1045,27 @@ type CombatSummaryRuntime = {
   virusesTotal?: number
 }
 
+type CombatSummaryRuntime = {
+  virusAi: VirusAiById
+  customGaugeTicks: number
+  customGaugeMaxTicks: number
+  chipHand: Array<BattleChip | null>
+  barrierCharges: number
+  megamanHitstunTicks: number
+  queuedChipSlot: number | null
+  megamanControlMode: MegamanControlMode
+  programAdvanceAnimation: ProgramAdvanceAnimation | null
+  chipIndicatorPanels: string[]
+  currentLevel: number
+  currentWave: number
+  waveStatus: WaveStatus
+  waveResult?: WaveResultSummary | null
+  battleStartBannerTicks?: number
+  totalZenny?: number
+  virusesRemaining?: number
+  virusesTotal?: number
+}
+
 const buildCombatSummary = (
   entities: Record<EntityId, EntityState>,
   runtime: CombatSummaryRuntime,

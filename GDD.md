@@ -51,6 +51,13 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 - Obstacle/object interactions baseline
 - Barrier/Aura/Shield mechanics baseline
 
+### 6.1 M3 Runtime Snapshot (Implemented Baseline)
+- In-battle wave FSM baseline is implemented for wave lifecycle states (in-progress, wave-clear, level-clear, fail) with a 10-wave level structure.
+- Wave result cadence is implemented: post-wave result summary (DeleteTime, Busting Lv, reward roll) and pre-wave `BATTLE START` banner gating.
+- Multi-virus wave scaling baseline is implemented with simultaneous board presence (capped at 6 viruses in a wave) and increasing per-wave pressure.
+- Virus behavior baseline supports independent per-virus AI timing (movement, telegraph, attack cooldown, recovery) instead of a single shared enemy timer.
+- Active telegraph/hitbox visualization follows the active attacker target rule for board readability.
+
 ### Runtime Behavior
 - No offline progression
 - Battle simulation continues in unfocused tab/non-battle routes
@@ -93,6 +100,7 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 - Data-driven configs for chips, encounters, area unlocks, and waves
 - Chip and enemy attack tuning are maintained as CSV catalogs and loaded at runtime for balancing iteration
 - Deterministic simulation emphasized for testability and balancing
+- Documentation boundary: this GDD captures player-facing design intent; implementation/runtime handoff detail lives in `docs/M1_HANDOFF.md` and active triage notes (when applicable).
 
 ### 11.1 Current Debug Runtime Tooling (M2)
 - Pause/resume simulation
@@ -111,6 +119,7 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 - Preserve combat debug visibility (including non-hitscan hitbox overlays) while introducing sprites.
 - Preferred rollout (M2): static frames first (idle/swing) before PA implementation, then animation state machine expansion.
 - Atlas JSON support is explicitly deferred until after the first static-sprite validation pass.
+- If build regressions are reported, use the active triage carry-over note referenced by handoff docs before feature expansion.
 
 ## 13. Data References
 - Chips: https://megaman.miraheze.org/wiki/List_of_Mega_Man_Battle_Network_6_Battle_Chips

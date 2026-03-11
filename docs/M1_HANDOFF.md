@@ -39,6 +39,11 @@ This file captures the current implementation state and exact next work for a ne
 - [x] MB/cost legality checks baseline (chip MB metadata + deck MB cap enforcement + UI status).
 - [x] Duplicate declaration pre-build check in CI.
 
+## Immediate Priority: Build Error Triage (New Thread)
+- User reported build errors not yet captured in this branch context.
+- In this environment, `npm run build` is currently green; treat this as a repro-gap that must be closed first.
+- Start next thread with `docs/M3_BUILD_ERROR_THREAD.md` and prioritize reproducible failure logs before any feature work.
+
 ## Start Here Next
 - ✅ M2 effect grammar executor expansion complete (`throw`, `step` chaining, and row/fan pattern execution from CSV grammar).
 - ✅ M3 Task 1 complete: baseline 10-wave level FSM now drives in-battle wave progression.
@@ -71,6 +76,11 @@ This file captures the current implementation state and exact next work for a ne
 - ✅ Manual/semi/full control modes remain playable with no runtime build regressions.
 - ✅ Chip CSV pipeline flags malformed MB/effect rows with safe fallback behavior.
 
+## M3 Runtime QA Focus (Next Thread)
+- Verify active-attacker-only hitbox highlight behavior during simultaneous multi-virus waves.
+- Verify no-overlap enemy movement rule under contention (first mover occupies tile, later movers stay in previous tile).
+- Verify independent per-virus AI timers continue to resolve deterministically across long-run simulation.
+
 ## Known Follow-ups / Operational Notes
 - Local font wiring is now `@font-face`-based; ensure one actual font file is committed:
   - `public/fonts/jersey-10/Jersey10-Regular.woff2` (preferred)
@@ -87,15 +97,16 @@ This file captures the current implementation state and exact next work for a ne
 ## New Thread Read Order (Carry-Over Pack)
 Before coding in a new thread, read these in order:
 1. `docs/M1_HANDOFF.md` (this file; exact implementation state + next tasks)
-2. `V1_PRODUCT_PLAN.md` (locked scope and milestone alignment)
-3. `GDD.md` (design intent and gameplay-system context)
-4. `AGENT.md` (working model + communication expectations)
-5. `src/features/chips/data/chips.csv`
-6. `src/features/chips/data/effect-grammar.csv`
-7. `src/features/chips/data/README.md`
-8. `src/features/enemies/data/enemy-attacks.csv`
-9. `src/features/enemies/data/README.md`
-10. `public/fonts/jersey-10/README.md` (runtime asset note)
+2. `docs/M3_BUILD_ERROR_THREAD.md` (build-error repro + fix checklist for immediate thread)
+3. `V1_PRODUCT_PLAN.md` (locked scope and milestone alignment)
+4. `GDD.md` (design intent and gameplay-system context)
+5. `AGENT.md` (working model + communication expectations)
+6. `src/features/chips/data/chips.csv`
+7. `src/features/chips/data/effect-grammar.csv`
+8. `src/features/chips/data/README.md`
+9. `src/features/enemies/data/enemy-attacks.csv`
+10. `src/features/enemies/data/README.md`
+11. `public/fonts/jersey-10/README.md` (runtime asset note)
 
 If schema changes are made (CSV columns/grammar), update the relevant data README in the same PR.
 
