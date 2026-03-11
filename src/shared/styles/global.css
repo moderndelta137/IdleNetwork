@@ -179,6 +179,10 @@ strong {
   margin: 0 0 0.8rem;
   position: relative;
 }
+.battle-grid-stage {
+  position: relative;
+}
+
 
 .battle-folder-panel .folder-chip-list {
   height: calc(100% - 34px);
@@ -631,4 +635,71 @@ button.active {
     background: #7f1d1d;
     color: #fecaca;
   }
+}
+
+.battle-grid-overlay {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  pointer-events: none;
+  position: absolute;
+  z-index: 8;
+}
+
+.battle-start-banner {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.86);
+  border: 2px solid #fde68a;
+  border-radius: 10px;
+  color: #fef08a;
+  display: flex;
+  font-size: 2rem;
+  justify-content: center;
+  max-width: 420px;
+  padding: 0.4rem 0.8rem;
+  text-shadow: 0 0 8px rgba(250, 204, 21, 0.65);
+}
+
+.result-overlay {
+  align-items: center;
+  backdrop-filter: blur(1px);
+  background: rgba(2, 6, 23, 0.55);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  pointer-events: auto;
+  position: absolute;
+  z-index: 9;
+}
+
+.result-modal {
+  background: linear-gradient(180deg, #e5e7eb 0%, #cbd5e1 100%);
+  border: 3px solid #64748b;
+  border-radius: 10px;
+  color: #0f172a;
+  min-width: 320px;
+  padding: 0.75rem;
+}
+
+.result-modal-header {
+  border-bottom: 2px solid #94a3b8;
+  color: #1d4ed8;
+  font-size: 1.5rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.2rem;
+}
+
+.result-row {
+  display: flex;
+  font-size: 1.2rem;
+  justify-content: space-between;
+  margin: 0.25rem 0;
+}
+
+.result-reward {
+  background: #f8fafc;
+  border: 2px solid #94a3b8;
+  margin: 0.6rem 0;
+  padding: 0.45rem;
 }

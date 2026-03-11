@@ -22,11 +22,13 @@ export function App() {
   const debugSpriteScalePercent = useGameStore((state) => state.debugSpriteScalePercent)
   const setDebugSpriteScalePercent = useGameStore((state) => state.setDebugSpriteScalePercent)
   const debugForceNextCustomDrawProgramAdvance = useGameStore((state) => state.debugForceNextCustomDrawProgramAdvance)
+  const debugCompleteCurrentWave = useGameStore((state) => state.debugCompleteCurrentWave)
   const movePlayer = useGameStore((state) => state.movePlayer)
   const cycleMegamanControlMode = useGameStore((state) => state.cycleMegamanControlMode)
   const useChipSlot = useGameStore((state) => state.useChipSlot)
   const useLeftmostChip = useGameStore((state) => state.useLeftmostChip)
   const manualFireBuster = useGameStore((state) => state.manualFireBuster)
+  const closeWaveResult = useGameStore((state) => state.closeWaveResult)
   const resetBattle = useGameStore((state) => state.resetBattle)
   const megamanRecoveryTicks = useGameStore((state) => state.megamanRecoveryTicks)
   const mettaurRecoveryTicks = useGameStore((state) => state.mettaurRecoveryTicks)
@@ -99,8 +101,8 @@ export function App() {
   return (
     <main className="app-shell" style={{ '--sprite-scale': `${debugSpriteScalePercent / 100}` } as CSSProperties}>
       <header>
-        <h1>Idle Network — M2 Chips Vertical Slice</h1>
-        <p>Always-on chip hand flow with gauge refill, deck/discard reshuffle, and buffered use.</p>
+        <h1>Idle Network — M3 Wave FSM Vertical Slice</h1>
+        <p>Wave-based progression baseline: 10-wave FSM with boss wave gate, while preserving M2 combat/chip systems.</p>
       </header>
 
       <section className="scene-taskbar top" aria-label="Scene navigation">
@@ -134,6 +136,10 @@ export function App() {
         <button type="button" onClick={() => setShowBattleFolderPanel((current) => !current)}>
           {showBattleFolderPanel ? 'Hide Folder' : 'Show Folder'}
         </button>
+        <span>Level {combat.currentLevel} · Wave {combat.currentWave}/10 {combat.isBossWave ? '(Boss)' : ''}</span>
+        <span>Wave state: {combat.waveStatus}</span>
+        <span>Zenny: {combat.totalZenny}</span>
+        <span>Viruses: {combat.virusesRemaining}/{combat.virusesTotal}</span>
           </section>
 
 
@@ -150,6 +156,9 @@ export function App() {
           <span>Recovery: MegaMan {megamanRecoveryTicks}t / Mettaur {mettaurRecoveryTicks}t</span>
           <button type="button" onClick={debugForceNextCustomDrawProgramAdvance}>
             Force PA on Next Draw
+          </button>
+          <button type="button" onClick={debugCompleteCurrentWave}>
+            Complete Wave (Debug)
           </button>
         </div>
         <label className="sprite-scale-control" htmlFor="sprite-scale-slider">
@@ -216,22 +225,60 @@ export function App() {
 
           <section className="battle-board-shell">
             <Board />
-            <aside className={`battle-folder-panel ${showBattleFolderPanel ? 'open' : ''}`} aria-label="Battle folder chip list">
-              <header className="battle-folder-panel-header">
-                <strong>Battle Folder View</strong>
-                <span>{chipFolder.length}/30</span>
-              </header>
-              <div className="folder-chip-list" role="listbox" aria-label="Battle folder list">
-                {chipFolder.map((chip, index) => (
-                  <div key={`battle-folder-chip-${index}-${chip.id}-${chip.code}`} className="folder-chip-row">
-                    <span className="folder-chip-row-index">{index + 1}</span>
-                    <span className="folder-chip-row-name">{chip.name}</span>
-                    <span className="folder-chip-row-code">{chip.code}</span>
-                    <span className="folder-chip-row-mb">{battleChipCatalog[chip.id].mb}MB</span>
-                  </div>
-                ))}
+
+            {(combat.battleStartBannerTicks > 0 || combat.waveResult) ? (
+              <div className="battle-grid-overlay">
+                {combat.battleStartBannerTicks > 0 ? <section className="battle-start-banner">BATTLE START</section> : null}
+
+                {combat.waveResult ? (
+                  <section className="result-overlay" role="dialog" aria-modal="true" aria-label="Wave clear result">
+                    <div className="result-modal">
+                      <header className="result-modal-header">RESULT</header>
+                      <div className="result-row">
+                        <span>DeleteTime</span>
+                        <strong>{combat.waveResult.deleteTimeLabel}</strong>
+                      </div>
+                      <div className="result-row">
+                        <span>Busting LV.</span>
+                        <strong>{combat.waveResult.bustingLv}</strong>
+                      </div>
+                      <div className="result-reward">
+                        <div>GET DATA</div>
+                        <strong>{combat.waveResult.reward.zenny} Z</strong>
+                        {combat.waveResult.reward.chips.length > 0 ? (
+                          <span>
+                            + {combat.waveResult.reward.chips.map((chip) => `${chip.name} ${chip.code}`).join(', ')}
+                          </span>
+                        ) : (
+                          <span>No chip drop</span>
+                        )}
+                      </div>
+                      <button type="button" onClick={closeWaveResult}>
+                        Continue
+                      </button>
+                    </div>
+                  </section>
+                ) : null}
               </div>
-            </aside>
+            ) : null}
+            {showBattleFolderPanel ? (
+              <aside className="battle-folder-panel open" aria-label="Battle folder chip list">
+                <header className="battle-folder-panel-header">
+                  <strong>Battle Folder View</strong>
+                  <span>{chipFolder.length}/30</span>
+                </header>
+                <div className="folder-chip-list" role="listbox" aria-label="Battle folder list">
+                  {chipFolder.map((chip, index) => (
+                    <div key={`battle-folder-chip-${index}-${chip.id}-${chip.code}`} className="folder-chip-row">
+                      <span className="folder-chip-row-index">{index + 1}</span>
+                      <span className="folder-chip-row-name">{chip.name}</span>
+                      <span className="folder-chip-row-code">{chip.code}</span>
+                      <span className="folder-chip-row-mb">{battleChipCatalog[chip.id].mb}MB</span>
+                    </div>
+                  ))}
+                </div>
+              </aside>
+            ) : null}
           </section>
 
           <section className="chip-hand-bar" aria-label="Chip hand area">
