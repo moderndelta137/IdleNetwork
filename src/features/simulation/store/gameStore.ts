@@ -969,8 +969,19 @@ const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedP
 }
 
 
-const buildMettaurSwingHitboxPanels = (entities: Record<EntityId, EntityState>, virusAi: VirusAiById): string[] => {
-  const tiles = new Set<string>()
+const buildMettaurSwingHitboxPanels = (
+  entities: Record<EntityId, EntityState>,
+  virusAi: VirusAiById,
+  activeVirusId: VirusEntityId | null
+): string[] => {
+  if (!activeVirusId) {
+    return []
+  }
+
+  const mettaur = entities[activeVirusId]
+  if (!mettaur.alive || virusAi[activeVirusId].telegraphTicksRemaining <= 0) {
+    return []
+  }
 
   virusEntityIds.forEach((virusId) => {
     const mettaur = entities[virusId]
@@ -990,6 +1001,27 @@ const buildMettaurSwingHitboxPanels = (entities: Record<EntityId, EntityState>, 
   })
 
   return Array.from(tiles)
+}
+
+type CombatSummaryRuntime = {
+  virusAi: VirusAiById
+  customGaugeTicks: number
+  customGaugeMaxTicks: number
+  chipHand: Array<BattleChip | null>
+  barrierCharges: number
+  megamanHitstunTicks: number
+  queuedChipSlot: number | null
+  megamanControlMode: MegamanControlMode
+  programAdvanceAnimation: ProgramAdvanceAnimation | null
+  chipIndicatorPanels: string[]
+  currentLevel: number
+  currentWave: number
+  waveStatus: WaveStatus
+  waveResult?: WaveResultSummary | null
+  battleStartBannerTicks?: number
+  totalZenny?: number
+  virusesRemaining?: number
+  virusesTotal?: number
 }
 
 type CombatSummaryRuntime = {
@@ -1038,7 +1070,7 @@ const buildCombatSummary = (
     megamanControlMode: runtime.megamanControlMode,
     programAdvanceAnimation: runtime.programAdvanceAnimation,
     lastEvent,
-    activeHitboxPanels: buildMettaurSwingHitboxPanels(entities, runtime.virusAi),
+    activeHitboxPanels: buildMettaurSwingHitboxPanels(entities, runtime.virusAi, activeVirusId),
     chipIndicatorPanels: runtime.chipIndicatorPanels,
     currentLevel: runtime.currentLevel,
     currentWave: runtime.currentWave,
