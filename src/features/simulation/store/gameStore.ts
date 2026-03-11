@@ -983,18 +983,66 @@ const buildMettaurSwingHitboxPanels = (
     return []
   }
 
-  const tiles: string[] = []
-  for (let offset = 1; offset <= 2; offset += 1) {
-    const target: PanelPosition = {
-      row: mettaur.position.row,
-      col: mettaur.position.col - offset
+  virusEntityIds.forEach((virusId) => {
+    const mettaur = entities[virusId]
+    if (!mettaur.alive || virusAi[virusId].telegraphTicksRemaining <= 0) {
+      return
     }
-    if (inPlayerArea(target)) {
-      tiles.push(makePanelKey(target))
-    }
-  }
 
-  return tiles
+    for (let offset = 1; offset <= 2; offset += 1) {
+      const target: PanelPosition = {
+        row: mettaur.position.row,
+        col: mettaur.position.col - offset
+      }
+      if (inPlayerArea(target)) {
+        tiles.add(makePanelKey(target))
+      }
+    }
+  })
+
+  return Array.from(tiles)
+}
+
+type CombatSummaryRuntime = {
+  virusAi: VirusAiById
+  customGaugeTicks: number
+  customGaugeMaxTicks: number
+  chipHand: Array<BattleChip | null>
+  barrierCharges: number
+  megamanHitstunTicks: number
+  queuedChipSlot: number | null
+  megamanControlMode: MegamanControlMode
+  programAdvanceAnimation: ProgramAdvanceAnimation | null
+  chipIndicatorPanels: string[]
+  currentLevel: number
+  currentWave: number
+  waveStatus: WaveStatus
+  waveResult?: WaveResultSummary | null
+  battleStartBannerTicks?: number
+  totalZenny?: number
+  virusesRemaining?: number
+  virusesTotal?: number
+}
+
+type CombatSummaryRuntime = {
+  virusAi: VirusAiById
+  customGaugeTicks: number
+  customGaugeMaxTicks: number
+  chipHand: Array<BattleChip | null>
+  barrierCharges: number
+  megamanHitstunTicks: number
+  queuedChipSlot: number | null
+  megamanControlMode: MegamanControlMode
+  programAdvanceAnimation: ProgramAdvanceAnimation | null
+  chipIndicatorPanels: string[]
+  currentLevel: number
+  currentWave: number
+  waveStatus: WaveStatus
+  waveResult?: WaveResultSummary | null
+  battleStartBannerTicks?: number
+  totalZenny?: number
+  virusesRemaining?: number
+  virusesTotal?: number
 }
 
 type CombatSummaryRuntime = {
