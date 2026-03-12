@@ -39,18 +39,20 @@ This file captures the current implementation state and exact next work for a ne
 - [x] MB/cost legality checks baseline (chip MB metadata + deck MB cap enforcement + UI status).
 - [x] Duplicate declaration pre-build check in CI.
 
-## Immediate Priority: Build Error Triage (New Thread)
-- User reported build errors not yet captured in this branch context.
-- In this environment, `npm run build` is currently green; treat this as a repro-gap that must be closed first.
-- Start next thread with `docs/M3_BUILD_ERROR_THREAD.md` and prioritize reproducible failure logs before any feature work.
+## Immediate Priority (Next Thread)
+- Product-owner direction has shifted to **FireMan boss implementation** as the next active workstream.
+- Start next thread by syncing latest `main` and pulling the newly uploaded FireMan sprite assets before coding boss logic.
+- Keep build-triage notes available for fallback (`docs/M3_BUILD_ERROR_THREAD.md`) if a fresh regression appears while integrating boss content.
 
 ## Start Here Next
 - ✅ M2 effect grammar executor expansion complete (`throw`, `step` chaining, and row/fan pattern execution from CSV grammar).
 - ✅ M3 Task 1 complete: baseline 10-wave level FSM now drives in-battle wave progression.
 - ✅ Added post-wave Result popup (DeleteTime, Busting LV, RNG rewards) and 1-second `BATTLE START` banner gating next-wave unpause.
 - ✅ Wave scaling now increases per-wave virus count (simultaneous board-compatible spawns) and power, capped at 6 viruses per wave (Wave 2 >=2 viruses, Wave 4 >=3 viruses).
-- Next M3 implementation order:
-  1. Wave-10 boss retry button behavior
+- ✅ M3 Task 2 complete: wave-10 boss loss now returns player to wave 9 with always-available retry flow.
+- ✅ Added debug controls for wave progression: `Jump to Wave 10 (Debug)` and `Retry Boss (Wave 10)` from wave 9.
+- Next implementation order (updated):
+  1. FireMan boss implementation pass (integrate uploaded sprites from latest `main`)
   2. Area map UI + unlock gates
   3. Shop + gacha + basic folder management
 
@@ -77,22 +79,30 @@ This file captures the current implementation state and exact next work for a ne
 - ✅ Chip CSV pipeline flags malformed MB/effect rows with safe fallback behavior.
 
 ## M3 Runtime QA Focus (Next Thread)
-- Verify active-attacker-only hitbox highlight behavior during simultaneous multi-virus waves.
-- Verify no-overlap enemy movement rule under contention (first mover occupies tile, later movers stay in previous tile).
-- Verify independent per-virus AI timers continue to resolve deterministically across long-run simulation.
+- Re-verify active-attacker-only hitbox highlight behavior during simultaneous multi-virus waves (regression guard after boss integration).
+- Re-verify no-overlap enemy movement rule under contention (first mover occupies tile, later movers stay in previous tile).
+- Re-verify independent per-virus AI timers continue to resolve deterministically across long-run simulation.
+- Verify wave-10 failure path: boss loss -> wave 9 fallback -> `Retry Boss (Wave 10)` starts a fresh boss attempt with clean combat state.
 
 ## Known Follow-ups / Operational Notes
 - Local font wiring is now `@font-face`-based; ensure one actual font file is committed:
   - `public/fonts/jersey-10/Jersey10-Regular.woff2` (preferred)
   - or `public/fonts/jersey-10/Jersey10-Regular.ttf`
 - Build currently succeeds even when the font file is missing, but emits runtime-resolve warnings.
+- FireMan sprite assets were uploaded to latest `main`; next thread should sync assets first and keep naming/path conventions aligned with sprite production notes.
+- Recent combat/runtime updates landed in this branch:
+  - Active-attacker-only enemy hitbox highlighting and telegraph/attack gating.
+  - Mutually exclusive wave rewards (`zenny` XOR `chip`) with result UI reflecting only awarded type.
+  - Wave-10 boss retry flow + debug jump-to-wave-10 control.
 
-## Files to Extend First (M3 Wave FSM first)
+## Files to Extend First (Next Thread: FireMan + progression)
 - `src/features/simulation/store/gameStore.ts`
 - `src/app/App.tsx`
-- `src/features/world/` (new area/wave FSM + unlock state modules)
-- `src/features/progression/` (new wave progression + boss retry state modules)
-- `src/features/economy/` (new shop/gacha modules after wave/map flow)
+- `src/features/enemies/data/enemy-attacks.csv`
+- `public/sprites/fireman/` (latest assets from `main`)
+- `src/features/world/` (area/wave FSM + unlock state modules)
+- `src/features/progression/` (wave progression + boss retry state modules)
+- `src/features/economy/` (shop/gacha modules after wave/map flow)
 
 ## New Thread Read Order (Carry-Over Pack)
 Before coding in a new thread, read these in order:
@@ -107,6 +117,7 @@ Before coding in a new thread, read these in order:
 9. `src/features/enemies/data/enemy-attacks.csv`
 10. `src/features/enemies/data/README.md`
 11. `public/fonts/jersey-10/README.md` (runtime asset note)
+12. FireMan sprite asset paths in `public/sprites/fireman/` from latest `main`
 
 If schema changes are made (CSV columns/grammar), update the relevant data README in the same PR.
 

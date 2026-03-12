@@ -57,6 +57,7 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 - Multi-virus wave scaling baseline is implemented with simultaneous board presence (capped at 6 viruses in a wave) and increasing per-wave pressure.
 - Virus behavior baseline supports independent per-virus AI timing (movement, telegraph, attack cooldown, recovery) instead of a single shared enemy timer.
 - Active telegraph/hitbox visualization follows the active attacker target rule for board readability.
+- Wave-10 boss retry baseline is implemented: boss loss returns player to wave 9 and allows immediate retry into wave 10.
 
 ### Runtime Behavior
 - No offline progression
@@ -102,11 +103,15 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 - Deterministic simulation emphasized for testability and balancing
 - Documentation boundary: this GDD captures player-facing design intent; implementation/runtime handoff detail lives in `docs/M1_HANDOFF.md` and active triage notes (when applicable).
 
-### 11.1 Current Debug Runtime Tooling (M2)
+### 11.1 Current Debug Runtime Tooling (M2/M3)
 - Pause/resume simulation
 - Single-frame stepping while paused
 - Runtime sprite scale slider
 - Recovery tick visibility for quick combat timing verification
+- Force Program Advance on next Custom draw
+- Complete current wave (debug)
+- Jump directly to wave 10 (debug)
+- Retry boss attempt from wave 9 (debug/QA support)
 
 ## 12. UI & Production Direction
 - Early UI approach: functional BN-like HUD first, nostalgia-heavy styling later
