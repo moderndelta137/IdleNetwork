@@ -44,6 +44,7 @@ This file captures the current implementation state and exact next work for a ne
 - Start next thread by syncing latest `main` and pulling the newly uploaded FireMan sprite assets before coding boss logic.
 - Build triage note has been retired after resolution; open a fresh incident note only if a new build regression appears.
 
+
 ## Start Here Next
 - ✅ M2 effect grammar executor expansion complete (`throw`, `step` chaining, and row/fan pattern execution from CSV grammar).
 - ✅ M3 Task 1 complete: baseline 10-wave level FSM now drives in-battle wave progression.
