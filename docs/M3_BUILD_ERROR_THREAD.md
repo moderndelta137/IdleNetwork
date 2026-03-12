@@ -5,6 +5,10 @@ This note is for the **next thread** to focus only on build-error triage and fix
 ## Goal
 Identify and fix the build errors the user is seeing, then land a minimal, targeted PR.
 
+## Status
+- Historical triage note; keep for fallback if build regressions reappear.
+- Current product-owner-directed priority has moved to FireMan boss implementation and related content integration.
+
 ## Current Observation in This Environment
 - `npm run build` currently passes locally.
 - There is still a non-blocking Vite warning about unresolved Jersey font file at build time.
