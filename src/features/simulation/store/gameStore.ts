@@ -2381,6 +2381,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
 
           if (combatActive && nextEntities.megaman.alive) {
+            const activeAttackerId = getActiveVirusId(nextEntities)
             virusEntityIds.forEach((virusId) => {
               const virus = nextEntities[virusId]
               const ai = virusAi[virusId]
@@ -2389,6 +2390,16 @@ export const useGameStore = create<GameState>((set, get) => ({
                   ...ai,
                   telegraphTicksRemaining: 0,
                   recoveryTicks: 0
+                }
+                return
+              }
+
+              if (virusId !== activeAttackerId) {
+                if (ai.telegraphTicksRemaining > 0) {
+                  virusAi[virusId] = {
+                    ...ai,
+                    telegraphTicksRemaining: 0
+                  }
                 }
                 return
               }
@@ -2430,12 +2441,13 @@ export const useGameStore = create<GameState>((set, get) => ({
               }
 
               if (ai.attackCooldown === 0 && ai.recoveryTicks === 0) {
+                const telegraphTicks = getVirusTelegraphTicks(virus)
                 virusAi[virusId] = {
                   ...ai,
-                  telegraphTicksRemaining: getVirusTelegraphTicks(virus),
+                  telegraphTicksRemaining: telegraphTicks,
                   attackCooldown: getVirusCadenceTicks(virus).attackCooldown
                 }
-                lastEvent = `${virus.name} telegraph (${getVirusTelegraphTicks(virus)} ticks)`
+                lastEvent = `${virus.name} telegraph (${telegraphTicks} ticks)`
               }
             })
           }
