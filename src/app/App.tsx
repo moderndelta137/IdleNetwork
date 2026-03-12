@@ -23,11 +23,13 @@ export function App() {
   const setDebugSpriteScalePercent = useGameStore((state) => state.setDebugSpriteScalePercent)
   const debugForceNextCustomDrawProgramAdvance = useGameStore((state) => state.debugForceNextCustomDrawProgramAdvance)
   const debugCompleteCurrentWave = useGameStore((state) => state.debugCompleteCurrentWave)
+  const debugJumpToBossWave = useGameStore((state) => state.debugJumpToBossWave)
   const movePlayer = useGameStore((state) => state.movePlayer)
   const cycleMegamanControlMode = useGameStore((state) => state.cycleMegamanControlMode)
   const useChipSlot = useGameStore((state) => state.useChipSlot)
   const useLeftmostChip = useGameStore((state) => state.useLeftmostChip)
   const manualFireBuster = useGameStore((state) => state.manualFireBuster)
+  const retryBossWave = useGameStore((state) => state.retryBossWave)
   const closeWaveResult = useGameStore((state) => state.closeWaveResult)
   const resetBattle = useGameStore((state) => state.resetBattle)
   const megamanRecoveryTicks = useGameStore((state) => state.megamanRecoveryTicks)
@@ -97,6 +99,7 @@ export function App() {
   }, [combat.megamanControlMode, manualFireBuster, movePlayer, useChipSlot, useLeftmostChip])
 
   const target = entities[combat.targetId]
+  const canRetryBossWave = combat.currentWave === 9 && combat.waveStatus !== 'levelCleared' && combat.waveResult === null
 
   return (
     <main className="app-shell" style={{ '--sprite-scale': `${debugSpriteScalePercent / 100}` } as CSSProperties}>
@@ -138,6 +141,11 @@ export function App() {
         </button>
         <span>Level {combat.currentLevel} · Wave {combat.currentWave}/10 {combat.isBossWave ? '(Boss)' : ''}</span>
         <span>Wave state: {combat.waveStatus}</span>
+        {canRetryBossWave ? (
+          <button type="button" onClick={retryBossWave}>
+            Retry Boss (Wave 10)
+          </button>
+        ) : null}
         <span>Zenny: {combat.totalZenny}</span>
         <span>Viruses: {combat.virusesRemaining}/{combat.virusesTotal}</span>
           </section>
@@ -159,6 +167,9 @@ export function App() {
           </button>
           <button type="button" onClick={debugCompleteCurrentWave}>
             Complete Wave (Debug)
+          </button>
+          <button type="button" onClick={debugJumpToBossWave}>
+            Jump to Wave 10 (Debug)
           </button>
         </div>
         <label className="sprite-scale-control" htmlFor="sprite-scale-slider">
@@ -244,13 +255,10 @@ export function App() {
                       </div>
                       <div className="result-reward">
                         <div>GET DATA</div>
-                        <strong>{combat.waveResult.reward.zenny} Z</strong>
-                        {combat.waveResult.reward.chips.length > 0 ? (
-                          <span>
-                            + {combat.waveResult.reward.chips.map((chip) => `${chip.name} ${chip.code}`).join(', ')}
-                          </span>
+                        {combat.waveResult.reward.type === 'zenny' ? (
+                          <strong>{combat.waveResult.reward.zenny} Z</strong>
                         ) : (
-                          <span>No chip drop</span>
+                          <strong>{combat.waveResult.reward.chips.map((chip) => `${chip.name} ${chip.code}`).join(', ')}</strong>
                         )}
                       </div>
                       <button type="button" onClick={closeWaveResult}>
