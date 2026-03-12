@@ -42,7 +42,8 @@ This file captures the current implementation state and exact next work for a ne
 ## Immediate Priority (Next Thread)
 - Product-owner direction has shifted to **FireMan boss implementation** as the next active workstream.
 - Start next thread by syncing latest `main` and pulling the newly uploaded FireMan sprite assets before coding boss logic.
-- Keep build-triage notes available for fallback (`docs/M3_BUILD_ERROR_THREAD.md`) if a fresh regression appears while integrating boss content.
+- Build triage note has been retired after resolution; open a fresh incident note only if a new build regression appears.
+
 
 ## Start Here Next
 - ✅ M2 effect grammar executor expansion complete (`throw`, `step` chaining, and row/fan pattern execution from CSV grammar).
@@ -107,21 +108,21 @@ This file captures the current implementation state and exact next work for a ne
 ## New Thread Read Order (Carry-Over Pack)
 Before coding in a new thread, read these in order:
 1. `docs/M1_HANDOFF.md` (this file; exact implementation state + next tasks)
-2. `docs/M3_BUILD_ERROR_THREAD.md` (build-error repro + fix checklist for immediate thread)
-3. `V1_PRODUCT_PLAN.md` (locked scope and milestone alignment)
-4. `GDD.md` (design intent and gameplay-system context)
-5. `AGENT.md` (working model + communication expectations)
-6. `src/features/chips/data/chips.csv`
-7. `src/features/chips/data/effect-grammar.csv`
-8. `src/features/chips/data/README.md`
-9. `src/features/enemies/data/enemy-attacks.csv`
-10. `src/features/enemies/data/README.md`
-11. `public/fonts/jersey-10/README.md` (runtime asset note)
-12. FireMan sprite asset paths in `public/sprites/fireman/` from latest `main`
+2. `V1_PRODUCT_PLAN.md` (locked scope and milestone alignment)
+3. `GDD.md` (design intent and gameplay-system context)
+4. `AGENT.md` (working model + communication expectations)
+5. `src/features/chips/data/chips.csv`
+6. `src/features/chips/data/effect-grammar.csv`
+7. `src/features/chips/data/README.md`
+8. `src/features/enemies/data/enemy-attacks.csv`
+9. `src/features/enemies/data/README.md`
+10. `public/fonts/jersey-10/README.md` (runtime asset note)
+11. FireMan sprite asset paths in `public/sprites/fireman/` from latest `main`
 
 If schema changes are made (CSV columns/grammar), update the relevant data README in the same PR.
 
 ## Notes for New Thread
+- Optional batch helper for handoff prep/read-pack output: `npm run handoff:thread`
 - Run checks before opening PR:
   - `npm run check:game-store-duplicates`
   - `npm run build`

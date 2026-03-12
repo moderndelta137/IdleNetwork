@@ -97,3 +97,12 @@ I want to launch it publicly
 - I don't just want it to work—I want it to be something I'm proud to show people
 - This is real. Not a mockup. Not a prototype. A working product.
 - Keep me in control and in the loop at all times
+
+
+## Command Words
+- `THREAD_HANDOFF`
+  - Run the full new-thread handoff batch operation:
+    1) Update handoff docs to reflect latest shipped progress (`docs/M1_HANDOFF.md`, `V1_PRODUCT_PLAN.md`, `GDD.md`).
+    2) Validate required checks (`npm run check:game-store-duplicates` and `npm run build`).
+    3) Return the exact new-thread read pack list from `docs/M1_HANDOFF.md` and call out the current immediate priority.
+  - Optional CLI helper: `npm run handoff:thread` prints the checklist/read pack template.

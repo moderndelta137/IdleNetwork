@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "check:game-store-duplicates": "node scripts/check-game-store-duplicates.mjs"
+    "check:game-store-duplicates": "node scripts/check-game-store-duplicates.mjs",
+    "handoff:thread": "node scripts/thread-handoff-pack.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
