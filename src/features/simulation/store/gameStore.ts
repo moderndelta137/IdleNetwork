@@ -326,29 +326,78 @@ const setupWaveViruses = (
   return next
 }
 
-const createInitialVirusAi = (): VirusAiById =>
-  virusEntityIds.reduce((acc, virusId) => {
-    acc[virusId] = {
-      attackCooldown: mettaurAttackCadenceTicks,
-      telegraphTicksRemaining: 0,
-      recoveryTicks: 0,
-      moveCooldown: mettaurMoveCadenceTicks
-    }
+const getVirusActorKey = (virus: EntityState): string => virus.name.trim().toLowerCase()
+
+type VirusCadenceProfile = {
+  attackCooldown: number
+  moveCooldown: number
+  recoveryTicks: number
+}
+
+const getVirusCadenceTicks = (virus: EntityState): VirusCadenceProfile => {
+  switch (getVirusActorKey(virus)) {
+    case 'mettaur':
+    default:
+      return {
+        attackCooldown: mettaurAttackCadenceTicks,
+        moveCooldown: mettaurMoveCadenceTicks,
+        recoveryTicks: mettaurSwingRecoveryTicks
+      }
+  }
+}
+
+const getVirusTelegraphTicks = (virus: EntityState): number => {
+  switch (getVirusActorKey(virus)) {
+    case 'mettaur':
+    default:
+      return mettaurTelegraphTicks
+  }
+}
+
+const getVirusAttackDamage = (virus: EntityState): number => {
+  switch (getVirusActorKey(virus)) {
+    case 'mettaur':
+    default:
+      return mettaurHitDamage
+  }
+}
+
+const canVirusAttackHit = (virus: EntityState, megaman: EntityState): boolean => {
+  switch (getVirusActorKey(virus)) {
+    case 'mettaur':
+    default:
+      return canMettaurSwingHit(virus, megaman)
+  }
+}
+
+const createVirusAiState = (virus: EntityState, index: number): VirusAiState => {
+  const cadence = getVirusCadenceTicks(virus)
+  const phaseOffset = index % 3
+  return {
+    attackCooldown: Math.max(0, cadence.attackCooldown - phaseOffset),
+    telegraphTicksRemaining: 0,
+    recoveryTicks: 0,
+    moveCooldown: Math.max(0, cadence.moveCooldown - phaseOffset)
+  }
+}
+
+const createInitialVirusAi = (): VirusAiById => {
+  const initialEntities = createInitialEntities()
+  return virusEntityIds.reduce((acc, virusId, index) => {
+    acc[virusId] = createVirusAiState(initialEntities[virusId], index)
     return acc
   }, {} as VirusAiById)
+}
 
 const resetVirusAiForWave = (virusAi: VirusAiById, entities: Record<EntityId, EntityState>): VirusAiById => {
   const next = { ...virusAi }
-  virusEntityIds.forEach((virusId) => {
-    next[virusId] = entities[virusId].alive
-      ? {
-          attackCooldown: mettaurAttackCadenceTicks,
-          telegraphTicksRemaining: 0,
-          recoveryTicks: 0,
-          moveCooldown: mettaurMoveCadenceTicks
-        }
+  virusEntityIds.forEach((virusId, index) => {
+    const virus = entities[virusId]
+    const cadence = getVirusCadenceTicks(virus)
+    next[virusId] = virus.alive
+      ? createVirusAiState(virus, index)
       : {
-          attackCooldown: mettaurAttackCadenceTicks,
+          attackCooldown: cadence.attackCooldown,
           telegraphTicksRemaining: 0,
           recoveryTicks: 0,
           moveCooldown: 0
@@ -969,7 +1018,7 @@ const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedP
 }
 
 
-const buildMettaurSwingHitboxPanels = (
+const buildActiveVirusHitboxPanels = (
   entities: Record<EntityId, EntityState>,
   virusAi: VirusAiById,
   activeVirusId: VirusEntityId | null
@@ -978,29 +1027,27 @@ const buildMettaurSwingHitboxPanels = (
     return []
   }
 
-  const mettaur = entities[activeVirusId]
-  if (!mettaur.alive || virusAi[activeVirusId].telegraphTicksRemaining <= 0) {
+  const activeVirus = entities[activeVirusId]
+  const ai = virusAi[activeVirusId]
+  if (!activeVirus.alive || ai.telegraphTicksRemaining <= 0) {
     return []
   }
 
   const tiles = new Set<string>()
-
-  virusEntityIds.forEach((virusId) => {
-    const mettaur = entities[virusId]
-    if (!mettaur.alive || virusAi[virusId].telegraphTicksRemaining <= 0) {
-      return
-    }
-
-    for (let offset = 1; offset <= 2; offset += 1) {
-      const target: PanelPosition = {
-        row: mettaur.position.row,
-        col: mettaur.position.col - offset
+  switch (getVirusActorKey(activeVirus)) {
+    case 'mettaur':
+    default:
+      for (let offset = 1; offset <= 2; offset += 1) {
+        const target: PanelPosition = {
+          row: activeVirus.position.row,
+          col: activeVirus.position.col - offset
+        }
+        if (inPlayerArea(target)) {
+          tiles.add(makePanelKey(target))
+        }
       }
-      if (inPlayerArea(target)) {
-        tiles.add(makePanelKey(target))
-      }
-    }
-  })
+      break
+  }
 
   return Array.from(tiles)
 }
@@ -1051,7 +1098,7 @@ const buildCombatSummary = (
     megamanControlMode: runtime.megamanControlMode,
     programAdvanceAnimation: runtime.programAdvanceAnimation,
     lastEvent,
-    activeHitboxPanels: buildMettaurSwingHitboxPanels(entities, runtime.virusAi, activeVirusId),
+    activeHitboxPanels: buildActiveVirusHitboxPanels(entities, runtime.virusAi, activeVirusId),
     chipIndicatorPanels: runtime.chipIndicatorPanels,
     currentLevel: runtime.currentLevel,
     currentWave: runtime.currentWave,
@@ -2354,12 +2401,13 @@ export const useGameStore = create<GameState>((set, get) => ({
                 }
 
                 if (nextTelegraph === 0) {
-                  if (canMettaurSwingHit(virus, nextEntities.megaman)) {
+                  if (canVirusAttackHit(virus, nextEntities.megaman)) {
                     if (barrierCharges > 0) {
                       barrierCharges -= 1
                       lastEvent = `${virus.name} swing blocked by barrier`
                     } else {
-                      const result = applyDamage(virus, nextEntities.megaman, mettaurHitDamage)
+                      const virusAttackDamage = getVirusAttackDamage(virus)
+                      const result = applyDamage(virus, nextEntities.megaman, virusAttackDamage)
                       nextEntities = {
                         ...nextEntities,
                         [virusId]: result.source,
@@ -2367,7 +2415,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                       }
                       if (result.didHit) {
                         megamanHitstunTicks = megamanHitstunTicksOnHit
-                        lastEvent = `${virus.name} swing hit for ${mettaurHitDamage}`
+                        lastEvent = `${virus.name} swing hit for ${virusAttackDamage}`
                       }
                     }
                   } else {
@@ -2375,7 +2423,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                   }
                   virusAi[virusId] = {
                     ...virusAi[virusId],
-                    recoveryTicks: mettaurSwingRecoveryTicks
+                    recoveryTicks: getVirusCadenceTicks(virus).recoveryTicks
                   }
                 }
                 return
@@ -2384,10 +2432,10 @@ export const useGameStore = create<GameState>((set, get) => ({
               if (ai.attackCooldown === 0 && ai.recoveryTicks === 0) {
                 virusAi[virusId] = {
                   ...ai,
-                  telegraphTicksRemaining: mettaurTelegraphTicks,
-                  attackCooldown: mettaurAttackCadenceTicks
+                  telegraphTicksRemaining: getVirusTelegraphTicks(virus),
+                  attackCooldown: getVirusCadenceTicks(virus).attackCooldown
                 }
-                lastEvent = `${virus.name} telegraph (${mettaurTelegraphTicks} ticks)`
+                lastEvent = `${virus.name} telegraph (${getVirusTelegraphTicks(virus)} ticks)`
               }
             })
           }
