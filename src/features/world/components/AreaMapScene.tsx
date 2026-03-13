@@ -22,6 +22,7 @@ export function AreaMapScene() {
   const currentLevel = useGameStore((state) => state.currentLevel)
   const currentWave = useGameStore((state) => state.currentWave)
   const totalZenny = useGameStore((state) => state.totalZenny)
+  const selectAreaLevel = useGameStore((state) => state.selectAreaLevel)
 
   const areas = useMemo<AreaNode[]>(() => {
     const unlockedLevel = Math.max(1, currentLevel)
@@ -42,7 +43,7 @@ export function AreaMapScene() {
         name: 'Yoka Net',
         subtitle: 'Heat lanes and mid-tier virus routes',
         recommendedLevel: 2,
-        unlocked: unlockedLevel >= 2,
+        unlocked: true,
         status: unlockedLevel >= 2 ? (unlockedLevel === 2 ? 'current' : 'available') : 'locked',
         x: 40,
         y: 48
@@ -52,7 +53,7 @@ export function AreaMapScene() {
         name: 'SciLab Net',
         subtitle: 'Dense waves and heavier chip drops',
         recommendedLevel: 3,
-        unlocked: unlockedLevel >= 3,
+        unlocked: true,
         status: unlockedLevel >= 3 ? (unlockedLevel === 3 ? 'current' : 'available') : 'locked',
         x: 64,
         y: 66
@@ -82,7 +83,7 @@ export function AreaMapScene() {
     <section className="area-map-scene" aria-label="Area map scene">
       <header className="area-map-header">
         <h2>Area Map</h2>
-        <p>Choose where to jack in next. Unlock gates are shown now; travel routing is next.</p>
+        <p>Choose where to jack in next. Unlock gates are shown now; areas 2-3 are now switchable with placeholder wave tuning.</p>
       </header>
 
       <div className="area-map-stats" role="list" aria-label="Area progression stats">
@@ -117,8 +118,12 @@ export function AreaMapScene() {
             </div>
             <p>{area.subtitle}</p>
             <div className="area-node-meta">Recommended Lv. {area.recommendedLevel}</div>
-            <button type="button" disabled={!area.unlocked}>
-              {area.unlocked ? 'Enter Area (Soon)' : 'Locked'}
+            <button
+              type="button"
+              disabled={!area.unlocked}
+              onClick={() => selectAreaLevel(area.recommendedLevel)}
+            >
+              {area.unlocked ? (area.status === 'current' ? 'Current Area' : 'Switch Area') : 'Locked'}
             </button>
           </article>
         ))}

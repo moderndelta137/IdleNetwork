@@ -186,6 +186,7 @@ type GameState = {
   debugForceNextCustomDrawProgramAdvance: () => void
   debugCompleteCurrentWave: () => void
   debugJumpToBossWave: () => void
+  selectAreaLevel: (level: number) => void
   movePlayer: (deltaRow: number, deltaCol: number) => void
   useChipSlot: (index: number) => void
   useLeftmostChip: () => void
@@ -2057,6 +2058,71 @@ export const useGameStore = create<GameState>((set, get) => ({
         debugCompleteWaveRequested: false,
         ...summarizeVirusAi(nextEntities, virusAi),
         combat: buildCombatSummary(nextEntities, runtime, 'Debug: jumped to boss wave')
+      }
+    })
+  },
+  selectAreaLevel: (level) => {
+    set((current) => {
+      const targetLevel = Math.max(1, Math.min(3, Math.floor(level)))
+      if (!Number.isFinite(targetLevel) || targetLevel === current.currentLevel) {
+        return {}
+      }
+
+      const startingWave = 1
+      const virusesTotal = getWaveVirusCount(startingWave)
+      const nextEntities = prepareWaveStartEntities(current.entities, startingWave, virusesTotal, true)
+      const virusAi = resetVirusAiForWave(current.virusAi, nextEntities)
+      const waveStatus: WaveStatus = 'inProgress'
+      const battleStartBannerTicks = battleStartBannerDurationTicks
+      const queuedChipSlot = sanitizeQueuedChipSlot(current.chipHand, current.queuedChipSlot)
+
+      const runtime = {
+        virusAi,
+        customGaugeTicks: current.customGaugeTicks,
+        customGaugeMaxTicks: current.customGaugeMaxTicks,
+        chipHand: current.chipHand,
+        barrierCharges: 0,
+        megamanHitstunTicks: 0,
+        queuedChipSlot,
+        megamanControlMode: current.megamanControlMode,
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: [],
+        currentLevel: targetLevel,
+        currentWave: startingWave,
+        waveStatus,
+        waveResult: null,
+        battleStartBannerTicks,
+        totalZenny: current.totalZenny,
+        virusesRemaining: virusesTotal,
+        virusesTotal,
+        enemyProjectiles: []
+      }
+
+      return {
+        entities: nextEntities,
+        occupiedPanels: buildOccupiedPanels(nextEntities),
+        virusAi,
+        currentLevel: targetLevel,
+        currentWave: startingWave,
+        waveStatus,
+        waveTransitionTick: null,
+        waveStartedAtTick: current.ticks,
+        waveResult: null,
+        battleStartBannerTicks,
+        virusesRemaining: virusesTotal,
+        virusesTotal,
+        barrierCharges: 0,
+        megamanHitstunTicks: 0,
+        megamanRecoveryTicks: 0,
+        pendingStepReturnPosition: null,
+        pendingStepReturnTicks: 0,
+        chipIndicatorPanels: [],
+        chipIndicatorTicksRemaining: 0,
+        queuedChipSlot,
+        debugCompleteWaveRequested: false,
+        enemyProjectiles: [],
+        ...summarizeVirusAi(nextEntities, virusAi),
+        combat: buildCombatSummary(nextEntities, runtime, `Area switched to Level ${targetLevel}`)
       }
     })
   },
