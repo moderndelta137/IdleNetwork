@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useGameStore } from '../../simulation/store/gameStore'
 
 type AreaNode = {
@@ -18,11 +18,18 @@ type AreaPath = {
   to: string
 }
 
-export function AreaMapScene() {
+type AreaMapSceneProps = {
+  onAreaSwitched?: () => void
+}
+
+export function AreaMapScene({ onAreaSwitched }: AreaMapSceneProps) {
   const currentLevel = useGameStore((state) => state.currentLevel)
   const currentWave = useGameStore((state) => state.currentWave)
   const totalZenny = useGameStore((state) => state.totalZenny)
   const selectAreaLevel = useGameStore((state) => state.selectAreaLevel)
+
+  const [hoveredAreaId, setHoveredAreaId] = useState<string | null>(null)
+  const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null)
 
   const areas = useMemo<AreaNode[]>(() => {
     const unlockedLevel = Math.max(1, currentLevel)
@@ -44,7 +51,7 @@ export function AreaMapScene() {
         subtitle: 'Heat lanes and mid-tier virus routes',
         recommendedLevel: 2,
         unlocked: true,
-        status: unlockedLevel >= 2 ? (unlockedLevel === 2 ? 'current' : 'available') : 'locked',
+        status: unlockedLevel === 2 ? 'current' : 'available',
         x: 40,
         y: 48
       },
@@ -54,7 +61,7 @@ export function AreaMapScene() {
         subtitle: 'Dense waves and heavier chip drops',
         recommendedLevel: 3,
         unlocked: true,
-        status: unlockedLevel >= 3 ? (unlockedLevel === 3 ? 'current' : 'available') : 'locked',
+        status: unlockedLevel === 3 ? 'current' : 'available',
         x: 64,
         y: 66
       },
@@ -79,11 +86,22 @@ export function AreaMapScene() {
 
   const areaById = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas])
 
+  const detailArea = areaById.get(hoveredAreaId ?? selectedAreaId ?? '') ?? null
+
+  const handleSwitchArea = (area: AreaNode) => {
+    if (!area.unlocked || area.status === 'current') {
+      return
+    }
+
+    selectAreaLevel(area.recommendedLevel)
+    onAreaSwitched?.()
+  }
+
   return (
     <section className="area-map-scene" aria-label="Area map scene">
       <header className="area-map-header">
         <h2>Area Map</h2>
-        <p>Choose where to jack in next. Unlock gates are shown now; areas 2-3 are now switchable with placeholder wave tuning.</p>
+        <p>Hover or click a node to inspect area details. Switching an area jumps directly into battle.</p>
       </header>
 
       <div className="area-map-stats" role="list" aria-label="Area progression stats">
@@ -107,26 +125,51 @@ export function AreaMapScene() {
         </svg>
 
         {areas.map((area) => (
-          <article
+          <div
             key={area.id}
-            className={`area-node ${area.status}`}
+            className={`area-node-shell ${area.status}`}
             style={{ left: `${area.x}%`, top: `${area.y}%` }}
+            onMouseEnter={() => setHoveredAreaId(area.id)}
+            onMouseLeave={() => setHoveredAreaId((current) => (current === area.id ? null : current))}
           >
-            <div className="area-node-title-row">
-              <h3>{area.name}</h3>
-              <span className={`area-node-status ${area.status}`}>{area.status.toUpperCase()}</span>
-            </div>
-            <p>{area.subtitle}</p>
-            <div className="area-node-meta">Recommended Lv. {area.recommendedLevel}</div>
             <button
               type="button"
-              disabled={!area.unlocked}
-              onClick={() => selectAreaLevel(area.recommendedLevel)}
+              className={`area-node-circle ${area.status}`}
+              aria-label={area.name}
+              onClick={() => setSelectedAreaId(area.id)}
             >
-              {area.unlocked ? (area.status === 'current' ? 'Current Area' : 'Switch Area') : 'Locked'}
+              {area.unlocked ? '◉' : '🔒'}
             </button>
-          </article>
+            <span className="area-node-name-label">{area.name}</span>
+          </div>
         ))}
+
+        {detailArea ? (
+          <aside
+            className="area-detail-window"
+            style={{ left: `${detailArea.x}%`, top: `${detailArea.y}%` }}
+            role="dialog"
+            aria-label={`${detailArea.name} details`}
+          >
+            <div className="area-detail-header">
+              <strong>{detailArea.name}</strong>
+              <span className={`area-node-status ${detailArea.status}`}>{detailArea.status.toUpperCase()}</span>
+            </div>
+            <p>{detailArea.subtitle}</p>
+            <div className="area-node-meta">Recommended Lv. {detailArea.recommendedLevel}</div>
+            <button
+              type="button"
+              disabled={!detailArea.unlocked || detailArea.status === 'current'}
+              onClick={() => handleSwitchArea(detailArea)}
+            >
+              {detailArea.unlocked
+                ? detailArea.status === 'current'
+                  ? 'Current Area'
+                  : 'Switch Area'
+                : 'Locked'}
+            </button>
+          </aside>
+        ) : null}
       </div>
     </section>
   )

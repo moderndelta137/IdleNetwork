@@ -326,7 +326,7 @@ export function App() {
       ) : scene === 'folder' ? (
         <FolderScene />
       ) : (
-        <AreaMapScene />
+        <AreaMapScene onAreaSwitched={() => setScene('battle')} />
       )}
 
       <section className="scene-taskbar bottom" aria-label="Scene navigation">
