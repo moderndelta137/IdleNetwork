@@ -3,12 +3,13 @@ import { Board } from '../features/battle/components/Board'
 import { FolderScene } from '../features/chips/components/FolderScene'
 import { loadChipCatalog } from '../features/chips/chipCatalog'
 import { useGameStore } from '../features/simulation/store/gameStore'
+import { AreaMapScene } from '../features/world/components/AreaMapScene'
 
 const SPEEDS = [1, 2, 4] as const
 const battleChipCatalog = loadChipCatalog(100)
 
 export function App() {
-  const [scene, setScene] = useState<'battle' | 'folder'>('battle')
+  const [scene, setScene] = useState<'battle' | 'folder' | 'areaMap'>('battle')
   const [showBattleFolderPanel, setShowBattleFolderPanel] = useState(false)
   const ticks = useGameStore((state) => state.ticks)
   const speed = useGameStore((state) => state.speed)
@@ -43,6 +44,10 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (scene !== 'battle') {
+        return
+      }
+
       const key = event.key
       const upperKey = key.toUpperCase()
 
@@ -96,7 +101,7 @@ export function App() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [combat.megamanControlMode, manualFireBuster, movePlayer, useChipSlot, useLeftmostChip])
+  }, [combat.megamanControlMode, manualFireBuster, movePlayer, scene, useChipSlot, useLeftmostChip])
 
   const target = entities[combat.targetId]
   const canRetryBossWave = combat.currentWave === 9 && combat.waveStatus !== 'levelCleared' && combat.waveResult === null
@@ -114,6 +119,9 @@ export function App() {
         </button>
         <button type="button" className={scene === 'folder' ? 'active' : ''} onClick={() => setScene('folder')}>
           Folder
+        </button>
+        <button type="button" className={scene === 'areaMap' ? 'active' : ''} onClick={() => setScene('areaMap')}>
+          Area Map
         </button>
       </section>
 
@@ -315,8 +323,10 @@ export function App() {
         ))}
           </section>
         </>
-      ) : (
+      ) : scene === 'folder' ? (
         <FolderScene />
+      ) : (
+        <AreaMapScene />
       )}
 
       <section className="scene-taskbar bottom" aria-label="Scene navigation">
@@ -325,6 +335,9 @@ export function App() {
         </button>
         <button type="button" className={scene === 'folder' ? 'active' : ''} onClick={() => setScene('folder')}>
           Folder
+        </button>
+        <button type="button" className={scene === 'areaMap' ? 'active' : ''} onClick={() => setScene('areaMap')}>
+          Area Map
         </button>
       </section>
     </main>
