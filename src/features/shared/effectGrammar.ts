@@ -45,6 +45,36 @@ const validateHitscanEffect = (effect: string): boolean => {
   return rowParts.every((row) => integerPattern.test(row))
 }
 
+
+const validateProjectileEffect = (effect: string): boolean => {
+  const body = effect.slice('projectile:rows='.length)
+  const parts = body.split(';').map((part) => part.trim()).filter((part) => part.length > 0)
+  if (parts.length === 0) {
+    return false
+  }
+
+  const maxRangePart = parts.find((part) => part.startsWith('maxRange='))
+  if (!maxRangePart || !/^maxRange=\d+$/.test(maxRangePart)) {
+    return false
+  }
+
+  const speedPart = parts.find((part) => part.startsWith('speed='))
+  if (!speedPart || !/^speed=\d+$/.test(speedPart)) {
+    return false
+  }
+
+  const speedValue = Number.parseInt(speedPart.slice('speed='.length), 10)
+  if (!Number.isFinite(speedValue) || speedValue <= 0) {
+    return false
+  }
+
+  const rowParts = parts.filter((part) => !part.startsWith('maxRange=') && !part.startsWith('speed='))
+  if (rowParts.length === 0) {
+    return false
+  }
+
+  return rowParts.every((row) => integerPattern.test(row))
+}
 export const validateEffectsGrammar = (effects: string): string | null => {
   const trimmed = effects.trim()
   if (trimmed.length === 0) {
@@ -87,6 +117,13 @@ export const validateEffectsGrammar = (effects: string): string | null => {
     if (effect.startsWith('hitscan:rows=')) {
       if (!validateHitscanEffect(effect)) {
         return `Invalid hitscan effect: ${effect}`
+      }
+      continue
+    }
+
+    if (effect.startsWith('projectile:rows=')) {
+      if (!validateProjectileEffect(effect)) {
+        return `Invalid projectile effect: ${effect}`
       }
       continue
     }
