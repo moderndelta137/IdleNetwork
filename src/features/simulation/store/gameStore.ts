@@ -75,7 +75,6 @@ type VirusAiState = {
   recoveryTicks: number
   moveCooldown: number
   activeAttackId: string | null
-  nextAttackIndex: number
 }
 
 type VirusAiById = Record<VirusEntityId, VirusAiState>
@@ -416,7 +415,17 @@ const getCurrentVirusAttack = (virus: EntityState, ai: VirusAiState) => {
     return explicit
   }
 
-  return attacks[ai.nextAttackIndex % attacks.length] ?? mettaurSwingAttack
+  return attacks[0] ?? mettaurSwingAttack
+}
+
+const chooseVirusAttackForTelegraph = (virus: EntityState) => {
+  const attacks = getActorAttacks(virus)
+  if (attacks.length === 0) {
+    return mettaurSwingAttack
+  }
+
+  const index = Math.floor(Math.random() * attacks.length)
+  return attacks[index] ?? attacks[0]
 }
 
 type VirusCadenceProfile = {
@@ -451,8 +460,7 @@ const createVirusAiState = (virus: EntityState, index: number): VirusAiState => 
     telegraphTicksRemaining: 0,
     recoveryTicks: 0,
     moveCooldown: Math.max(0, cadence.moveCooldown - phaseOffset),
-    activeAttackId: null,
-    nextAttackIndex: 0
+    activeAttackId: null
   }
 }
 
@@ -476,8 +484,7 @@ const resetVirusAiForWave = (virusAi: VirusAiById, entities: Record<EntityId, En
           telegraphTicksRemaining: 0,
           recoveryTicks: 0,
           moveCooldown: 0,
-          activeAttackId: null,
-          nextAttackIndex: 0
+          activeAttackId: null
         }
   })
   return next
@@ -2533,8 +2540,7 @@ export const useGameStore = create<GameState>((set, get) => ({
               telegraphTicksRemaining: ai.telegraphTicksRemaining,
               recoveryTicks: Math.max(0, ai.recoveryTicks - 1),
               moveCooldown: Math.max(0, ai.moveCooldown - 1),
-              activeAttackId: ai.activeAttackId,
-              nextAttackIndex: ai.nextAttackIndex
+              activeAttackId: ai.activeAttackId
             }
           })
           const battlePaused = waveResult !== null || battleStartBannerTicks > 0
@@ -2889,15 +2895,14 @@ export const useGameStore = create<GameState>((set, get) => ({
                   virusAi[virusId] = {
                     ...virusAi[virusId],
                     recoveryTicks: getVirusCadenceTicks(virus).recoveryTicks,
-                    activeAttackId: null,
-                    nextAttackIndex: ai.nextAttackIndex + 1
+                    activeAttackId: null
                   }
                 }
                 return
               }
 
               if (ai.attackCooldown === 0 && ai.recoveryTicks === 0) {
-                const selectedAttack = getCurrentVirusAttack(virus, ai)
+                const selectedAttack = chooseVirusAttackForTelegraph(virus)
                 virusAi[virusId] = {
                   ...ai,
                   activeAttackId: selectedAttack.id,
