@@ -27,6 +27,10 @@ const SPRITES_BY_ENTITY: Record<string, SpriteSources> = {
       'sprites/mettaur/Mettaur-swing.png',
       'sprites/mettaur/mettaur-swing.png'
     ]
+  },
+  fireman: {
+    idle: ['sprites/fireman/FireMan-idle.png'],
+    attack: ['sprites/fireman/FireMan-attack1.png']
   }
 }
 
@@ -98,7 +102,7 @@ export function Board() {
               <div className="occupant" aria-label={occupant.name}>
                 <OccupantSprite
                   entityId={occupant.id}
-                  fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : 'Mettaur'}
+                  fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : occupant.name}
                   isAttacking={occupant.id === targetId && mettaurTelegraphTicksRemaining > 0}
                   isFlashing={occupant.hitFlashTicks > 0}
                 />
