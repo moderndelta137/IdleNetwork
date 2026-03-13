@@ -127,6 +127,7 @@ type CombatSummary = {
   isInfiniteMode?: boolean
   unlockedAreaMaxLevel?: number
   highlightedAreaLevel?: number | null
+  areaProgressByLevel?: Record<number, number>
 }
 
 type GameState = {
@@ -184,6 +185,7 @@ type GameState = {
   isInfiniteMode: boolean
   infiniteWaveTemplate: number
   returnToInfiniteAfterBoss: boolean
+  areaProgressByLevel: Record<number, number>
   setSpeed: (speed: Speed) => void
   setDebugPaused: (paused: boolean) => void
   stepFrame: () => void
@@ -1266,6 +1268,7 @@ type CombatSummaryRuntime = {
   isInfiniteMode?: boolean
   unlockedAreaMaxLevel?: number
   highlightedAreaLevel?: number | null
+  areaProgressByLevel?: Record<number, number>
 }
 
 const buildCombatSummary = (
@@ -1306,7 +1309,8 @@ const buildCombatSummary = (
     virusesTotal: runtime.virusesTotal ?? Math.max(1, getAliveVirusIds(entities).length),
     isInfiniteMode: runtime.isInfiniteMode ?? false,
     unlockedAreaMaxLevel: runtime.unlockedAreaMaxLevel ?? 3,
-    highlightedAreaLevel: runtime.highlightedAreaLevel ?? null
+    highlightedAreaLevel: runtime.highlightedAreaLevel ?? null,
+    areaProgressByLevel: runtime.areaProgressByLevel ?? { 1: 0, 2: 0, 3: 0, 4: 0 }
   }
 }
 
@@ -1836,6 +1840,7 @@ type RuntimeState = Pick<
   | 'isInfiniteMode'
   | 'infiniteWaveTemplate'
   | 'returnToInfiniteAfterBoss'
+  | 'areaProgressByLevel'
 >
 
 const buildInitialState = (): RuntimeState => {
@@ -1896,7 +1901,8 @@ const buildInitialState = (): RuntimeState => {
     highlightedAreaLevel: null,
     isInfiniteMode: false,
     infiniteWaveTemplate: 1,
-    returnToInfiniteAfterBoss: false
+    returnToInfiniteAfterBoss: false,
+    areaProgressByLevel: { 1: 0, 2: 0, 3: 0, 4: 0 }
   }
 
   return {
@@ -2092,11 +2098,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   selectAreaLevel: (level) => {
     set((current) => {
       const targetLevel = Math.max(1, Math.min(3, Math.floor(level)))
-      if (!Number.isFinite(targetLevel) || targetLevel === current.currentLevel) {
+      if (!Number.isFinite(targetLevel)) {
         return {}
       }
 
-      const startingWave = 1
+      const areaProgress = current.areaProgressByLevel[targetLevel] ?? 0
+      const entersInfinite = areaProgress >= maxWavesPerLevel
+      const startingWave = entersInfinite ? pickInfiniteWaveTemplate() : Math.max(1, areaProgress)
       const virusesTotal = getWaveVirusCount(startingWave)
       const nextEntities = prepareWaveStartEntities(current.entities, startingWave, virusesTotal, true)
       const virusAi = resetVirusAiForWave(current.virusAi, nextEntities)
@@ -2123,7 +2131,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         totalZenny: current.totalZenny,
         virusesRemaining: virusesTotal,
         virusesTotal,
-        enemyProjectiles: []
+        enemyProjectiles: [],
+        isInfiniteMode: entersInfinite,
+        unlockedAreaMaxLevel: current.unlockedAreaMaxLevel,
+        highlightedAreaLevel: null,
+        areaProgressByLevel: current.areaProgressByLevel
       }
 
       return {
@@ -2150,14 +2162,21 @@ export const useGameStore = create<GameState>((set, get) => ({
         debugCompleteWaveRequested: false,
         enemyProjectiles: [],
         highlightedAreaLevel: null,
-        isInfiniteMode: false,
+        isInfiniteMode: entersInfinite,
+        infiniteWaveTemplate: startingWave,
         returnToInfiniteAfterBoss: false,
+        areaProgressByLevel: current.areaProgressByLevel,
         ...summarizeVirusAi(nextEntities, virusAi),
-        combat: buildCombatSummary(nextEntities, runtime, `Area switched to Level ${targetLevel}`)
+        combat: buildCombatSummary(
+          nextEntities,
+          runtime,
+          entersInfinite
+            ? `Area switched to Level ${targetLevel} (Wave ∞ resumed)`
+            : `Area switched to Level ${targetLevel} (Wave ${startingWave})`
+        )
       }
     })
   },
-
   challengeBossFromInfinite: () => {
     set((current) => {
       if (!current.isInfiniteMode) {
@@ -2192,7 +2211,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         enemyProjectiles: [],
         isInfiniteMode: false,
         unlockedAreaMaxLevel: current.unlockedAreaMaxLevel,
-        highlightedAreaLevel: current.highlightedAreaLevel
+        highlightedAreaLevel: current.highlightedAreaLevel,
+        areaProgressByLevel: current.areaProgressByLevel
       }
 
       return {
@@ -2577,6 +2597,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       let lastEvent = `Wave ${current.waveResult.wave} results confirmed`
       let isInfiniteMode = current.isInfiniteMode
       let infiniteWaveTemplate = current.infiniteWaveTemplate
+      let areaProgressByLevel = current.areaProgressByLevel
 
       if (current.waveStatus === 'waveCleared') {
         currentWave = current.isInfiniteMode ? pickInfiniteWaveTemplate() : Math.min(maxWavesPerLevel, current.currentWave + 1)
@@ -2612,7 +2633,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         virusesTotal,
         isInfiniteMode,
         unlockedAreaMaxLevel: current.unlockedAreaMaxLevel,
-        highlightedAreaLevel: current.highlightedAreaLevel
+        highlightedAreaLevel: current.highlightedAreaLevel,
+        areaProgressByLevel
       }
 
       return {
@@ -2630,6 +2652,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         debugCompleteWaveRequested: false,
         isInfiniteMode,
         infiniteWaveTemplate,
+        areaProgressByLevel,
         combat: buildCombatSummary(nextEntities, runtime, lastEvent)
       }
     })
@@ -2710,6 +2733,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           let isInfiniteMode = current.isInfiniteMode
           let infiniteWaveTemplate = current.infiniteWaveTemplate
           let returnToInfiniteAfterBoss = current.returnToInfiniteAfterBoss
+          let areaProgressByLevel = { ...current.areaProgressByLevel }
           let virusAi: VirusAiById = { ...current.virusAi }
           virusEntityIds.forEach((virusId) => {
             const ai = virusAi[virusId]
@@ -2966,6 +2990,7 @@ export const useGameStore = create<GameState>((set, get) => ({
               lastEvent = `Virus deleted. ${virusesRemaining} remaining in wave ${currentWave}.`
             } else if (isBossWave(currentWave)) {
               if (returnToInfiniteAfterBoss) {
+                areaProgressByLevel[currentLevel] = Math.max(areaProgressByLevel[currentLevel] ?? 0, maxWavesPerLevel)
                 isInfiniteMode = true
                 returnToInfiniteAfterBoss = false
                 infiniteWaveTemplate = pickInfiniteWaveTemplate()
@@ -2978,8 +3003,10 @@ export const useGameStore = create<GameState>((set, get) => ({
                 waveStartedAtTick = nextTicks
                 battleStartBannerTicks = battleStartBannerDurationTicks
                 waveResult = null
+                areaProgressByLevel[currentLevel] = Math.max(areaProgressByLevel[currentLevel] ?? 0, maxWavesPerLevel)
                 lastEvent = 'Boss cleared. Returning to Wave ∞.'
               } else if (unlockedAreaMaxLevel < currentLevel + 1) {
+                areaProgressByLevel[currentLevel] = Math.max(areaProgressByLevel[currentLevel] ?? 0, maxWavesPerLevel)
                 unlockedAreaMaxLevel = currentLevel + 1
                 highlightedAreaLevel = unlockedAreaMaxLevel
                 waveStatus = 'levelCleared'
@@ -2999,6 +3026,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                 lastEvent = 'Boss cleared. Entering Wave ∞ grind.'
               }
             } else {
+              if (!isInfiniteMode) {
+                areaProgressByLevel[currentLevel] = Math.max(areaProgressByLevel[currentLevel] ?? 0, currentWave)
+              }
               waveStatus = 'waveCleared'
               lastEvent = isInfiniteMode ? 'Wave ∞ cleared! Continuing...' : `Wave ${currentWave} cleared! Results ready.`
             }
@@ -3146,7 +3176,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             enemyProjectiles,
             isInfiniteMode,
             unlockedAreaMaxLevel,
-            highlightedAreaLevel
+            highlightedAreaLevel,
+            areaProgressByLevel
           }
 
           const mettaurSummary = summarizeVirusAi(nextEntities, virusAi)
@@ -3194,7 +3225,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             highlightedAreaLevel,
             isInfiniteMode,
             infiniteWaveTemplate,
-            returnToInfiniteAfterBoss
+            returnToInfiniteAfterBoss,
+            areaProgressByLevel
           }
         })
       }
