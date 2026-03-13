@@ -2609,7 +2609,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           highlightedAreaLevel = unlockedAreaMaxLevel
           waveStatus = 'levelCleared'
           lastEvent = `Boss wave cleared! Area ${unlockedAreaMaxLevel} unlocked.`
-        } else if (returnToInfiniteAfterBoss && current.waveResult.wave === maxWavesPerLevel) {
+        } else if (current.waveResult.wave === maxWavesPerLevel && (!isInfiniteMode || returnToInfiniteAfterBoss)) {
           isInfiniteMode = true
           returnToInfiniteAfterBoss = false
           currentWave = pickInfiniteWaveTemplate()
@@ -3025,18 +3025,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                 waveStatus = 'waveCleared'
                 lastEvent = `Boss wave cleared! Results ready.`
               } else {
-                isInfiniteMode = true
-                infiniteWaveTemplate = pickInfiniteWaveTemplate()
-                currentWave = infiniteWaveTemplate
-                virusesTotal = getWaveVirusCount(infiniteWaveTemplate)
-                virusesRemaining = virusesTotal
-                nextEntities = prepareWaveStartEntities(nextEntities, infiniteWaveTemplate, virusesTotal, true)
-                virusAi = resetVirusAiForWave(virusAi, nextEntities)
-                waveStatus = 'inProgress'
-                waveStartedAtTick = nextTicks
-                battleStartBannerTicks = battleStartBannerDurationTicks
-                waveResult = null
-                lastEvent = 'Boss cleared. Entering Wave ∞ grind.'
+                areaProgressByLevel[currentLevel] = Math.max(areaProgressByLevel[currentLevel] ?? 0, maxWavesPerLevel)
+                waveStatus = 'waveCleared'
+                lastEvent = 'Boss cleared! Results ready.'
               }
             } else {
               if (!isInfiniteMode) {
