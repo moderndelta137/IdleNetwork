@@ -124,6 +124,9 @@ type CombatSummary = {
   virusesRemaining: number
   virusesTotal: number
   enemyProjectiles?: EnemyProjectile[]
+  isInfiniteMode?: boolean
+  unlockedAreaMaxLevel?: number
+  highlightedAreaLevel?: number | null
 }
 
 type GameState = {
@@ -176,6 +179,11 @@ type GameState = {
   enemyProjectiles: EnemyProjectile[]
   debugCompleteWaveRequested: boolean
   nextEnemyProjectileId: number
+  unlockedAreaMaxLevel: number
+  highlightedAreaLevel: number | null
+  isInfiniteMode: boolean
+  infiniteWaveTemplate: number
+  returnToInfiniteAfterBoss: boolean
   setSpeed: (speed: Speed) => void
   setDebugPaused: (paused: boolean) => void
   stepFrame: () => void
@@ -187,6 +195,8 @@ type GameState = {
   debugCompleteCurrentWave: () => void
   debugJumpToBossWave: () => void
   selectAreaLevel: (level: number) => void
+  challengeBossFromInfinite: () => void
+  clearHighlightedAreaLevel: () => void
   movePlayer: (deltaRow: number, deltaCol: number) => void
   useChipSlot: (index: number) => void
   useLeftmostChip: () => void
@@ -273,6 +283,8 @@ const getWaveEnemyMaxHp = (wave: number): number => {
 }
 
 const isBossWave = (wave: number): boolean => wave === maxWavesPerLevel
+
+const pickInfiniteWaveTemplate = (): number => 1 + Math.floor(Math.random() * (maxWavesPerLevel - 1))
 
 const getWaveVirusCount = (wave: number): number => (isBossWave(wave) ? 1 : Math.min(1 + Math.floor(Math.max(1, wave) / 2), 6))
 
@@ -1251,6 +1263,9 @@ type CombatSummaryRuntime = {
   virusesRemaining?: number
   virusesTotal?: number
   enemyProjectiles?: EnemyProjectile[]
+  isInfiniteMode?: boolean
+  unlockedAreaMaxLevel?: number
+  highlightedAreaLevel?: number | null
 }
 
 const buildCombatSummary = (
@@ -1288,7 +1303,10 @@ const buildCombatSummary = (
     battleStartBannerTicks: runtime.battleStartBannerTicks ?? 0,
     totalZenny: runtime.totalZenny ?? 0,
     virusesRemaining: runtime.virusesRemaining ?? getAliveVirusIds(entities).length,
-    virusesTotal: runtime.virusesTotal ?? Math.max(1, getAliveVirusIds(entities).length)
+    virusesTotal: runtime.virusesTotal ?? Math.max(1, getAliveVirusIds(entities).length),
+    isInfiniteMode: runtime.isInfiniteMode ?? false,
+    unlockedAreaMaxLevel: runtime.unlockedAreaMaxLevel ?? 3,
+    highlightedAreaLevel: runtime.highlightedAreaLevel ?? null
   }
 }
 
@@ -1813,6 +1831,11 @@ type RuntimeState = Pick<
   | 'debugCompleteWaveRequested'
   | 'enemyProjectiles'
   | 'nextEnemyProjectileId'
+  | 'unlockedAreaMaxLevel'
+  | 'highlightedAreaLevel'
+  | 'isInfiniteMode'
+  | 'infiniteWaveTemplate'
+  | 'returnToInfiniteAfterBoss'
 >
 
 const buildInitialState = (): RuntimeState => {
@@ -1868,7 +1891,12 @@ const buildInitialState = (): RuntimeState => {
     chipIndicatorTicksRemaining: 0,
     debugCompleteWaveRequested: false,
     enemyProjectiles: [],
-    nextEnemyProjectileId: 1
+    nextEnemyProjectileId: 1,
+    unlockedAreaMaxLevel: 3,
+    highlightedAreaLevel: null,
+    isInfiniteMode: false,
+    infiniteWaveTemplate: 1,
+    returnToInfiniteAfterBoss: false
   }
 
   return {
@@ -2121,11 +2149,82 @@ export const useGameStore = create<GameState>((set, get) => ({
         queuedChipSlot,
         debugCompleteWaveRequested: false,
         enemyProjectiles: [],
+        highlightedAreaLevel: null,
+        isInfiniteMode: false,
+        returnToInfiniteAfterBoss: false,
         ...summarizeVirusAi(nextEntities, virusAi),
         combat: buildCombatSummary(nextEntities, runtime, `Area switched to Level ${targetLevel}`)
       }
     })
   },
+
+  challengeBossFromInfinite: () => {
+    set((current) => {
+      if (!current.isInfiniteMode) {
+        return {}
+      }
+
+      const bossWave = maxWavesPerLevel
+      const virusesTotal = getWaveVirusCount(bossWave)
+      const nextEntities = prepareWaveStartEntities(current.entities, bossWave, virusesTotal, true)
+      const virusAi = resetVirusAiForWave(current.virusAi, nextEntities)
+      const waveStatus: WaveStatus = 'inProgress'
+      const battleStartBannerTicks = battleStartBannerDurationTicks
+      const runtime = {
+        virusAi,
+        customGaugeTicks: current.customGaugeTicks,
+        customGaugeMaxTicks: current.customGaugeMaxTicks,
+        chipHand: current.chipHand,
+        barrierCharges: 0,
+        megamanHitstunTicks: 0,
+        queuedChipSlot: sanitizeQueuedChipSlot(current.chipHand, current.queuedChipSlot),
+        megamanControlMode: current.megamanControlMode,
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: [],
+        currentLevel: current.currentLevel,
+        currentWave: bossWave,
+        waveStatus,
+        waveResult: null,
+        battleStartBannerTicks,
+        totalZenny: current.totalZenny,
+        virusesRemaining: virusesTotal,
+        virusesTotal,
+        enemyProjectiles: [],
+        isInfiniteMode: false,
+        unlockedAreaMaxLevel: current.unlockedAreaMaxLevel,
+        highlightedAreaLevel: current.highlightedAreaLevel
+      }
+
+      return {
+        entities: nextEntities,
+        occupiedPanels: buildOccupiedPanels(nextEntities),
+        virusAi,
+        currentWave: bossWave,
+        waveStatus,
+        waveTransitionTick: null,
+        waveStartedAtTick: current.ticks,
+        waveResult: null,
+        battleStartBannerTicks,
+        virusesRemaining: virusesTotal,
+        virusesTotal,
+        barrierCharges: 0,
+        megamanHitstunTicks: 0,
+        megamanRecoveryTicks: 0,
+        pendingStepReturnPosition: null,
+        pendingStepReturnTicks: 0,
+        chipIndicatorPanels: [],
+        chipIndicatorTicksRemaining: 0,
+        queuedChipSlot: sanitizeQueuedChipSlot(current.chipHand, current.queuedChipSlot),
+        debugCompleteWaveRequested: false,
+        enemyProjectiles: [],
+        isInfiniteMode: false,
+        returnToInfiniteAfterBoss: true,
+        ...summarizeVirusAi(nextEntities, virusAi),
+        combat: buildCombatSummary(nextEntities, runtime, 'Challenge Boss started')
+      }
+    })
+  },
+  clearHighlightedAreaLevel: () => set({ highlightedAreaLevel: null }),
   debugForceNextCustomDrawProgramAdvance: () => {
     set((current) => {
       const runtime = {
@@ -2476,9 +2575,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       let virusesTotal = current.virusesTotal
       let virusesRemaining = current.virusesRemaining
       let lastEvent = `Wave ${current.waveResult.wave} results confirmed`
+      let isInfiniteMode = current.isInfiniteMode
+      let infiniteWaveTemplate = current.infiniteWaveTemplate
 
       if (current.waveStatus === 'waveCleared') {
-        currentWave = Math.min(maxWavesPerLevel, current.currentWave + 1)
+        currentWave = current.isInfiniteMode ? pickInfiniteWaveTemplate() : Math.min(maxWavesPerLevel, current.currentWave + 1)
+        infiniteWaveTemplate = currentWave
         virusesTotal = getWaveVirusCount(currentWave)
         virusesRemaining = virusesTotal
         nextEntities = setupWaveViruses(current.entities, currentWave, virusesTotal)
@@ -2486,7 +2588,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         waveStartedAtTick = current.ticks
         battleStartBannerTicks = battleStartBannerDurationTicks
         virusAi = resetVirusAiForWave(virusAi, nextEntities)
-        lastEvent = isBossWave(currentWave) ? 'BATTLE START — Boss wave' : 'BATTLE START'
+        lastEvent = current.isInfiniteMode ? 'BATTLE START — Wave ∞' : isBossWave(currentWave) ? 'BATTLE START — Boss wave' : 'BATTLE START'
       }
 
       const runtime = {
@@ -2507,7 +2609,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         battleStartBannerTicks,
         totalZenny: current.totalZenny,
         virusesRemaining,
-        virusesTotal
+        virusesTotal,
+        isInfiniteMode,
+        unlockedAreaMaxLevel: current.unlockedAreaMaxLevel,
+        highlightedAreaLevel: current.highlightedAreaLevel
       }
 
       return {
@@ -2523,6 +2628,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         ...summarizeVirusAi(nextEntities, virusAi),
         virusAi,
         debugCompleteWaveRequested: false,
+        isInfiniteMode,
+        infiniteWaveTemplate,
         combat: buildCombatSummary(nextEntities, runtime, lastEvent)
       }
     })
@@ -2598,6 +2705,11 @@ export const useGameStore = create<GameState>((set, get) => ({
           let debugCompleteWaveRequested = current.debugCompleteWaveRequested
           let enemyProjectiles = current.enemyProjectiles
           let nextEnemyProjectileId = current.nextEnemyProjectileId
+          let unlockedAreaMaxLevel = current.unlockedAreaMaxLevel
+          let highlightedAreaLevel = current.highlightedAreaLevel
+          let isInfiniteMode = current.isInfiniteMode
+          let infiniteWaveTemplate = current.infiniteWaveTemplate
+          let returnToInfiniteAfterBoss = current.returnToInfiniteAfterBoss
           let virusAi: VirusAiById = { ...current.virusAi }
           virusEntityIds.forEach((virusId) => {
             const ai = virusAi[virusId]
@@ -2853,11 +2965,42 @@ export const useGameStore = create<GameState>((set, get) => ({
               waveStartedAtTick = nextTicks
               lastEvent = `Virus deleted. ${virusesRemaining} remaining in wave ${currentWave}.`
             } else if (isBossWave(currentWave)) {
-              waveStatus = 'levelCleared'
-              lastEvent = `Boss wave cleared! Level ${currentLevel} complete.`
+              if (returnToInfiniteAfterBoss) {
+                isInfiniteMode = true
+                returnToInfiniteAfterBoss = false
+                infiniteWaveTemplate = pickInfiniteWaveTemplate()
+                currentWave = infiniteWaveTemplate
+                virusesTotal = getWaveVirusCount(infiniteWaveTemplate)
+                virusesRemaining = virusesTotal
+                nextEntities = prepareWaveStartEntities(nextEntities, infiniteWaveTemplate, virusesTotal, true)
+                virusAi = resetVirusAiForWave(virusAi, nextEntities)
+                waveStatus = 'inProgress'
+                waveStartedAtTick = nextTicks
+                battleStartBannerTicks = battleStartBannerDurationTicks
+                waveResult = null
+                lastEvent = 'Boss cleared. Returning to Wave ∞.'
+              } else if (unlockedAreaMaxLevel < currentLevel + 1) {
+                unlockedAreaMaxLevel = currentLevel + 1
+                highlightedAreaLevel = unlockedAreaMaxLevel
+                waveStatus = 'levelCleared'
+                lastEvent = `Boss wave cleared! Area ${unlockedAreaMaxLevel} unlocked.`
+              } else {
+                isInfiniteMode = true
+                infiniteWaveTemplate = pickInfiniteWaveTemplate()
+                currentWave = infiniteWaveTemplate
+                virusesTotal = getWaveVirusCount(infiniteWaveTemplate)
+                virusesRemaining = virusesTotal
+                nextEntities = prepareWaveStartEntities(nextEntities, infiniteWaveTemplate, virusesTotal, true)
+                virusAi = resetVirusAiForWave(virusAi, nextEntities)
+                waveStatus = 'inProgress'
+                waveStartedAtTick = nextTicks
+                battleStartBannerTicks = battleStartBannerDurationTicks
+                waveResult = null
+                lastEvent = 'Boss cleared. Entering Wave ∞ grind.'
+              }
             } else {
               waveStatus = 'waveCleared'
-              lastEvent = `Wave ${currentWave} cleared! Results ready.`
+              lastEvent = isInfiniteMode ? 'Wave ∞ cleared! Continuing...' : `Wave ${currentWave} cleared! Results ready.`
             }
             waveTransitionTick = null
           }
@@ -3000,7 +3143,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             totalZenny,
             virusesRemaining,
             virusesTotal,
-            enemyProjectiles
+            enemyProjectiles,
+            isInfiniteMode,
+            unlockedAreaMaxLevel,
+            highlightedAreaLevel
           }
 
           const mettaurSummary = summarizeVirusAi(nextEntities, virusAi)
@@ -3043,7 +3189,12 @@ export const useGameStore = create<GameState>((set, get) => ({
             chipIndicatorTicksRemaining,
             debugCompleteWaveRequested,
             enemyProjectiles,
-            nextEnemyProjectileId
+            nextEnemyProjectileId,
+            unlockedAreaMaxLevel,
+            highlightedAreaLevel,
+            isInfiniteMode,
+            infiniteWaveTemplate,
+            returnToInfiniteAfterBoss
           }
         })
       }

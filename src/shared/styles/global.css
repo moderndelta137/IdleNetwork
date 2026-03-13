@@ -921,3 +921,15 @@ button.active {
 .area-detail-window p {
   margin: 0 0 0.35rem;
 }
+
+.infinite-controls {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 0.5rem;
+}
+
+.infinite-controls button {
+  background: #7c2d12;
+  border-color: #fb923c;
+  font-size: 1rem;
+}

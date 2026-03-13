@@ -20,9 +20,10 @@ type AreaPath = {
 
 type AreaMapSceneProps = {
   onAreaSwitched?: () => void
+  highlightedAreaLevel?: number | null
 }
 
-export function AreaMapScene({ onAreaSwitched }: AreaMapSceneProps) {
+export function AreaMapScene({ onAreaSwitched, highlightedAreaLevel = null }: AreaMapSceneProps) {
   const currentLevel = useGameStore((state) => state.currentLevel)
   const currentWave = useGameStore((state) => state.currentWave)
   const totalZenny = useGameStore((state) => state.totalZenny)
@@ -86,7 +87,8 @@ export function AreaMapScene({ onAreaSwitched }: AreaMapSceneProps) {
 
   const areaById = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas])
 
-  const detailArea = areaById.get(hoveredAreaId ?? selectedAreaId ?? '') ?? null
+  const highlightedAreaId = areas.find((area) => area.recommendedLevel === highlightedAreaLevel)?.id ?? null
+  const detailArea = areaById.get(hoveredAreaId ?? selectedAreaId ?? highlightedAreaId ?? '') ?? null
 
   const handleSwitchArea = (area: AreaNode) => {
     if (!area.unlocked || area.status === 'current') {
