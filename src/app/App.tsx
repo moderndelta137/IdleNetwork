@@ -3,12 +3,13 @@ import { Board } from '../features/battle/components/Board'
 import { FolderScene } from '../features/chips/components/FolderScene'
 import { loadChipCatalog } from '../features/chips/chipCatalog'
 import { useGameStore } from '../features/simulation/store/gameStore'
+import { AreaMapScene } from '../features/world/components/AreaMapScene'
 
 const SPEEDS = [1, 2, 4] as const
 const battleChipCatalog = loadChipCatalog(100)
 
 export function App() {
-  const [scene, setScene] = useState<'battle' | 'folder'>('battle')
+  const [scene, setScene] = useState<'battle' | 'folder' | 'areaMap'>('battle')
   const [showBattleFolderPanel, setShowBattleFolderPanel] = useState(false)
   const ticks = useGameStore((state) => state.ticks)
   const speed = useGameStore((state) => state.speed)
@@ -32,6 +33,8 @@ export function App() {
   const retryBossWave = useGameStore((state) => state.retryBossWave)
   const closeWaveResult = useGameStore((state) => state.closeWaveResult)
   const resetBattle = useGameStore((state) => state.resetBattle)
+  const challengeBossFromInfinite = useGameStore((state) => state.challengeBossFromInfinite)
+  const clearHighlightedAreaLevel = useGameStore((state) => state.clearHighlightedAreaLevel)
   const megamanRecoveryTicks = useGameStore((state) => state.megamanRecoveryTicks)
   const mettaurRecoveryTicks = useGameStore((state) => state.mettaurRecoveryTicks)
   const start = useGameStore((state) => state.start)
@@ -43,6 +46,10 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (scene !== 'battle') {
+        return
+      }
+
       const key = event.key
       const upperKey = key.toUpperCase()
 
@@ -96,7 +103,31 @@ export function App() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [combat.megamanControlMode, manualFireBuster, movePlayer, useChipSlot, useLeftmostChip])
+  }, [combat.megamanControlMode, manualFireBuster, movePlayer, scene, useChipSlot, useLeftmostChip])
+
+
+  useEffect(() => {
+    if (!combat.waveResult) {
+      return
+    }
+
+    const autoCloseWaveResultTimeout = window.setTimeout(() => {
+      closeWaveResult()
+    }, 3000)
+
+    return () => window.clearTimeout(autoCloseWaveResultTimeout)
+  }, [closeWaveResult, combat.waveResult])
+
+  useEffect(() => {
+    if (combat.waveStatus === 'levelCleared' && combat.highlightedAreaLevel) {
+      setScene('areaMap')
+      return
+    }
+
+    if (scene === 'areaMap' && combat.highlightedAreaLevel === null) {
+      clearHighlightedAreaLevel()
+    }
+  }, [clearHighlightedAreaLevel, combat.highlightedAreaLevel, combat.waveStatus, scene])
 
   const target = entities[combat.targetId]
   const canRetryBossWave = combat.currentWave === 9 && combat.waveStatus !== 'levelCleared' && combat.waveResult === null
@@ -114,6 +145,9 @@ export function App() {
         </button>
         <button type="button" className={scene === 'folder' ? 'active' : ''} onClick={() => setScene('folder')}>
           Folder
+        </button>
+        <button type="button" className={scene === 'areaMap' ? 'active' : ''} onClick={() => setScene('areaMap')}>
+          Area Map
         </button>
       </section>
 
@@ -139,7 +173,7 @@ export function App() {
         <button type="button" onClick={() => setShowBattleFolderPanel((current) => !current)}>
           {showBattleFolderPanel ? 'Hide Folder' : 'Show Folder'}
         </button>
-        <span>Level {combat.currentLevel} · Wave {combat.currentWave}/10 {combat.isBossWave ? '(Boss)' : ''}</span>
+        <span>Level {combat.currentLevel} · Wave {combat.isInfiniteMode ? '∞' : `${combat.currentWave}/10`} {combat.isBossWave && !combat.isInfiniteMode ? '(Boss)' : ''}</span>
         <span>Wave state: {combat.waveStatus}</span>
         {canRetryBossWave ? (
           <button type="button" onClick={retryBossWave}>
@@ -234,6 +268,12 @@ export function App() {
 
           <p className="control-tip">Manual mode: Move (WASD/Arrows), Buster (Space or F), Chips (1-5). Buster/swing now need row alignment, so dodging telegraphs and re-lining shots matters. Yellow panels show active enemy hitboxes (e.g., Mettaur swing). Cyan panels are temporary placeholders for chip attack range/projectile zones (bomb/sword/hitscan). Semi-auto: auto move+buster, manual chips. Full-auto: auto move+buster+chips (manual chip override still works).</p>
 
+          {combat.isInfiniteMode ? (
+            <section className="infinite-controls">
+              <button type="button" onClick={challengeBossFromInfinite}>CHALLENGE BOSS</button>
+            </section>
+          ) : null}
+
           <section className="battle-board-shell">
             <Board />
 
@@ -315,8 +355,13 @@ export function App() {
         ))}
           </section>
         </>
-      ) : (
+      ) : scene === 'folder' ? (
         <FolderScene />
+      ) : (
+        <AreaMapScene
+          highlightedAreaLevel={combat.highlightedAreaLevel}
+          onAreaSwitched={() => setScene('battle')}
+        />
       )}
 
       <section className="scene-taskbar bottom" aria-label="Scene navigation">
@@ -325,6 +370,9 @@ export function App() {
         </button>
         <button type="button" className={scene === 'folder' ? 'active' : ''} onClick={() => setScene('folder')}>
           Folder
+        </button>
+        <button type="button" className={scene === 'areaMap' ? 'active' : ''} onClick={() => setScene('areaMap')}>
+          Area Map
         </button>
       </section>
     </main>
