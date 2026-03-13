@@ -2598,18 +2598,34 @@ export const useGameStore = create<GameState>((set, get) => ({
       let isInfiniteMode = current.isInfiniteMode
       let infiniteWaveTemplate = current.infiniteWaveTemplate
       let areaProgressByLevel = current.areaProgressByLevel
+      let returnToInfiniteAfterBoss = current.returnToInfiniteAfterBoss
 
       if (current.waveStatus === 'waveCleared') {
-        currentWave = current.isInfiniteMode ? pickInfiniteWaveTemplate() : Math.min(maxWavesPerLevel, current.currentWave + 1)
-        infiniteWaveTemplate = currentWave
-        virusesTotal = getWaveVirusCount(currentWave)
-        virusesRemaining = virusesTotal
-        nextEntities = setupWaveViruses(current.entities, currentWave, virusesTotal)
-        waveStatus = 'inProgress'
-        waveStartedAtTick = current.ticks
-        battleStartBannerTicks = battleStartBannerDurationTicks
-        virusAi = resetVirusAiForWave(virusAi, nextEntities)
-        lastEvent = current.isInfiniteMode ? 'BATTLE START — Wave ∞' : isBossWave(currentWave) ? 'BATTLE START — Boss wave' : 'BATTLE START'
+        if (returnToInfiniteAfterBoss && current.waveResult.wave === maxWavesPerLevel) {
+          isInfiniteMode = true
+          returnToInfiniteAfterBoss = false
+          currentWave = pickInfiniteWaveTemplate()
+          infiniteWaveTemplate = currentWave
+          virusesTotal = getWaveVirusCount(currentWave)
+          virusesRemaining = virusesTotal
+          nextEntities = setupWaveViruses(current.entities, currentWave, virusesTotal)
+          waveStatus = 'inProgress'
+          waveStartedAtTick = current.ticks
+          battleStartBannerTicks = battleStartBannerDurationTicks
+          virusAi = resetVirusAiForWave(virusAi, nextEntities)
+          lastEvent = 'BATTLE START — Wave ∞'
+        } else {
+          currentWave = current.isInfiniteMode ? pickInfiniteWaveTemplate() : Math.min(maxWavesPerLevel, current.currentWave + 1)
+          infiniteWaveTemplate = currentWave
+          virusesTotal = getWaveVirusCount(currentWave)
+          virusesRemaining = virusesTotal
+          nextEntities = setupWaveViruses(current.entities, currentWave, virusesTotal)
+          waveStatus = 'inProgress'
+          waveStartedAtTick = current.ticks
+          battleStartBannerTicks = battleStartBannerDurationTicks
+          virusAi = resetVirusAiForWave(virusAi, nextEntities)
+          lastEvent = current.isInfiniteMode ? 'BATTLE START — Wave ∞' : isBossWave(currentWave) ? 'BATTLE START — Boss wave' : 'BATTLE START'
+        }
       }
 
       const runtime = {
@@ -2652,6 +2668,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         debugCompleteWaveRequested: false,
         isInfiniteMode,
         infiniteWaveTemplate,
+        returnToInfiniteAfterBoss,
         areaProgressByLevel,
         combat: buildCombatSummary(nextEntities, runtime, lastEvent)
       }
@@ -2991,20 +3008,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             } else if (isBossWave(currentWave)) {
               if (returnToInfiniteAfterBoss) {
                 areaProgressByLevel[currentLevel] = Math.max(areaProgressByLevel[currentLevel] ?? 0, maxWavesPerLevel)
-                isInfiniteMode = true
-                returnToInfiniteAfterBoss = false
-                infiniteWaveTemplate = pickInfiniteWaveTemplate()
-                currentWave = infiniteWaveTemplate
-                virusesTotal = getWaveVirusCount(infiniteWaveTemplate)
-                virusesRemaining = virusesTotal
-                nextEntities = prepareWaveStartEntities(nextEntities, infiniteWaveTemplate, virusesTotal, true)
-                virusAi = resetVirusAiForWave(virusAi, nextEntities)
-                waveStatus = 'inProgress'
-                waveStartedAtTick = nextTicks
-                battleStartBannerTicks = battleStartBannerDurationTicks
-                waveResult = null
-                areaProgressByLevel[currentLevel] = Math.max(areaProgressByLevel[currentLevel] ?? 0, maxWavesPerLevel)
-                lastEvent = 'Boss cleared. Returning to Wave ∞.'
+                waveStatus = 'waveCleared'
+                lastEvent = 'Boss cleared! Results ready.'
               } else if (unlockedAreaMaxLevel < currentLevel + 1) {
                 areaProgressByLevel[currentLevel] = Math.max(areaProgressByLevel[currentLevel] ?? 0, maxWavesPerLevel)
                 unlockedAreaMaxLevel = currentLevel + 1
