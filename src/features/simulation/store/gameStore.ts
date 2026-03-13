@@ -2598,10 +2598,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       let isInfiniteMode = current.isInfiniteMode
       let infiniteWaveTemplate = current.infiniteWaveTemplate
       let areaProgressByLevel = current.areaProgressByLevel
+      let unlockedAreaMaxLevel = current.unlockedAreaMaxLevel
+      let highlightedAreaLevel = current.highlightedAreaLevel
       let returnToInfiniteAfterBoss = current.returnToInfiniteAfterBoss
 
       if (current.waveStatus === 'waveCleared') {
-        if (returnToInfiniteAfterBoss && current.waveResult.wave === maxWavesPerLevel) {
+        if (!isInfiniteMode && !returnToInfiniteAfterBoss && current.waveResult.wave === maxWavesPerLevel && unlockedAreaMaxLevel < currentLevel + 1) {
+          areaProgressByLevel[currentLevel] = Math.max(areaProgressByLevel[currentLevel] ?? 0, maxWavesPerLevel)
+          unlockedAreaMaxLevel = currentLevel + 1
+          highlightedAreaLevel = unlockedAreaMaxLevel
+          waveStatus = 'levelCleared'
+          lastEvent = `Boss wave cleared! Area ${unlockedAreaMaxLevel} unlocked.`
+        } else if (returnToInfiniteAfterBoss && current.waveResult.wave === maxWavesPerLevel) {
           isInfiniteMode = true
           returnToInfiniteAfterBoss = false
           currentWave = pickInfiniteWaveTemplate()
@@ -2648,8 +2656,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         virusesRemaining,
         virusesTotal,
         isInfiniteMode,
-        unlockedAreaMaxLevel: current.unlockedAreaMaxLevel,
-        highlightedAreaLevel: current.highlightedAreaLevel,
+        unlockedAreaMaxLevel,
+        highlightedAreaLevel,
         areaProgressByLevel
       }
 
@@ -2670,6 +2678,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         infiniteWaveTemplate,
         returnToInfiniteAfterBoss,
         areaProgressByLevel,
+        unlockedAreaMaxLevel,
+        highlightedAreaLevel,
         combat: buildCombatSummary(nextEntities, runtime, lastEvent)
       }
     })
@@ -3012,10 +3022,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 lastEvent = 'Boss cleared! Results ready.'
               } else if (unlockedAreaMaxLevel < currentLevel + 1) {
                 areaProgressByLevel[currentLevel] = Math.max(areaProgressByLevel[currentLevel] ?? 0, maxWavesPerLevel)
-                unlockedAreaMaxLevel = currentLevel + 1
-                highlightedAreaLevel = unlockedAreaMaxLevel
-                waveStatus = 'levelCleared'
-                lastEvent = `Boss wave cleared! Area ${unlockedAreaMaxLevel} unlocked.`
+                waveStatus = 'waveCleared'
+                lastEvent = `Boss wave cleared! Results ready.`
               } else {
                 isInfiniteMode = true
                 infiniteWaveTemplate = pickInfiniteWaveTemplate()
