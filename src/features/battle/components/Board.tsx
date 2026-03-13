@@ -27,20 +27,26 @@ const SPRITES_BY_ENTITY: Record<string, SpriteSources> = {
       'sprites/mettaur/Mettaur-swing.png',
       'sprites/mettaur/mettaur-swing.png'
     ]
+  },
+  fireman: {
+    idle: ['sprites/fireman/FireMan-idle.png'],
+    attack: ['sprites/fireman/FireMan-attack1.png']
   }
 }
 
 type OccupantSpriteProps = {
   entityId: string
+  actorName: string
   fallbackLabel: string
   isAttacking: boolean
   isFlashing: boolean
 }
 
-function OccupantSprite({ entityId, fallbackLabel, isAttacking, isFlashing }: OccupantSpriteProps) {
+function OccupantSprite({ entityId, actorName, fallbackLabel, isAttacking, isFlashing }: OccupantSpriteProps) {
   const [attemptIndex, setAttemptIndex] = useState(0)
 
-  const normalizedEntityId = entityId.startsWith('mettaur') ? 'mettaur' : entityId
+  const normalizedActor = actorName.trim().toLowerCase()
+  const normalizedEntityId = normalizedActor === 'fireman' ? 'fireman' : entityId.startsWith('mettaur') ? 'mettaur' : entityId
   const spriteSources = SPRITES_BY_ENTITY[normalizedEntityId]
   const candidates = useMemo(() => {
     if (!spriteSources) {
@@ -98,7 +104,8 @@ export function Board() {
               <div className="occupant" aria-label={occupant.name}>
                 <OccupantSprite
                   entityId={occupant.id}
-                  fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : 'Mettaur'}
+                  actorName={occupant.name}
+                  fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : occupant.name}
                   isAttacking={occupant.id === targetId && mettaurTelegraphTicksRemaining > 0}
                   isFlashing={occupant.hitFlashTicks > 0}
                 />

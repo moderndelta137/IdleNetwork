@@ -703,3 +703,140 @@ button.active {
   margin: 0.6rem 0;
   padding: 0.45rem;
 }
+
+.area-map-scene {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+}
+
+.area-map-header h2 {
+  margin: 0 0 0.35rem;
+}
+
+.area-map-header p {
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.area-map-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.area-map-stats span {
+  background: #111827;
+  border: 1px solid #475569;
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+}
+
+.area-map-canvas {
+  background: radial-gradient(circle at 20% 20%, rgba(14, 116, 144, 0.28), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(37, 99, 235, 0.22), transparent 40%),
+    #020617;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  min-height: 420px;
+  overflow: hidden;
+  position: relative;
+}
+
+.area-map-routes {
+  height: 100%;
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.area-map-routes line {
+  stroke-width: 1.2;
+}
+
+.area-map-routes line.locked {
+  stroke: #52525b;
+  stroke-dasharray: 2.2 2;
+}
+
+.area-map-routes line.unlocked {
+  stroke: #38bdf8;
+}
+
+.area-node {
+  background: #111827;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  max-width: 240px;
+  min-width: 210px;
+  padding: 0.7rem;
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+
+.area-node.available,
+.area-node.current {
+  border-color: #60a5fa;
+}
+
+.area-node.current {
+  box-shadow: 0 0 0 1px #38bdf8 inset;
+}
+
+.area-node-title-row {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.area-node-title-row h3 {
+  margin: 0;
+}
+
+.area-node-status {
+  border-radius: 999px;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+}
+
+.area-node-status.locked {
+  background: #3f3f46;
+}
+
+.area-node-status.available {
+  background: #1d4ed8;
+}
+
+.area-node-status.current {
+  background: #0e7490;
+}
+
+.area-node-meta {
+  color: #cbd5e1;
+  font-size: 0.9rem;
+}
+
+.area-node p {
+  margin: 0;
+}
+
+
+@media (max-width: 900px) {
+  .area-map-canvas {
+    min-height: 540px;
+  }
+
+  .area-node {
+    min-width: 190px;
+  }
+}
