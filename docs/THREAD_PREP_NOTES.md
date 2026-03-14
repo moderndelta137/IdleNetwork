@@ -4,7 +4,7 @@ Prepared after the Area Map + FireMan + projectile + infinite-wave milestone lan
 
 ## Current immediate priorities
 - Stabilize and polish M3 progression UX (result transitions, map flow, infinite challenge loop).
-- Continue M3 roadmap: shop/gacha/folder management after progression flow is stable.
+- Continue M3 roadmap: tune/expand newly-added shop+gacha economy after progression flow stabilization.
 
 ## What is already implemented
 - **Area Map scene** with area selection/unlock highlighting.
@@ -15,6 +15,7 @@ Prepared after the Area Map + FireMan + projectile + infinite-wave milestone lan
   - boss retry path,
   - infinite-wave grind,
   - challenge-boss-from-infinite flow.
+- **Area NetDealer economy baseline** on Area Map (direct chip buys + gacha roll into Stock).
 - **Boss result-screen transition fixes**:
   - first-time boss clears now show results before switching to Area Map,
   - already-cleared boss clears now also show results before returning to Wave ∞.

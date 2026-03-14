@@ -192,6 +192,8 @@ type GameState = {
   setDebugSpriteScalePercent: (scale: number) => void
   moveFolderChipToStock: (index: number) => void
   moveStockChipToFolder: (chipId: ChipId, code: string) => void
+  buyShopChip: (chipId: ChipId, cost: number) => boolean
+  rollGacha: (cost: number) => boolean
   cycleMegamanControlMode: () => void
   debugForceNextCustomDrawProgramAdvance: () => void
   debugCompleteCurrentWave: () => void
@@ -580,6 +582,18 @@ const rollWaveReward = (bustingLv: number): WaveReward => {
 
 const getChipMb = (chip: BattleChip): number => chipCatalog[chip.id].mb
 const getFolderTotalMb = (folder: BattleChip[]): number => folder.reduce((sum, chip) => sum + getChipMb(chip), 0)
+
+const addChipToStock = (stock: BattleChip[], chipId: ChipId): BattleChip[] =>
+  sortChipCollection([
+    ...stock,
+    {
+      id: chipId,
+      name: chipCatalog[chipId].name,
+      code: randomCode()
+    }
+  ])
+
+const getPurchasableChipIds = (): ChipId[] => Object.keys(chipCatalog).filter((id) => id !== 'zcannon') as ChipId[]
 
 const programAdvanceRules: ProgramAdvanceRule[] = [
   {
@@ -2010,6 +2024,38 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipDiscard: nextDiscard
       }
     })
+  },
+  buyShopChip: (chipId, cost) => {
+    let purchased = false
+    set((current) => {
+      if (cost <= 0 || current.totalZenny < cost || !chipCatalog[chipId]) {
+        return {}
+      }
+
+      purchased = true
+      return {
+        totalZenny: current.totalZenny - cost,
+        chipStock: addChipToStock(current.chipStock, chipId)
+      }
+    })
+    return purchased
+  },
+  rollGacha: (cost) => {
+    let pulled = false
+    set((current) => {
+      const pool = getPurchasableChipIds()
+      if (cost <= 0 || current.totalZenny < cost || pool.length === 0) {
+        return {}
+      }
+
+      const picked = pool[Math.floor(Math.random() * pool.length)]
+      pulled = true
+      return {
+        totalZenny: current.totalZenny - cost,
+        chipStock: addChipToStock(current.chipStock, picked)
+      }
+    })
+    return pulled
   },
   debugCompleteCurrentWave: () => {
     set((current) => {

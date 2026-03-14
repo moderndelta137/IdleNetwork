@@ -933,3 +933,37 @@ button.active {
   border-color: #fb923c;
   font-size: 1rem;
 }
+
+.area-economy-panel {
+  background: #0b1220;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+
+.area-economy-panel h3 {
+  margin: 0 0 0.35rem;
+}
+
+.area-economy-panel p {
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  margin: 0 0 0.55rem;
+}
+
+.area-economy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.area-economy-actions button:disabled {
+  opacity: 0.5;
+}
+
+.area-economy-status {
+  color: #bae6fd;
+  font-size: 0.88rem;
+  margin-top: 0.5rem;
+  min-height: 1.2rem;
+}
