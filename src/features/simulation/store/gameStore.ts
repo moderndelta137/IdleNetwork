@@ -192,8 +192,9 @@ type GameState = {
   setDebugSpriteScalePercent: (scale: number) => void
   moveFolderChipToStock: (index: number) => void
   moveStockChipToFolder: (chipId: ChipId, code: string) => void
-  buyShopChip: (chipId: ChipId, cost: number) => boolean
-  rollGacha: (cost: number) => boolean
+  buyShopChip: (chipId: ChipId, cost: number) => BattleChip | null
+  rollGacha: (cost: number) => BattleChip | null
+  rollGachaBatch: (pullCount: number, costPerPull: number) => BattleChip[]
   cycleMegamanControlMode: () => void
   debugForceNextCustomDrawProgramAdvance: () => void
   debugCompleteCurrentWave: () => void
@@ -583,15 +584,13 @@ const rollWaveReward = (bustingLv: number): WaveReward => {
 const getChipMb = (chip: BattleChip): number => chipCatalog[chip.id].mb
 const getFolderTotalMb = (folder: BattleChip[]): number => folder.reduce((sum, chip) => sum + getChipMb(chip), 0)
 
-const addChipToStock = (stock: BattleChip[], chipId: ChipId): BattleChip[] =>
-  sortChipCollection([
-    ...stock,
-    {
-      id: chipId,
-      name: chipCatalog[chipId].name,
-      code: randomCode()
-    }
-  ])
+const createStockChip = (chipId: ChipId): BattleChip => ({
+  id: chipId,
+  name: chipCatalog[chipId].name,
+  code: randomCode()
+})
+
+const addChipToStock = (stock: BattleChip[], chip: BattleChip): BattleChip[] => sortChipCollection([...stock, chip])
 
 const getPurchasableChipIds = (): ChipId[] => Object.keys(chipCatalog).filter((id) => id !== 'zcannon') as ChipId[]
 
@@ -2026,22 +2025,23 @@ export const useGameStore = create<GameState>((set, get) => ({
     })
   },
   buyShopChip: (chipId, cost) => {
-    let purchased = false
+    let purchasedChip: BattleChip | null = null
     set((current) => {
       if (cost <= 0 || current.totalZenny < cost || !chipCatalog[chipId]) {
         return {}
       }
 
-      purchased = true
+      const newChip = createStockChip(chipId)
+      purchasedChip = newChip
       return {
         totalZenny: current.totalZenny - cost,
-        chipStock: addChipToStock(current.chipStock, chipId)
+        chipStock: addChipToStock(current.chipStock, newChip)
       }
     })
-    return purchased
+    return purchasedChip
   },
   rollGacha: (cost) => {
-    let pulled = false
+    let pulledChip: BattleChip | null = null
     set((current) => {
       const pool = getPurchasableChipIds()
       if (cost <= 0 || current.totalZenny < cost || pool.length === 0) {
@@ -2049,13 +2049,39 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       const picked = pool[Math.floor(Math.random() * pool.length)]
-      pulled = true
+      const newChip = createStockChip(picked)
+      pulledChip = newChip
       return {
         totalZenny: current.totalZenny - cost,
-        chipStock: addChipToStock(current.chipStock, picked)
+        chipStock: addChipToStock(current.chipStock, newChip)
       }
     })
-    return pulled
+    return pulledChip
+  },
+  rollGachaBatch: (pullCount, costPerPull) => {
+    const pulls = Math.max(0, Math.floor(pullCount))
+    const unitCost = Math.max(0, costPerPull)
+    let pulledChips: BattleChip[] = []
+
+    set((current) => {
+      const pool = getPurchasableChipIds()
+      const totalCost = pulls * unitCost
+      if (pulls === 0 || unitCost <= 0 || current.totalZenny < totalCost || pool.length === 0) {
+        return {}
+      }
+
+      pulledChips = Array.from({ length: pulls }, () => {
+        const picked = pool[Math.floor(Math.random() * pool.length)]
+        return createStockChip(picked)
+      })
+
+      return {
+        totalZenny: current.totalZenny - totalCost,
+        chipStock: sortChipCollection([...current.chipStock, ...pulledChips])
+      }
+    })
+
+    return pulledChips
   },
   debugCompleteCurrentWave: () => {
     set((current) => {

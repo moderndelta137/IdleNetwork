@@ -13,7 +13,7 @@ This file captures the current implementation state and recommended next work fo
   - Area Map scene with area selection + unlock highlight flow.
   - Infinite-wave mode and boss challenge from infinite.
   - FireMan enemy integration and projectile grammar/runtime support.
-  - Baseline NetDealer economy loop on Area Map (direct chip purchases + simple gacha pulls into Stock).
+  - Baseline NetDealer economy scenes: Chip Trader (x1/x10 gacha pulls) and Higsby's Shop (rotating chip offers every 6 hours).
 
 ## Recently Completed Fixes
 - Boss clear transition behavior is now consistent across scenarios:

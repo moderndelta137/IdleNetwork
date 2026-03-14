@@ -15,7 +15,7 @@ Prepared after the Area Map + FireMan + projectile + infinite-wave milestone lan
   - boss retry path,
   - infinite-wave grind,
   - challenge-boss-from-infinite flow.
-- **Area NetDealer economy baseline** on Area Map (direct chip buys + gacha roll into Stock).
+- **Area NetDealer economy baseline** split into dedicated pages: Chip Trader (x1/x10 pulls) and Higsby's Shop (6-hour rotating inventory).
 - **Boss result-screen transition fixes**:
   - first-time boss clears now show results before switching to Area Map,
   - already-cleared boss clears now also show results before returning to Wave ∞.

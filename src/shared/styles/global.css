@@ -967,3 +967,87 @@ button.active {
   margin-top: 0.5rem;
   min-height: 1.2rem;
 }
+
+.trade-scene,
+.higsby-scene {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+}
+
+.trade-scene-header h2,
+.higsby-scene-header h2 {
+  margin: 0 0 0.35rem;
+}
+
+.trade-scene-header p,
+.higsby-scene-header p {
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.trade-scene-stats,
+.higsby-scene-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.trade-scene-stats span,
+.higsby-scene-stats span {
+  background: #111827;
+  border: 1px solid #475569;
+  border-radius: 999px;
+  padding: 0.25rem 0.6rem;
+}
+
+.trade-scene-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.trade-scene-results {
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 0.6rem;
+}
+
+.trade-scene-results h3 {
+  margin: 0 0 0.35rem;
+}
+
+.trade-scene-results p {
+  margin: 0;
+}
+
+.higsby-offer-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.higsby-offer {
+  align-items: center;
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.55rem;
+}
+
+.higsby-offer-meta {
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.higsby-status {
+  color: #bae6fd;
+  font-size: 0.9rem;
+  min-height: 1.2rem;
+}

@@ -4,12 +4,14 @@ import { FolderScene } from '../features/chips/components/FolderScene'
 import { loadChipCatalog } from '../features/chips/chipCatalog'
 import { useGameStore } from '../features/simulation/store/gameStore'
 import { AreaMapScene } from '../features/world/components/AreaMapScene'
+import { ChipTraderScene } from '../features/world/components/ChipTraderScene'
+import { HigsbyShopScene } from '../features/world/components/HigsbyShopScene'
 
 const SPEEDS = [1, 2, 4] as const
 const battleChipCatalog = loadChipCatalog(100)
 
 export function App() {
-  const [scene, setScene] = useState<'battle' | 'folder' | 'areaMap'>('battle')
+  const [scene, setScene] = useState<'battle' | 'folder' | 'areaMap' | 'chipTrader' | 'higsbyShop'>('battle')
   const [showBattleFolderPanel, setShowBattleFolderPanel] = useState(false)
   const ticks = useGameStore((state) => state.ticks)
   const speed = useGameStore((state) => state.speed)
@@ -148,6 +150,12 @@ export function App() {
         </button>
         <button type="button" className={scene === 'areaMap' ? 'active' : ''} onClick={() => setScene('areaMap')}>
           Area Map
+        </button>
+        <button type="button" className={scene === 'chipTrader' ? 'active' : ''} onClick={() => setScene('chipTrader')}>
+          Chip Trader
+        </button>
+        <button type="button" className={scene === 'higsbyShop' ? 'active' : ''} onClick={() => setScene('higsbyShop')}>
+          Higsby's Shop
         </button>
       </section>
 
@@ -357,11 +365,15 @@ export function App() {
         </>
       ) : scene === 'folder' ? (
         <FolderScene />
-      ) : (
+      ) : scene === 'areaMap' ? (
         <AreaMapScene
           highlightedAreaLevel={combat.highlightedAreaLevel}
           onAreaSwitched={() => setScene('battle')}
         />
+      ) : scene === 'chipTrader' ? (
+        <ChipTraderScene />
+      ) : (
+        <HigsbyShopScene />
       )}
 
       <section className="scene-taskbar bottom" aria-label="Scene navigation">
@@ -373,6 +385,12 @@ export function App() {
         </button>
         <button type="button" className={scene === 'areaMap' ? 'active' : ''} onClick={() => setScene('areaMap')}>
           Area Map
+        </button>
+        <button type="button" className={scene === 'chipTrader' ? 'active' : ''} onClick={() => setScene('chipTrader')}>
+          Chip Trader
+        </button>
+        <button type="button" className={scene === 'higsbyShop' ? 'active' : ''} onClick={() => setScene('higsbyShop')}>
+          Higsby's Shop
         </button>
       </section>
     </main>

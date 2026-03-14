@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { loadChipCatalog } from '../../chips/chipCatalog'
 import { useGameStore } from '../../simulation/store/gameStore'
 
 type AreaNode = {
@@ -24,11 +23,6 @@ type AreaMapSceneProps = {
   highlightedAreaLevel?: number | null
 }
 
-const battleChipCatalog = loadChipCatalog(100)
-const shopChipIds = ['cannon', 'hicannon', 'sword', 'recover30', 'barrier'] as const
-const shopChipCost = 140
-const gachaRollCost = 220
-
 export function AreaMapScene({ onAreaSwitched, highlightedAreaLevel = null }: AreaMapSceneProps) {
   const currentLevel = useGameStore((state) => state.currentLevel)
   const currentWave = useGameStore((state) => state.currentWave)
@@ -36,11 +30,7 @@ export function AreaMapScene({ onAreaSwitched, highlightedAreaLevel = null }: Ar
   const unlockedAreaMaxLevel = useGameStore((state) => state.unlockedAreaMaxLevel)
   const areaProgressByLevel = useGameStore((state) => state.areaProgressByLevel)
   const selectAreaLevel = useGameStore((state) => state.selectAreaLevel)
-  const buyShopChip = useGameStore((state) => state.buyShopChip)
-  const rollGacha = useGameStore((state) => state.rollGacha)
-
   const [hoveredAreaId, setHoveredAreaId] = useState<string | null>(null)
-  const [economyMessage, setEconomyMessage] = useState<string>('')
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null)
 
   const areas = useMemo<AreaNode[]>(() => {
@@ -123,37 +113,6 @@ export function AreaMapScene({ onAreaSwitched, highlightedAreaLevel = null }: Ar
         <span role="listitem">Unlocked Area: {unlockedAreaMaxLevel}</span>
         <span role="listitem">Zenny: {totalZenny}</span>
       </div>
-
-      <section className="area-economy-panel" aria-label="Shop and gacha controls">
-        <h3>NetDealer</h3>
-        <p>Buy chips directly or roll gacha pulls. New chips are added to Stock for folder editing.</p>
-        <div className="area-economy-actions">
-          {shopChipIds.map((chipId) => (
-            <button
-              key={chipId}
-              type="button"
-              disabled={totalZenny < shopChipCost}
-              onClick={() => {
-                const ok = buyShopChip(chipId, shopChipCost)
-                setEconomyMessage(ok ? `Purchased ${battleChipCatalog[chipId].name}.` : 'Not enough Zenny for purchase.')
-              }}
-            >
-              Buy {battleChipCatalog[chipId].name} ({shopChipCost} Z)
-            </button>
-          ))}
-          <button
-            type="button"
-            disabled={totalZenny < gachaRollCost}
-            onClick={() => {
-              const ok = rollGacha(gachaRollCost)
-              setEconomyMessage(ok ? 'Gacha roll complete. Check Stock in Folder scene.' : 'Not enough Zenny for gacha roll.')
-            }}
-          >
-            Roll Gacha ({gachaRollCost} Z)
-          </button>
-        </div>
-        <div className="area-economy-status" aria-live="polite">{economyMessage || 'No recent purchases.'}</div>
-      </section>
 
       <div className="area-map-canvas" role="img" aria-label="Network area map with connected routes">
         <svg className="area-map-routes" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
