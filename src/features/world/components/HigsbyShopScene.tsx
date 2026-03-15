@@ -36,6 +36,7 @@ export function HigsbyShopScene() {
   const totalZenny = useGameStore((state) => state.totalZenny)
   const buyShopChip = useGameStore((state) => state.buyShopChip)
   const [statusMessage, setStatusMessage] = useState('No recent purchase.')
+  const [hoveredOfferIndex, setHoveredOfferIndex] = useState<number | null>(null)
 
   const rotationIndex = Math.floor(ticks / rotationWindowTicks)
   const ticksIntoRotation = ticks % rotationWindowTicks
@@ -44,6 +45,9 @@ export function HigsbyShopScene() {
   const minutesLeft = Math.floor((ticksLeftInRotation % (60 * 60 * 10)) / (60 * 10))
 
   const offers = useMemo(() => buildOffersForRotation(rotationIndex), [rotationIndex])
+
+  const previewOffer = hoveredOfferIndex !== null ? offers[hoveredOfferIndex] ?? offers[0] : offers[0]
+  const previewDefinition = previewOffer ? chipCatalog[previewOffer.chipId] : null
 
   return (
     <section className="higsby-scene" aria-label="Higsby's Shop scene">
@@ -58,43 +62,70 @@ export function HigsbyShopScene() {
         <span role="listitem">Next refresh: {hoursLeft}h {minutesLeft}m</span>
       </div>
 
-      <table className="chip-table" aria-label="Current chip offers">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Code</th>
-            <th>MB</th>
-            <th>Price</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {offers.map((offer, index) => (
-            <tr key={`${offer.chipId}-${index}`} className="folder-chip-row stock">
-              <td className="folder-chip-row-index">{index + 1}</td>
-              <td className="folder-chip-row-name">{chipCatalog[offer.chipId].name}</td>
-              <td className="folder-chip-row-code">*</td>
-              <td className="folder-chip-row-size">{chipCatalog[offer.chipId].mb}MB</td>
-              <td className="folder-chip-row-mb">{offer.cost} Z</td>
-              <td>
-                <button
-                  type="button"
-                  disabled={totalZenny < offer.cost}
-                  onClick={() => {
-                    const purchased = buyShopChip(offer.chipId, offer.cost)
-                    setStatusMessage(purchased ? `Purchased ${purchased.name} ${purchased.code}.` : 'Not enough Zenny.')
-                  }}
-                >
-                  Buy
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="economy-scene-body">
+        <aside className="folder-chip-preview" aria-label="Hovered chip details">
+          <div className="folder-chip-art">{previewDefinition?.name ?? 'No Offers'}</div>
+          <div className="folder-chip-stats">
+            <span className="folder-chip-code">Code: *</span>
+            <span className="folder-chip-dmg">DMG: {previewDefinition?.damage ?? 0}</span>
+          </div>
+          <p className="folder-chip-description">{previewDefinition?.description ?? 'No chip offers in this rotation.'}</p>
+          <div className="folder-chip-scrollbar" />
+        </aside>
 
-      <div className="higsby-status" aria-live="polite">{statusMessage}</div>
+        <section>
+          <table className="chip-table chip-table-shop" aria-label="Current chip offers">
+            <colgroup>
+              <col className="chip-col-index" />
+              <col className="chip-col-name" />
+              <col className="chip-col-code" />
+              <col className="chip-col-mb" />
+              <col className="chip-col-price" />
+              <col className="chip-col-action" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Code</th>
+                <th>MB</th>
+                <th>Price</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {offers.map((offer, index) => (
+                <tr
+                  key={`${offer.chipId}-${index}`}
+                  className="folder-chip-row stock"
+                  onMouseEnter={() => setHoveredOfferIndex(index)}
+                  onMouseLeave={() => setHoveredOfferIndex(null)}
+                >
+                  <td className="folder-chip-row-index">{index + 1}</td>
+                  <td className="folder-chip-row-name">{chipCatalog[offer.chipId].name}</td>
+                  <td className="folder-chip-row-code">*</td>
+                  <td className="folder-chip-row-size">{chipCatalog[offer.chipId].mb}MB</td>
+                  <td className="folder-chip-row-mb">{offer.cost} Z</td>
+                  <td>
+                    <button
+                      type="button"
+                      disabled={totalZenny < offer.cost}
+                      onClick={() => {
+                        const purchased = buyShopChip(offer.chipId, offer.cost)
+                        setStatusMessage(purchased ? `Purchased ${purchased.name} ${purchased.code}.` : 'Not enough Zenny.')
+                      }}
+                    >
+                      Buy
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="higsby-status" aria-live="polite">{statusMessage}</div>
+        </section>
+      </div>
     </section>
   )
 }
