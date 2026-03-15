@@ -1824,7 +1824,7 @@ const chooseVirusAutoMove = (
     }
 
     if (candidate.col === mettaur.position.col && candidate.row === mettaur.position.row) {
-      score -= 1
+      score -= 4
     }
 
     if (score > bestScore) {
@@ -3049,10 +3049,10 @@ export const useGameStore = create<GameState>((set, get) => ({
               if (movedEntities !== nextEntities) {
                 nextEntities = movedEntities
                 lastEvent = `${virus.name} repositioned`
-              }
-              virusAi[virusId] = {
-                ...virusAi[virusId],
-                moveCooldown: mettaurMoveCadenceTicks
+                virusAi[virusId] = {
+                  ...virusAi[virusId],
+                  moveCooldown: mettaurMoveCadenceTicks
+                }
               }
             })
           }
