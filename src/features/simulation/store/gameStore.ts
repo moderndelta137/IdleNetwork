@@ -1239,19 +1239,18 @@ const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedP
 const buildActiveVirusHitboxPanels = (
   entities: Record<EntityId, EntityState>,
   virusAi: VirusAiById,
-  activeVirusId: VirusEntityId | null,
   enemyProjectiles: EnemyProjectile[]
 ): string[] => {
   const tiles = new Set<string>()
 
-  if (activeVirusId) {
-    const activeVirus = entities[activeVirusId]
-    const ai = virusAi[activeVirusId]
-    if (activeVirus.alive && ai.telegraphTicksRemaining > 0) {
-      const attack = getCurrentVirusAttack(activeVirus, ai)
-      collectEnemyAttackPanels(activeVirus, attack.effects).forEach((panel) => tiles.add(panel))
+  getAliveVirusIds(entities).forEach((virusId) => {
+    const virus = entities[virusId]
+    const ai = virusAi[virusId]
+    if (ai.telegraphTicksRemaining > 0) {
+      const attack = getCurrentVirusAttack(virus, ai)
+      collectEnemyAttackPanels(virus, attack.effects).forEach((panel) => tiles.add(panel))
     }
-  }
+  })
 
   enemyProjectiles.forEach((projectile) => {
     if (projectile.position.row >= 0 && projectile.position.row < boardRowCount && projectile.position.col >= 0 && projectile.position.col < boardColCount) {
@@ -1314,7 +1313,7 @@ const buildCombatSummary = (
     megamanControlMode: runtime.megamanControlMode,
     programAdvanceAnimation: runtime.programAdvanceAnimation,
     lastEvent,
-    activeHitboxPanels: buildActiveVirusHitboxPanels(entities, runtime.virusAi, activeVirusId, runtime.enemyProjectiles ?? []),
+    activeHitboxPanels: buildActiveVirusHitboxPanels(entities, runtime.virusAi, runtime.enemyProjectiles ?? []),
     chipIndicatorPanels: runtime.chipIndicatorPanels,
     currentLevel: runtime.currentLevel,
     currentWave: runtime.currentWave,
@@ -2455,7 +2454,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       const player = current.entities.megaman
-      if (!player.alive || current.megamanRecoveryTicks > 0) {
+      if (!player.alive) {
         return {}
       }
 

@@ -147,7 +147,7 @@ const resolveMegamanActionFromEvent = (lastEvent: string): MegamanSpriteAction |
 
 const getMegamanActionDurationTicks = (action: MegamanSpriteAction): number => {
   if (action === 'buster') {
-    return 5
+    return 3
   }
 
   if (action === 'shoot') {
@@ -171,8 +171,7 @@ export function Board() {
   const occupiedPanels = useGameStore((state) => state.occupiedPanels)
   const activeHitboxPanels = useGameStore((state) => state.combat.activeHitboxPanels)
   const chipIndicatorPanels = useGameStore((state) => state.combat.chipIndicatorPanels)
-  const mettaurTelegraphTicksRemaining = useGameStore((state) => state.combat.mettaurTelegraphTicksRemaining)
-  const targetId = useGameStore((state) => state.combat.targetId)
+  const virusAi = useGameStore((state) => state.virusAi)
   const lastEvent = useGameStore((state) => state.combat.lastEvent)
   const megamanHitstunTicks = useGameStore((state) => state.combat.megamanHitstunTicks)
   const megamanInvincibleTicks = useGameStore((state) => state.megamanInvincibleTicks)
@@ -231,7 +230,7 @@ export function Board() {
                   entityId={occupant.id}
                   actorName={occupant.name}
                   fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : occupant.name}
-                  isAttacking={occupant.id === targetId && mettaurTelegraphTicksRemaining > 0}
+                  isAttacking={occupant.id !== 'megaman' ? virusAi[occupant.id]?.telegraphTicksRemaining > 0 : false}
                   isFlashing={occupant.id === 'megaman' ? occupant.hitFlashTicks > 0 || isMegamanInvincibleIntro : occupant.hitFlashTicks > 0}
                   megamanAction={occupant.id === 'megaman' ? megamanAction : 'idle'}
                   isInvisible={occupant.id === 'megaman' ? isMegamanInvisibleBlink : false}
