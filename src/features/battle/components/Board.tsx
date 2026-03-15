@@ -121,11 +121,7 @@ function OccupantSprite({ entityId, actorName, fallbackLabel, isAttacking, isFla
   )
 }
 
-const resolveMegamanAction = (lastEvent: string, hitstunTicks: number, hitFlashTicks: number): MegamanSpriteAction => {
-  if (hitstunTicks > 0 || hitFlashTicks > 0) {
-    return 'damage'
-  }
-
+const resolveMegamanActionFromEvent = (lastEvent: string): MegamanSpriteAction | null => {
   if (lastEvent.includes('MegaBuster')) {
     return 'buster'
   }
@@ -139,15 +135,36 @@ const resolveMegamanAction = (lastEvent: string, hitstunTicks: number, hitFlashT
     return 'sword'
   }
 
-  const shootChipPattern = /(Cannon|HiCannon|M-Cannon|Spreader|MiniBomb|LilBomb|Recover10|Recover30|Barrier|Z-Cannon)/
+  const shootChipPattern = /(Cannon|HiCannon|M-Cannon|Spreader|MiniBomb|LilBomb|Z-Cannon)/
   if (shootChipPattern.test(normalized)) {
     return 'shoot'
   }
 
-  return 'idle'
+  return null
+}
+
+const getMegamanActionDurationTicks = (action: MegamanSpriteAction): number => {
+  if (action === 'buster') {
+    return 5
+  }
+
+  if (action === 'shoot') {
+    return 8
+  }
+
+  if (action === 'sword') {
+    return 7
+  }
+
+  if (action === 'damage') {
+    return 6
+  }
+
+  return 0
 }
 
 export function Board() {
+  const ticks = useGameStore((state) => state.ticks)
   const entities = useGameStore((state) => state.entities)
   const occupiedPanels = useGameStore((state) => state.occupiedPanels)
   const activeHitboxPanels = useGameStore((state) => state.combat.activeHitboxPanels)
@@ -156,6 +173,37 @@ export function Board() {
   const targetId = useGameStore((state) => state.combat.targetId)
   const lastEvent = useGameStore((state) => state.combat.lastEvent)
   const megamanHitstunTicks = useGameStore((state) => state.combat.megamanHitstunTicks)
+  const [megamanAnimation, setMegamanAnimation] = useState<{ action: MegamanSpriteAction; untilTick: number }>({ action: 'idle', untilTick: 0 })
+
+  const megaman = entities.megaman
+
+  useEffect(() => {
+    const queueAnimation = (action: MegamanSpriteAction, durationTicks: number) => {
+      const nextUntilTick = ticks + durationTicks
+      setMegamanAnimation((current) => {
+        if (current.action === action && current.untilTick >= nextUntilTick) {
+          return current
+        }
+
+        return {
+          action,
+          untilTick: Math.max(current.untilTick, nextUntilTick)
+        }
+      })
+    }
+
+    if (megamanHitstunTicks > 0 || megaman.hitFlashTicks > 0) {
+      queueAnimation('damage', Math.max(getMegamanActionDurationTicks('damage'), megamanHitstunTicks))
+      return
+    }
+
+    const actionFromEvent = resolveMegamanActionFromEvent(lastEvent)
+    if (actionFromEvent) {
+      queueAnimation(actionFromEvent, getMegamanActionDurationTicks(actionFromEvent))
+    }
+  }, [lastEvent, megaman.hitFlashTicks, megamanHitstunTicks, ticks])
+
+  const megamanAction = megamanAnimation.untilTick > ticks ? megamanAnimation.action : 'idle'
 
   return (
     <section className="board" aria-label="Battlefield grid">
@@ -179,11 +227,7 @@ export function Board() {
                   fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : occupant.name}
                   isAttacking={occupant.id === targetId && mettaurTelegraphTicksRemaining > 0}
                   isFlashing={occupant.hitFlashTicks > 0}
-                  megamanAction={
-                    occupant.id === 'megaman'
-                      ? resolveMegamanAction(lastEvent, megamanHitstunTicks, occupant.hitFlashTicks)
-                      : 'idle'
-                  }
+                  megamanAction={occupant.id === 'megaman' ? megamanAction : 'idle'}
                 />
                 {occupant.id !== 'megaman' ? <span className="occupant-hp">{occupant.hp}</span> : null}
               </div>

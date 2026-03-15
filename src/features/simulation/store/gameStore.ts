@@ -219,7 +219,7 @@ let accumulator = 0
 let pendingStepFrames = 0
 
 const baseTickMs = 100
-const megamanBusterCadenceTicks = 10
+const megamanBusterCadenceTicks = 7
 const mettaurAttackCadenceTicks = 14
 const customGaugeMaxTicks = 50
 const defaultChipHandSize = 5
