@@ -282,6 +282,10 @@ button.active {
   transform-origin: center center;
 }
 
+.occupant-sprite.invincible-hide {
+  opacity: 0;
+}
+
 
 
 .occupant-sprite.hit-flash,

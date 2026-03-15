@@ -108,6 +108,7 @@ type CombatSummary = {
   chipHand: Array<BattleChip | null>
   barrierCharges: number
   megamanHitstunTicks: number
+  megamanInvincibleTicks?: number
   queuedChipSlot: number | null
   megamanControlMode: MegamanControlMode
   programAdvanceAnimation: ProgramAdvanceAnimation | null
@@ -165,6 +166,7 @@ type GameState = {
   queuedChipSlot: number | null
   barrierCharges: number
   megamanHitstunTicks: number
+  megamanInvincibleTicks: number
   megamanRecoveryTicks: number
   mettaurRecoveryTicks: number
   pendingStepReturnPosition: PanelPosition | null
@@ -219,12 +221,13 @@ let accumulator = 0
 let pendingStepFrames = 0
 
 const baseTickMs = 100
-const megamanBusterCadenceTicks = 7
+const megamanBusterCadenceTicks = 3
 const mettaurAttackCadenceTicks = 14
 const customGaugeMaxTicks = 50
 const defaultChipHandSize = 5
 const megamanHitDamage = 8
 const megamanHitstunTicksOnHit = 6
+const megamanInvincibilityTicksOnHit = 20
 const megamanBusterRecoveryTicks = 2
 const autoChipCadenceTicks = 8
 const autoRecoverHpThreshold = 0.55
@@ -1266,6 +1269,7 @@ type CombatSummaryRuntime = {
   chipHand: Array<BattleChip | null>
   barrierCharges: number
   megamanHitstunTicks: number
+  megamanInvincibleTicks?: number
   queuedChipSlot: number | null
   megamanControlMode: MegamanControlMode
   programAdvanceAnimation: ProgramAdvanceAnimation | null
@@ -1478,7 +1482,8 @@ const spawnEnemyProjectiles = (
 const advanceEnemyProjectiles = (
   enemyProjectiles: EnemyProjectile[],
   entities: Record<EntityId, EntityState>,
-  barrierCharges: number
+  barrierCharges: number,
+  megamanInvincibleTicks: number
 ): {
   enemyProjectiles: EnemyProjectile[]
   entities: Record<EntityId, EntityState>
@@ -1517,6 +1522,8 @@ const advanceEnemyProjectiles = (
         if (nextBarrier > 0) {
           nextBarrier -= 1
           lastEvent = 'Fireball blocked by barrier'
+        } else if (megamanInvincibleTicks > 0) {
+          lastEvent = 'Fireball missed (invincible)'
         } else {
           const result = applyDamage(nextEntities[projectile.ownerId], nextEntities.megaman, current.damage)
           nextEntities = {
@@ -1862,6 +1869,7 @@ type RuntimeState = Pick<
   | 'queuedChipSlot'
   | 'barrierCharges'
   | 'megamanHitstunTicks'
+  | 'megamanInvincibleTicks'
   | 'megamanRecoveryTicks'
   | 'mettaurRecoveryTicks'
   | 'pendingStepReturnPosition'
@@ -1923,6 +1931,7 @@ const buildInitialState = (): RuntimeState => {
     queuedChipSlot: null,
     barrierCharges: 0,
     megamanHitstunTicks: 0,
+    megamanInvincibleTicks: 0,
     megamanRecoveryTicks: 0,
     mettaurRecoveryTicks: 0,
     pendingStepReturnPosition: null,
@@ -2121,6 +2130,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipHand: current.chipHand,
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2184,6 +2194,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         virusesTotal,
         barrierCharges: 0,
         megamanHitstunTicks: 0,
+        megamanInvincibleTicks: 0,
         megamanRecoveryTicks: 0,
         pendingStepReturnPosition: null,
         pendingStepReturnTicks: 0,
@@ -2254,6 +2265,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         virusesTotal,
         barrierCharges: 0,
         megamanHitstunTicks: 0,
+        megamanInvincibleTicks: 0,
         megamanRecoveryTicks: 0,
         pendingStepReturnPosition: null,
         pendingStepReturnTicks: 0,
@@ -2330,6 +2342,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         virusesTotal,
         barrierCharges: 0,
         megamanHitstunTicks: 0,
+        megamanInvincibleTicks: 0,
         megamanRecoveryTicks: 0,
         pendingStepReturnPosition: null,
         pendingStepReturnTicks: 0,
@@ -2356,6 +2369,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipHand: current.chipHand,
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2390,6 +2404,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipHand: current.chipHand,
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2416,6 +2431,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipHand: current.chipHand,
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
         queuedChipSlot: sanitizedQueuedChipSlot,
         megamanControlMode: nextMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2434,7 +2450,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   movePlayer: (deltaRow, deltaCol) => {
     set((current) => {
-      if (current.megamanControlMode !== 'manual' || current.waveResult !== null || current.battleStartBannerTicks > 0) {
+      if (current.megamanControlMode !== 'manual' || current.waveResult !== null || current.battleStartBannerTicks > 0 || current.megamanInvincibleTicks > 0) {
         return {}
       }
 
@@ -2472,6 +2488,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipHand: current.chipHand,
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2503,6 +2520,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             chipHand: current.chipHand,
             barrierCharges: current.barrierCharges,
             megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
             queuedChipSlot: current.queuedChipSlot,
             megamanControlMode: current.megamanControlMode,
             programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2528,6 +2546,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           chipHand: current.chipHand,
           barrierCharges: current.barrierCharges,
           megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
           queuedChipSlot: bufferedSlot,
           megamanControlMode: current.megamanControlMode,
           programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2558,6 +2577,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           chipHand: current.chipHand,
           barrierCharges: current.barrierCharges,
           megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
           queuedChipSlot: current.queuedChipSlot,
           megamanControlMode: current.megamanControlMode,
           programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2579,6 +2599,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipHand: result.chipHand,
         barrierCharges: result.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
         queuedChipSlot: null,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2642,6 +2663,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipHand: current.chipHand,
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2707,6 +2729,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         virusesTotal,
         barrierCharges: 0,
         megamanHitstunTicks: 0,
+        megamanInvincibleTicks: 0,
         megamanRecoveryTicks: 0,
         pendingStepReturnPosition: null,
         pendingStepReturnTicks: 0,
@@ -2783,6 +2806,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         chipHand: current.chipHand,
         barrierCharges: current.barrierCharges,
         megamanHitstunTicks: current.megamanHitstunTicks,
+        megamanInvincibleTicks: current.megamanInvincibleTicks,
         queuedChipSlot: current.queuedChipSlot,
         megamanControlMode: current.megamanControlMode,
         programAdvanceAnimation: current.programAdvanceAnimation,
@@ -2926,6 +2950,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           let queuedChipSlot = current.queuedChipSlot
           let barrierCharges = current.barrierCharges
           let megamanHitstunTicks = Math.max(0, current.megamanHitstunTicks - 1)
+          let megamanInvincibleTicks = Math.max(0, current.megamanInvincibleTicks - 1)
           let megamanRecoveryTicks = Math.max(0, current.megamanRecoveryTicks - 1)
           let pendingStepReturnPosition = current.pendingStepReturnPosition
           let pendingStepReturnTicks = Math.max(0, current.pendingStepReturnTicks - 1)
@@ -2955,6 +2980,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           if (battlePaused) {
             megamanBusterCooldown = current.megamanBusterCooldown
             megamanHitstunTicks = current.megamanHitstunTicks
+            megamanInvincibleTicks = current.megamanInvincibleTicks
             megamanRecoveryTicks = current.megamanRecoveryTicks
             pendingStepReturnTicks = current.pendingStepReturnTicks
             autoChipCooldown = current.autoChipCooldown
@@ -2993,7 +3019,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
           const megamanBusy = !nextEntities.megaman.alive || megamanHitstunTicks > 0 || megamanRecoveryTicks > 0
 
-          if (combatActive && nextEntities.megaman.alive && megamanControlMode !== 'manual' && megamanAutoMoveCooldown === 0) {
+          if (combatActive && nextEntities.megaman.alive && megamanControlMode !== 'manual' && megamanAutoMoveCooldown === 0 && megamanInvincibleTicks === 0) {
             const mettaurThreatState = summarizeVirusAi(nextEntities, virusAi)
             const autoMove = chooseMegamanAutoMove(nextEntities, {
               mettaurTelegraphTicksRemaining: mettaurThreatState.mettaurTelegraphTicksRemaining,
@@ -3203,12 +3229,13 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
 
           if (combatActive && enemyProjectiles.length > 0) {
-            const projectileAdvance = advanceEnemyProjectiles(enemyProjectiles, nextEntities, barrierCharges)
+            const projectileAdvance = advanceEnemyProjectiles(enemyProjectiles, nextEntities, barrierCharges, megamanInvincibleTicks)
             enemyProjectiles = projectileAdvance.enemyProjectiles
             nextEntities = projectileAdvance.entities
             barrierCharges = projectileAdvance.barrierCharges
-            if (projectileAdvance.megamanHitstunApplied) {
+            if (projectileAdvance.megamanHitstunApplied && megamanInvincibleTicks === 0) {
               megamanHitstunTicks = megamanHitstunTicksOnHit
+              megamanInvincibleTicks = megamanInvincibilityTicksOnHit
             }
             if (projectileAdvance.lastEvent) {
               lastEvent = projectileAdvance.lastEvent
@@ -3259,6 +3286,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                     if (barrierCharges > 0) {
                       barrierCharges -= 1
                       lastEvent = `${virus.name} attack blocked by barrier`
+                    } else if (megamanInvincibleTicks > 0) {
+                      lastEvent = `${virus.name} attack missed (invincible)`
                     } else {
                       const result = applyDamage(virus, nextEntities.megaman, attack.damage)
                       nextEntities = {
@@ -3268,6 +3297,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                       }
                       if (result.didHit) {
                         megamanHitstunTicks = megamanHitstunTicksOnHit
+                        megamanInvincibleTicks = megamanInvincibilityTicksOnHit
                         lastEvent = `${virus.name} attack hit for ${attack.damage}`
                       }
                     }
@@ -3305,6 +3335,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             chipHand,
             barrierCharges,
             megamanHitstunTicks,
+            megamanInvincibleTicks,
             queuedChipSlot,
             megamanControlMode,
             programAdvanceAnimation,
@@ -3353,6 +3384,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             queuedChipSlot,
             barrierCharges,
             megamanHitstunTicks,
+            megamanInvincibleTicks,
             megamanRecoveryTicks,
             pendingStepReturnPosition,
             pendingStepReturnTicks,

@@ -3,6 +3,7 @@ import { useGameStore } from '../../simulation/store/gameStore'
 
 const ROWS = 3
 const COLS = 6
+const megamanInvincibilityTicksOnHit = 20
 
 type SpriteSources = {
   idle: string[]
@@ -63,9 +64,10 @@ type OccupantSpriteProps = {
   isAttacking: boolean
   isFlashing: boolean
   megamanAction: MegamanSpriteAction
+  isInvisible: boolean
 }
 
-function OccupantSprite({ entityId, actorName, fallbackLabel, isAttacking, isFlashing, megamanAction }: OccupantSpriteProps) {
+function OccupantSprite({ entityId, actorName, fallbackLabel, isAttacking, isFlashing, megamanAction, isInvisible }: OccupantSpriteProps) {
   const [attemptIndex, setAttemptIndex] = useState(0)
 
   const normalizedActor = actorName.trim().toLowerCase()
@@ -111,7 +113,7 @@ function OccupantSprite({ entityId, actorName, fallbackLabel, isAttacking, isFla
 
   return (
     <img
-      className={`occupant-sprite ${isFlashing ? 'hit-flash' : ''}`}
+      className={`occupant-sprite ${isFlashing ? 'hit-flash' : ''} ${isInvisible ? 'invincible-hide' : ''}`}
       src={spriteSource}
       alt={fallbackLabel}
       loading="eager"
@@ -173,6 +175,7 @@ export function Board() {
   const targetId = useGameStore((state) => state.combat.targetId)
   const lastEvent = useGameStore((state) => state.combat.lastEvent)
   const megamanHitstunTicks = useGameStore((state) => state.combat.megamanHitstunTicks)
+  const megamanInvincibleTicks = useGameStore((state) => state.megamanInvincibleTicks)
   const [megamanAnimation, setMegamanAnimation] = useState<{ action: MegamanSpriteAction; untilTick: number }>({ action: 'idle', untilTick: 0 })
 
   const megaman = entities.megaman
@@ -204,6 +207,9 @@ export function Board() {
   }, [lastEvent, megaman.hitFlashTicks, megamanHitstunTicks, ticks])
 
   const megamanAction = megamanAnimation.untilTick > ticks ? megamanAnimation.action : 'idle'
+  const invincibleIntroTicks = 4
+  const isMegamanInvincibleIntro = megamanInvincibleTicks > megamanInvincibilityTicksOnHit - invincibleIntroTicks
+  const isMegamanInvisibleBlink = megamanInvincibleTicks > 0 && !isMegamanInvincibleIntro && ticks % 2 === 0
 
   return (
     <section className="board" aria-label="Battlefield grid">
@@ -226,8 +232,9 @@ export function Board() {
                   actorName={occupant.name}
                   fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : occupant.name}
                   isAttacking={occupant.id === targetId && mettaurTelegraphTicksRemaining > 0}
-                  isFlashing={occupant.hitFlashTicks > 0}
+                  isFlashing={occupant.id === 'megaman' ? occupant.hitFlashTicks > 0 || isMegamanInvincibleIntro : occupant.hitFlashTicks > 0}
                   megamanAction={occupant.id === 'megaman' ? megamanAction : 'idle'}
+                  isInvisible={occupant.id === 'megaman' ? isMegamanInvisibleBlink : false}
                 />
                 {occupant.id !== 'megaman' ? <span className="occupant-hp">{occupant.hp}</span> : null}
               </div>
