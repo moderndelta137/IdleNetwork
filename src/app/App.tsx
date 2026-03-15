@@ -13,6 +13,7 @@ const battleChipCatalog = loadChipCatalog(100)
 export function App() {
   const [scene, setScene] = useState<'battle' | 'folder' | 'areaMap' | 'chipTrader' | 'higsbyShop'>('battle')
   const [showBattleFolderPanel, setShowBattleFolderPanel] = useState(false)
+  const [showDebugMenu, setShowDebugMenu] = useState(false)
   const ticks = useGameStore((state) => state.ticks)
   const speed = useGameStore((state) => state.speed)
   const combat = useGameStore((state) => state.combat)
@@ -27,6 +28,7 @@ export function App() {
   const debugForceNextCustomDrawProgramAdvance = useGameStore((state) => state.debugForceNextCustomDrawProgramAdvance)
   const debugCompleteCurrentWave = useGameStore((state) => state.debugCompleteCurrentWave)
   const debugJumpToBossWave = useGameStore((state) => state.debugJumpToBossWave)
+  const debugSetZenny99999 = useGameStore((state) => state.debugSetZenny99999)
   const movePlayer = useGameStore((state) => state.movePlayer)
   const cycleMegamanControlMode = useGameStore((state) => state.cycleMegamanControlMode)
   const useChipSlot = useGameStore((state) => state.useChipSlot)
@@ -181,6 +183,9 @@ export function App() {
         <button type="button" onClick={() => setShowBattleFolderPanel((current) => !current)}>
           {showBattleFolderPanel ? 'Hide Folder' : 'Show Folder'}
         </button>
+        <button type="button" onClick={() => setShowDebugMenu((current) => !current)}>
+          {showDebugMenu ? 'Hide Debug' : 'Show Debug'}
+        </button>
         <span>Level {combat.currentLevel} · Wave {combat.isInfiniteMode ? '∞' : `${combat.currentWave}/10`} {combat.isBossWave && !combat.isInfiniteMode ? '(Boss)' : ''}</span>
         <span>Wave state: {combat.waveStatus}</span>
         {canRetryBossWave ? (
@@ -192,41 +197,47 @@ export function App() {
         <span>Viruses: {combat.virusesRemaining}/{combat.virusesTotal}</span>
           </section>
 
-
-          <section className="debug-controls" aria-label="Debug simulation controls">
-        <strong>Debug Controls</strong>
-        <div className="debug-controls-row">
-          <button type="button" onClick={() => setDebugPaused(!debugPaused)}>
-            {debugPaused ? 'Resume' : 'Pause'} Simulation
-          </button>
-          <button type="button" onClick={stepFrame} disabled={!debugPaused}>
-            Advance 1 Frame
-          </button>
-          <span>{debugPaused ? 'Paused' : 'Running'}</span>
-          <span>Recovery: MegaMan {megamanRecoveryTicks}t / Mettaur {mettaurRecoveryTicks}t</span>
-          <button type="button" onClick={debugForceNextCustomDrawProgramAdvance}>
-            Force PA on Next Draw
-          </button>
-          <button type="button" onClick={debugCompleteCurrentWave}>
-            Complete Wave (Debug)
-          </button>
-          <button type="button" onClick={debugJumpToBossWave}>
-            Jump to Wave 10 (Debug)
-          </button>
-        </div>
-        <label className="sprite-scale-control" htmlFor="sprite-scale-slider">
-          Sprite scale: {debugSpriteScalePercent}%
-        </label>
-        <input
-          id="sprite-scale-slider"
-          type="range"
-          min={100}
-          max={400}
-          step={10}
-          value={debugSpriteScalePercent}
-          onChange={(event) => setDebugSpriteScalePercent(Number(event.currentTarget.value))}
-        />
-          </section>
+          {showDebugMenu ? (
+            <section className="debug-controls battle-debug-panel" aria-label="Debug simulation controls">
+              <strong>Debug Controls</strong>
+              <div className="debug-controls-row">
+                <button type="button" onClick={() => setDebugPaused(!debugPaused)}>
+                  {debugPaused ? 'Resume' : 'Pause'} Simulation
+                </button>
+                <button type="button" onClick={stepFrame} disabled={!debugPaused}>
+                  Advance 1 Frame
+                </button>
+                <span>{debugPaused ? 'Paused' : 'Running'}</span>
+                <span>Recovery: MegaMan {megamanRecoveryTicks}t / Mettaur {mettaurRecoveryTicks}t</span>
+              </div>
+              <div className="debug-controls-row">
+                <button type="button" onClick={debugForceNextCustomDrawProgramAdvance}>
+                  Force PA on Next Draw
+                </button>
+                <button type="button" onClick={debugCompleteCurrentWave}>
+                  Complete Wave (Debug)
+                </button>
+                <button type="button" onClick={debugJumpToBossWave}>
+                  Jump to Wave 10 (Debug)
+                </button>
+                <button type="button" onClick={debugSetZenny99999}>
+                  Set Zenny 99999 (Debug)
+                </button>
+              </div>
+              <label className="sprite-scale-control" htmlFor="sprite-scale-slider">
+                Sprite scale: {debugSpriteScalePercent}%
+              </label>
+              <input
+                id="sprite-scale-slider"
+                type="range"
+                min={100}
+                max={400}
+                step={10}
+                value={debugSpriteScalePercent}
+                onChange={(event) => setDebugSpriteScalePercent(Number(event.currentTarget.value))}
+              />
+            </section>
+          ) : null}
 
           <section className="gauge-card" aria-label="Custom gauge">
         <strong>Custom Gauge</strong>

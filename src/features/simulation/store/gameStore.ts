@@ -199,6 +199,7 @@ type GameState = {
   debugForceNextCustomDrawProgramAdvance: () => void
   debugCompleteCurrentWave: () => void
   debugJumpToBossWave: () => void
+  debugSetZenny99999: () => void
   selectAreaLevel: (level: number) => void
   challengeBossFromInfinite: () => void
   clearHighlightedAreaLevel: () => void
@@ -2317,6 +2318,41 @@ export const useGameStore = create<GameState>((set, get) => ({
     })
   },
   clearHighlightedAreaLevel: () => set({ highlightedAreaLevel: null }),
+  debugSetZenny99999: () => {
+    set((current) => {
+      const totalZenny = 99999
+      const runtime = {
+        virusAi: current.virusAi,
+        customGaugeTicks: current.customGaugeTicks,
+        customGaugeMaxTicks: current.customGaugeMaxTicks,
+        chipHand: current.chipHand,
+        barrierCharges: current.barrierCharges,
+        megamanHitstunTicks: current.megamanHitstunTicks,
+        queuedChipSlot: current.queuedChipSlot,
+        megamanControlMode: current.megamanControlMode,
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: current.chipIndicatorPanels,
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus: current.waveStatus,
+        waveResult: current.waveResult,
+        battleStartBannerTicks: current.battleStartBannerTicks,
+        totalZenny,
+        virusesRemaining: current.virusesRemaining,
+        virusesTotal: current.virusesTotal,
+        enemyProjectiles: current.enemyProjectiles,
+        isInfiniteMode: current.isInfiniteMode,
+        unlockedAreaMaxLevel: current.unlockedAreaMaxLevel,
+        highlightedAreaLevel: current.highlightedAreaLevel,
+        areaProgressByLevel: current.areaProgressByLevel
+      }
+
+      return {
+        totalZenny,
+        combat: buildCombatSummary(current.entities, runtime, 'Debug: set Zenny to 99999')
+      }
+    })
+  },
   debugForceNextCustomDrawProgramAdvance: () => {
     set((current) => {
       const runtime = {

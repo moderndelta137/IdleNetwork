@@ -74,9 +74,14 @@ strong {
   padding: 0.6rem 0.75rem;
 }
 
+.battle-debug-panel {
+  margin-bottom: 0.9rem;
+}
+
 .debug-controls-row {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
 }
 
@@ -1016,6 +1021,17 @@ button.active {
   display: grid;
   gap: 0.6rem;
   grid-template-columns: 210px minmax(0, 1fr);
+}
+
+
+.economy-scene-body .folder-chip-preview {
+  color: #0f172a;
+}
+
+.economy-scene-body .folder-chip-code,
+.economy-scene-body .folder-chip-dmg,
+.economy-scene-body .folder-chip-description {
+  color: #0f172a;
 }
 
 .chip-table {
