@@ -2450,7 +2450,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   movePlayer: (deltaRow, deltaCol) => {
     set((current) => {
-      if (current.megamanControlMode !== 'manual' || current.waveResult !== null || current.battleStartBannerTicks > 0) {
+      if (current.megamanControlMode !== 'manual' || current.waveResult !== null || current.battleStartBannerTicks > 0 || current.megamanInvincibleTicks > 0) {
         return {}
       }
 
