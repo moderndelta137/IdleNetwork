@@ -3,13 +3,17 @@ import { Board } from '../features/battle/components/Board'
 import { FolderScene } from '../features/chips/components/FolderScene'
 import { loadChipCatalog } from '../features/chips/chipCatalog'
 import { useGameStore } from '../features/simulation/store/gameStore'
+import { AreaMapScene } from '../features/world/components/AreaMapScene'
+import { ChipTraderScene } from '../features/world/components/ChipTraderScene'
+import { HigsbyShopScene } from '../features/world/components/HigsbyShopScene'
 
 const SPEEDS = [1, 2, 4] as const
 const battleChipCatalog = loadChipCatalog(100)
 
 export function App() {
-  const [scene, setScene] = useState<'battle' | 'folder'>('battle')
+  const [scene, setScene] = useState<'battle' | 'folder' | 'areaMap' | 'chipTrader' | 'higsbyShop'>('battle')
   const [showBattleFolderPanel, setShowBattleFolderPanel] = useState(false)
+  const [showDebugMenu, setShowDebugMenu] = useState(false)
   const ticks = useGameStore((state) => state.ticks)
   const speed = useGameStore((state) => state.speed)
   const combat = useGameStore((state) => state.combat)
@@ -24,6 +28,7 @@ export function App() {
   const debugForceNextCustomDrawProgramAdvance = useGameStore((state) => state.debugForceNextCustomDrawProgramAdvance)
   const debugCompleteCurrentWave = useGameStore((state) => state.debugCompleteCurrentWave)
   const debugJumpToBossWave = useGameStore((state) => state.debugJumpToBossWave)
+  const debugSetZenny99999 = useGameStore((state) => state.debugSetZenny99999)
   const movePlayer = useGameStore((state) => state.movePlayer)
   const cycleMegamanControlMode = useGameStore((state) => state.cycleMegamanControlMode)
   const useChipSlot = useGameStore((state) => state.useChipSlot)
@@ -32,6 +37,8 @@ export function App() {
   const retryBossWave = useGameStore((state) => state.retryBossWave)
   const closeWaveResult = useGameStore((state) => state.closeWaveResult)
   const resetBattle = useGameStore((state) => state.resetBattle)
+  const challengeBossFromInfinite = useGameStore((state) => state.challengeBossFromInfinite)
+  const clearHighlightedAreaLevel = useGameStore((state) => state.clearHighlightedAreaLevel)
   const megamanRecoveryTicks = useGameStore((state) => state.megamanRecoveryTicks)
   const mettaurRecoveryTicks = useGameStore((state) => state.mettaurRecoveryTicks)
   const start = useGameStore((state) => state.start)
@@ -43,6 +50,10 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (scene !== 'battle') {
+        return
+      }
+
       const key = event.key
       const upperKey = key.toUpperCase()
 
@@ -96,7 +107,31 @@ export function App() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [combat.megamanControlMode, manualFireBuster, movePlayer, useChipSlot, useLeftmostChip])
+  }, [combat.megamanControlMode, manualFireBuster, movePlayer, scene, useChipSlot, useLeftmostChip])
+
+
+  useEffect(() => {
+    if (!combat.waveResult) {
+      return
+    }
+
+    const autoCloseWaveResultTimeout = window.setTimeout(() => {
+      closeWaveResult()
+    }, 3000)
+
+    return () => window.clearTimeout(autoCloseWaveResultTimeout)
+  }, [closeWaveResult, combat.waveResult])
+
+  useEffect(() => {
+    if (combat.waveStatus === 'levelCleared' && combat.highlightedAreaLevel) {
+      setScene('areaMap')
+      return
+    }
+
+    if (scene === 'areaMap' && combat.highlightedAreaLevel === null) {
+      clearHighlightedAreaLevel()
+    }
+  }, [clearHighlightedAreaLevel, combat.highlightedAreaLevel, combat.waveStatus, scene])
 
   const target = entities[combat.targetId]
   const canRetryBossWave = combat.currentWave === 9 && combat.waveStatus !== 'levelCleared' && combat.waveResult === null
@@ -114,6 +149,15 @@ export function App() {
         </button>
         <button type="button" className={scene === 'folder' ? 'active' : ''} onClick={() => setScene('folder')}>
           Folder
+        </button>
+        <button type="button" className={scene === 'areaMap' ? 'active' : ''} onClick={() => setScene('areaMap')}>
+          Area Map
+        </button>
+        <button type="button" className={scene === 'chipTrader' ? 'active' : ''} onClick={() => setScene('chipTrader')}>
+          Chip Trader
+        </button>
+        <button type="button" className={scene === 'higsbyShop' ? 'active' : ''} onClick={() => setScene('higsbyShop')}>
+          Higsby's Shop
         </button>
       </section>
 
@@ -139,7 +183,10 @@ export function App() {
         <button type="button" onClick={() => setShowBattleFolderPanel((current) => !current)}>
           {showBattleFolderPanel ? 'Hide Folder' : 'Show Folder'}
         </button>
-        <span>Level {combat.currentLevel} · Wave {combat.currentWave}/10 {combat.isBossWave ? '(Boss)' : ''}</span>
+        <button type="button" onClick={() => setShowDebugMenu((current) => !current)}>
+          {showDebugMenu ? 'Hide Debug' : 'Show Debug'}
+        </button>
+        <span>Level {combat.currentLevel} · Wave {combat.isInfiniteMode ? '∞' : `${combat.currentWave}/10`} {combat.isBossWave && !combat.isInfiniteMode ? '(Boss)' : ''}</span>
         <span>Wave state: {combat.waveStatus}</span>
         {canRetryBossWave ? (
           <button type="button" onClick={retryBossWave}>
@@ -150,41 +197,47 @@ export function App() {
         <span>Viruses: {combat.virusesRemaining}/{combat.virusesTotal}</span>
           </section>
 
-
-          <section className="debug-controls" aria-label="Debug simulation controls">
-        <strong>Debug Controls</strong>
-        <div className="debug-controls-row">
-          <button type="button" onClick={() => setDebugPaused(!debugPaused)}>
-            {debugPaused ? 'Resume' : 'Pause'} Simulation
-          </button>
-          <button type="button" onClick={stepFrame} disabled={!debugPaused}>
-            Advance 1 Frame
-          </button>
-          <span>{debugPaused ? 'Paused' : 'Running'}</span>
-          <span>Recovery: MegaMan {megamanRecoveryTicks}t / Mettaur {mettaurRecoveryTicks}t</span>
-          <button type="button" onClick={debugForceNextCustomDrawProgramAdvance}>
-            Force PA on Next Draw
-          </button>
-          <button type="button" onClick={debugCompleteCurrentWave}>
-            Complete Wave (Debug)
-          </button>
-          <button type="button" onClick={debugJumpToBossWave}>
-            Jump to Wave 10 (Debug)
-          </button>
-        </div>
-        <label className="sprite-scale-control" htmlFor="sprite-scale-slider">
-          Sprite scale: {debugSpriteScalePercent}%
-        </label>
-        <input
-          id="sprite-scale-slider"
-          type="range"
-          min={100}
-          max={400}
-          step={10}
-          value={debugSpriteScalePercent}
-          onChange={(event) => setDebugSpriteScalePercent(Number(event.currentTarget.value))}
-        />
-          </section>
+          {showDebugMenu ? (
+            <section className="debug-controls battle-debug-panel" aria-label="Debug simulation controls">
+              <strong>Debug Controls</strong>
+              <div className="debug-controls-row">
+                <button type="button" onClick={() => setDebugPaused(!debugPaused)}>
+                  {debugPaused ? 'Resume' : 'Pause'} Simulation
+                </button>
+                <button type="button" onClick={stepFrame} disabled={!debugPaused}>
+                  Advance 1 Frame
+                </button>
+                <span>{debugPaused ? 'Paused' : 'Running'}</span>
+                <span>Recovery: MegaMan {megamanRecoveryTicks}t / Mettaur {mettaurRecoveryTicks}t</span>
+              </div>
+              <div className="debug-controls-row">
+                <button type="button" onClick={debugForceNextCustomDrawProgramAdvance}>
+                  Force PA on Next Draw
+                </button>
+                <button type="button" onClick={debugCompleteCurrentWave}>
+                  Complete Wave (Debug)
+                </button>
+                <button type="button" onClick={debugJumpToBossWave}>
+                  Jump to Wave 10 (Debug)
+                </button>
+                <button type="button" onClick={debugSetZenny99999}>
+                  Set Zenny 99999 (Debug)
+                </button>
+              </div>
+              <label className="sprite-scale-control" htmlFor="sprite-scale-slider">
+                Sprite scale: {debugSpriteScalePercent}%
+              </label>
+              <input
+                id="sprite-scale-slider"
+                type="range"
+                min={100}
+                max={400}
+                step={10}
+                value={debugSpriteScalePercent}
+                onChange={(event) => setDebugSpriteScalePercent(Number(event.currentTarget.value))}
+              />
+            </section>
+          ) : null}
 
           <section className="gauge-card" aria-label="Custom gauge">
         <strong>Custom Gauge</strong>
@@ -233,6 +286,12 @@ export function App() {
 
 
           <p className="control-tip">Manual mode: Move (WASD/Arrows), Buster (Space or F), Chips (1-5). Buster/swing now need row alignment, so dodging telegraphs and re-lining shots matters. Yellow panels show active enemy hitboxes (e.g., Mettaur swing). Cyan panels are temporary placeholders for chip attack range/projectile zones (bomb/sword/hitscan). Semi-auto: auto move+buster, manual chips. Full-auto: auto move+buster+chips (manual chip override still works).</p>
+
+          {combat.isInfiniteMode ? (
+            <section className="infinite-controls">
+              <button type="button" onClick={challengeBossFromInfinite}>CHALLENGE BOSS</button>
+            </section>
+          ) : null}
 
           <section className="battle-board-shell">
             <Board />
@@ -315,8 +374,17 @@ export function App() {
         ))}
           </section>
         </>
-      ) : (
+      ) : scene === 'folder' ? (
         <FolderScene />
+      ) : scene === 'areaMap' ? (
+        <AreaMapScene
+          highlightedAreaLevel={combat.highlightedAreaLevel}
+          onAreaSwitched={() => setScene('battle')}
+        />
+      ) : scene === 'chipTrader' ? (
+        <ChipTraderScene />
+      ) : (
+        <HigsbyShopScene />
       )}
 
       <section className="scene-taskbar bottom" aria-label="Scene navigation">
@@ -325,6 +393,15 @@ export function App() {
         </button>
         <button type="button" className={scene === 'folder' ? 'active' : ''} onClick={() => setScene('folder')}>
           Folder
+        </button>
+        <button type="button" className={scene === 'areaMap' ? 'active' : ''} onClick={() => setScene('areaMap')}>
+          Area Map
+        </button>
+        <button type="button" className={scene === 'chipTrader' ? 'active' : ''} onClick={() => setScene('chipTrader')}>
+          Chip Trader
+        </button>
+        <button type="button" className={scene === 'higsbyShop' ? 'active' : ''} onClick={() => setScene('higsbyShop')}>
+          Higsby's Shop
         </button>
       </section>
     </main>

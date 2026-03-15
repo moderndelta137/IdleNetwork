@@ -336,6 +336,7 @@ export function FolderScene() {
                     onMouseEnter={() => setHoveredChip({ column: 'folder', index })}
                     onMouseLeave={() => setHoveredChip(null)}
                     onClick={() => setSelectedChip({ column: 'folder', index })}
+                    onDoubleClick={() => moveFolderChipToStock(index)}
                   >
                     <span className="folder-chip-row-index">{index + 1}</span>
                     <span className="folder-chip-row-name">{chip.name}</span>
@@ -387,6 +388,7 @@ export function FolderScene() {
                     onMouseEnter={() => setHoveredChip({ column: 'stock', chipId: stack.chipId, code: stack.code })}
                     onMouseLeave={() => setHoveredChip(null)}
                     onClick={() => setSelectedChip({ column: 'stock', chipId: stack.chipId, code: stack.code })}
+                    onDoubleClick={() => moveStockChipToFolder(stack.chipId, stack.code)}
                   >
                     <span className="folder-chip-row-index">{index + 1}</span>
                     <span className="folder-chip-row-name">{stack.name}</span>
