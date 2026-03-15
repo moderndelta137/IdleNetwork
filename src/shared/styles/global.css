@@ -1011,6 +1011,41 @@ button.active {
   gap: 0.5rem;
 }
 
+
+.chip-table {
+  border-collapse: separate;
+  border-spacing: 0.35rem;
+  width: 100%;
+}
+
+.chip-table th {
+  color: #93c5fd;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.chip-table td {
+  padding: 0;
+}
+
+.chip-table .folder-chip-row {
+  display: grid;
+  gap: 0.45rem;
+  grid-template-columns: 48px minmax(140px, 1.5fr) 70px 80px 90px minmax(100px, auto);
+  align-items: center;
+}
+
+.chip-table .folder-chip-row td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-table .folder-chip-row button {
+  padding: 0.2rem 0.45rem;
+}
+
 .trade-scene-results {
   background: #020617;
   border: 1px solid #334155;

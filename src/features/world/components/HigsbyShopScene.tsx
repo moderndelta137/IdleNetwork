@@ -58,26 +58,41 @@ export function HigsbyShopScene() {
         <span role="listitem">Next refresh: {hoursLeft}h {minutesLeft}m</span>
       </div>
 
-      <div className="higsby-offer-list" role="list" aria-label="Current chip offers">
-        {offers.map((offer, index) => (
-          <article key={`${offer.chipId}-${index}`} className="higsby-offer" role="listitem">
-            <div>
-              <strong>{chipCatalog[offer.chipId].name}</strong>
-              <div className="higsby-offer-meta">{offer.chipId.toUpperCase()} · MB {chipCatalog[offer.chipId].mb}</div>
-            </div>
-            <button
-              type="button"
-              disabled={totalZenny < offer.cost}
-              onClick={() => {
-                const purchased = buyShopChip(offer.chipId, offer.cost)
-                setStatusMessage(purchased ? `Purchased ${purchased.name} ${purchased.code}.` : 'Not enough Zenny.')
-              }}
-            >
-              Buy ({offer.cost} Z)
-            </button>
-          </article>
-        ))}
-      </div>
+      <table className="chip-table" aria-label="Current chip offers">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>Code</th>
+            <th>MB</th>
+            <th>Price</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {offers.map((offer, index) => (
+            <tr key={`${offer.chipId}-${index}`} className="folder-chip-row stock">
+              <td className="folder-chip-row-index">{index + 1}</td>
+              <td className="folder-chip-row-name">{chipCatalog[offer.chipId].name}</td>
+              <td className="folder-chip-row-code">*</td>
+              <td className="folder-chip-row-size">{chipCatalog[offer.chipId].mb}MB</td>
+              <td className="folder-chip-row-mb">{offer.cost} Z</td>
+              <td>
+                <button
+                  type="button"
+                  disabled={totalZenny < offer.cost}
+                  onClick={() => {
+                    const purchased = buyShopChip(offer.chipId, offer.cost)
+                    setStatusMessage(purchased ? `Purchased ${purchased.name} ${purchased.code}.` : 'Not enough Zenny.')
+                  }}
+                >
+                  Buy
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <div className="higsby-status" aria-live="polite">{statusMessage}</div>
     </section>
