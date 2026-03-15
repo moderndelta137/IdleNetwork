@@ -149,11 +149,11 @@ const getMegamanActionDurationTicks = (action: MegamanSpriteAction): number => {
   }
 
   if (action === 'shoot') {
-    return 8
+    return 5
   }
 
   if (action === 'sword') {
-    return 7
+    return 5
   }
 
   if (action === 'damage') {

@@ -1403,6 +1403,26 @@ const isSameRow = (source: EntityState, target: EntityState) => source.position.
 const canMegamanBusterHit = (megaman: EntityState, mettaur: EntityState) =>
   isSameRow(megaman, mettaur) && megaman.position.col < mettaur.position.col
 
+const getVirusesInTargetOrder = (entities: Record<EntityId, EntityState>): VirusEntityId[] =>
+  getAliveVirusIds(entities).sort((a, b) => {
+    const first = entities[a]
+    const second = entities[b]
+    if (first.position.col !== second.position.col) {
+      return first.position.col - second.position.col
+    }
+    return first.position.row - second.position.row
+  })
+
+const getMegamanBusterTargetId = (entities: Record<EntityId, EntityState>, megaman: EntityState): VirusEntityId | null =>
+  getVirusesInTargetOrder(entities).find((virusId) => canMegamanBusterHit(megaman, entities[virusId])) ?? null
+
+const getChipDamageTargetId = (
+  entities: Record<EntityId, EntityState>,
+  megaman: EntityState,
+  chipDefinition: { effects: string }
+): VirusEntityId | null =>
+  getVirusesInTargetOrder(entities).find((virusId) => canChipDamageHitTarget(chipDefinition, megaman, entities[virusId])) ?? null
+
 const canMettaurSwingHit = (mettaur: EntityState, megaman: EntityState) => {
   if (!isSameRow(mettaur, megaman)) {
     return false
@@ -1570,13 +1590,21 @@ const tryUseChipFromSlot = (
   let megamanRecoveryTicks = chipDefinition.recoilTicks
 
   if (chipDefinition.damage > 0) {
-    const canHit = canChipDamageHitTarget(chipDefinition, combatState.megaman, combatState.mettaur)
-    if (canHit) {
-      const result = applyDamage(combatState.megaman, combatState.mettaur, chipDefinition.damage)
+    const targetVirusId = getChipDamageTargetId(nextEntities, combatState.megaman, chipDefinition)
+    if (targetVirusId) {
+      const targetVirus = nextEntities[targetVirusId]
+      const result = applyDamage(combatState.megaman, targetVirus, chipDefinition.damage)
       combatState = {
         ...combatState,
         megaman: result.source,
-        mettaur: result.target
+        mettaur: activeVirusId === targetVirusId ? result.target : combatState.mettaur
+      }
+      nextEntities = {
+        ...nextEntities,
+        [targetVirusId]: {
+          ...result.target,
+          id: targetVirusId
+        }
       }
       if (result.didHit) {
         lastEvent = `${chip.name} hit for ${chipDefinition.damage}`
@@ -1671,7 +1699,7 @@ const chooseAutoChipSlot = (state: Pick<GameState, 'chipHand' | 'entities' | 'ba
       return
     }
 
-    const canHit = canChipDamageHitTarget(chipDefinition, entities.megaman, entities.mettaur)
+    const canHit = getChipDamageTargetId(entities, entities.megaman, chipDefinition) !== null
 
     let score = chipDefinition.damage
     if (!canHit) {
@@ -2589,20 +2617,24 @@ export const useGameStore = create<GameState>((set, get) => ({
         return {}
       }
 
-      const { combatEntities, activeVirusId } = projectCombatEntities(current.entities)
-      const canHit = canMegamanBusterHit(combatEntities.megaman, combatEntities.mettaur)
-      const result = canHit
-        ? applyDamage(combatEntities.megaman, combatEntities.mettaur, megamanHitDamage)
+      const { combatEntities } = projectCombatEntities(current.entities)
+      const targetVirusId = getMegamanBusterTargetId(current.entities, combatEntities.megaman)
+      const targetVirus = targetVirusId ? current.entities[targetVirusId] : null
+      const result = targetVirus
+        ? applyDamage(combatEntities.megaman, targetVirus, megamanHitDamage)
         : { source: combatEntities.megaman, target: combatEntities.mettaur, didHit: false }
-      const nextEntities = mergeCombatEntities(
-        current.entities,
-        {
-          ...combatEntities,
-          megaman: result.source,
-          mettaur: result.target
-        },
-        activeVirusId
-      )
+      const nextEntities = {
+        ...current.entities,
+        megaman: result.source,
+        ...(targetVirusId
+          ? {
+              [targetVirusId]: {
+                ...result.target,
+                id: targetVirusId
+              }
+            }
+          : {})
+      }
       const runtime = {
         virusAi: current.virusAi,
         customGaugeTicks: current.customGaugeTicks,
@@ -3149,17 +3181,17 @@ export const useGameStore = create<GameState>((set, get) => ({
 
           if (combatActive && !megamanBusy && megamanControlMode !== 'manual' && megamanBusterCooldown === 0) {
             const projected = projectCombatEntities(nextEntities)
-            if (projected.activeVirusId && canMegamanBusterHit(projected.combatEntities.megaman, projected.combatEntities.mettaur)) {
-              const result = applyDamage(projected.combatEntities.megaman, projected.combatEntities.mettaur, megamanHitDamage)
-              nextEntities = mergeCombatEntities(
-                nextEntities,
-                {
-                  ...projected.combatEntities,
-                  megaman: result.source,
-                  mettaur: result.target
-                },
-                projected.activeVirusId
-              )
+            const targetVirusId = getMegamanBusterTargetId(nextEntities, projected.combatEntities.megaman)
+            if (targetVirusId) {
+              const result = applyDamage(projected.combatEntities.megaman, nextEntities[targetVirusId], megamanHitDamage)
+              nextEntities = {
+                ...nextEntities,
+                megaman: result.source,
+                [targetVirusId]: {
+                  ...result.target,
+                  id: targetVirusId
+                }
+              }
               if (result.didHit) {
                 lastEvent = `MegaBuster hit for ${megamanHitDamage}`
               }
