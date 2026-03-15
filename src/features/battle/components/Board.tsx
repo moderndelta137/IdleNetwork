@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useGameStore } from '../../simulation/store/gameStore'
 
 const ROWS = 3
@@ -7,13 +7,35 @@ const COLS = 6
 type SpriteSources = {
   idle: string[]
   attack?: string[]
+  buster?: string[]
+  shoot?: string[]
+  sword?: string[]
+  damage?: string[]
 }
+
+type MegamanSpriteAction = 'idle' | 'buster' | 'shoot' | 'sword' | 'damage'
 
 const SPRITES_BY_ENTITY: Record<string, SpriteSources> = {
   megaman: {
     idle: [
       'sprites/megaman/MegaMan-idle.png',
       'sprites/megaman/megaman-idle.png'
+    ],
+    buster: [
+      'sprites/megaman/Megaman-Buster_attack1.png',
+      'sprites/megaman/megaman-buster_attack1.png'
+    ],
+    shoot: [
+      'sprites/megaman/Megaman-Shoot_attack1.png',
+      'sprites/megaman/megaman-shoot_attack1.png'
+    ],
+    sword: [
+      'sprites/megaman/Megaman-Sword_attack1.png',
+      'sprites/megaman/megaman-sword_attack1.png'
+    ],
+    damage: [
+      'sprites/megaman/Megaman-Damage.png',
+      'sprites/megaman/megaman-damage.png'
     ]
   },
   mettaur: {
@@ -27,24 +49,47 @@ const SPRITES_BY_ENTITY: Record<string, SpriteSources> = {
       'sprites/mettaur/Mettaur-swing.png',
       'sprites/mettaur/mettaur-swing.png'
     ]
+  },
+  fireman: {
+    idle: ['sprites/fireman/FireMan-idle.png'],
+    attack: ['sprites/fireman/FireMan-attack1.png']
   }
 }
 
 type OccupantSpriteProps = {
   entityId: string
+  actorName: string
   fallbackLabel: string
   isAttacking: boolean
   isFlashing: boolean
+  megamanAction: MegamanSpriteAction
 }
 
-function OccupantSprite({ entityId, fallbackLabel, isAttacking, isFlashing }: OccupantSpriteProps) {
+function OccupantSprite({ entityId, actorName, fallbackLabel, isAttacking, isFlashing, megamanAction }: OccupantSpriteProps) {
   const [attemptIndex, setAttemptIndex] = useState(0)
 
-  const normalizedEntityId = entityId.startsWith('mettaur') ? 'mettaur' : entityId
+  const normalizedActor = actorName.trim().toLowerCase()
+  const normalizedEntityId = normalizedActor === 'fireman' ? 'fireman' : entityId.startsWith('mettaur') ? 'mettaur' : entityId
   const spriteSources = SPRITES_BY_ENTITY[normalizedEntityId]
   const candidates = useMemo(() => {
     if (!spriteSources) {
       return []
+    }
+
+    if (normalizedEntityId === 'megaman') {
+      if (megamanAction === 'damage' && spriteSources.damage) {
+        return spriteSources.damage
+      }
+      if (megamanAction === 'buster' && spriteSources.buster) {
+        return spriteSources.buster
+      }
+      if (megamanAction === 'shoot' && spriteSources.shoot) {
+        return spriteSources.shoot
+      }
+      if (megamanAction === 'sword' && spriteSources.sword) {
+        return spriteSources.sword
+      }
+      return spriteSources.idle
     }
 
     if (isAttacking && spriteSources.attack) {
@@ -52,7 +97,11 @@ function OccupantSprite({ entityId, fallbackLabel, isAttacking, isFlashing }: Oc
     }
 
     return spriteSources.idle
-  }, [isAttacking, spriteSources])
+  }, [isAttacking, megamanAction, normalizedEntityId, spriteSources])
+
+  useEffect(() => {
+    setAttemptIndex(0)
+  }, [candidates])
 
   const spriteSource = candidates[attemptIndex]
 
@@ -72,6 +121,32 @@ function OccupantSprite({ entityId, fallbackLabel, isAttacking, isFlashing }: Oc
   )
 }
 
+const resolveMegamanAction = (lastEvent: string, hitstunTicks: number, hitFlashTicks: number): MegamanSpriteAction => {
+  if (hitstunTicks > 0 || hitFlashTicks > 0) {
+    return 'damage'
+  }
+
+  if (lastEvent.includes('MegaBuster')) {
+    return 'buster'
+  }
+
+  const normalized = lastEvent
+    .replace('Buffered chip resolved: ', '')
+    .replace('Auto chip: ', '')
+
+  const swordChipPattern = /(Sword|WideSword|LongSword|StepSword)/
+  if (swordChipPattern.test(normalized)) {
+    return 'sword'
+  }
+
+  const shootChipPattern = /(Cannon|HiCannon|M-Cannon|Spreader|MiniBomb|LilBomb|Recover10|Recover30|Barrier|Z-Cannon)/
+  if (shootChipPattern.test(normalized)) {
+    return 'shoot'
+  }
+
+  return 'idle'
+}
+
 export function Board() {
   const entities = useGameStore((state) => state.entities)
   const occupiedPanels = useGameStore((state) => state.occupiedPanels)
@@ -79,6 +154,8 @@ export function Board() {
   const chipIndicatorPanels = useGameStore((state) => state.combat.chipIndicatorPanels)
   const mettaurTelegraphTicksRemaining = useGameStore((state) => state.combat.mettaurTelegraphTicksRemaining)
   const targetId = useGameStore((state) => state.combat.targetId)
+  const lastEvent = useGameStore((state) => state.combat.lastEvent)
+  const megamanHitstunTicks = useGameStore((state) => state.combat.megamanHitstunTicks)
 
   return (
     <section className="board" aria-label="Battlefield grid">
@@ -98,9 +175,15 @@ export function Board() {
               <div className="occupant" aria-label={occupant.name}>
                 <OccupantSprite
                   entityId={occupant.id}
-                  fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : 'Mettaur'}
+                  actorName={occupant.name}
+                  fallbackLabel={occupant.id === 'megaman' ? 'MegaMan' : occupant.name}
                   isAttacking={occupant.id === targetId && mettaurTelegraphTicksRemaining > 0}
                   isFlashing={occupant.hitFlashTicks > 0}
+                  megamanAction={
+                    occupant.id === 'megaman'
+                      ? resolveMegamanAction(lastEvent, megamanHitstunTicks, occupant.hitFlashTicks)
+                      : 'idle'
+                  }
                 />
                 {occupant.id !== 'megaman' ? <span className="occupant-hp">{occupant.hp}</span> : null}
               </div>
