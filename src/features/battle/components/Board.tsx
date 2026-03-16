@@ -54,6 +54,26 @@ const SPRITES_BY_ENTITY: Record<string, SpriteSources> = {
   fireman: {
     idle: ['sprites/fireman/FireMan-idle.png'],
     attack: ['sprites/fireman/FireMan-attack1.png']
+  },
+  swordy: {
+    idle: [
+      'sprites/swordy/Swordy-idle.png',
+      'sprites/swordy/swordy-idle.png'
+    ],
+    attack: [
+      'sprites/swordy/Swordy-attack.png',
+      'sprites/swordy/swordy-attack.png'
+    ]
+  },
+  fishy: {
+    idle: [
+      'sprites/fishy/Fishy-idle.png',
+      'sprites/fishy/fishy-idle.png'
+    ],
+    attack: [
+      'sprites/fishy/Fishy-attack.png',
+      'sprites/fishy/fishy-attack.png'
+    ]
   }
 }
 
@@ -71,7 +91,11 @@ function OccupantSprite({ entityId, actorName, fallbackLabel, isAttacking, isFla
   const [attemptIndex, setAttemptIndex] = useState(0)
 
   const normalizedActor = actorName.trim().toLowerCase()
-  const normalizedEntityId = normalizedActor === 'fireman' ? 'fireman' : entityId.startsWith('mettaur') ? 'mettaur' : entityId
+  const normalizedEntityId = SPRITES_BY_ENTITY[normalizedActor]
+    ? normalizedActor
+    : entityId.startsWith('mettaur')
+      ? 'mettaur'
+      : entityId
   const spriteSources = SPRITES_BY_ENTITY[normalizedEntityId]
   const candidates = useMemo(() => {
     if (!spriteSources) {

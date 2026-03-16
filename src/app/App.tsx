@@ -14,6 +14,7 @@ export function App() {
   const [scene, setScene] = useState<'battle' | 'folder' | 'areaMap' | 'chipTrader' | 'higsbyShop'>('battle')
   const [showBattleFolderPanel, setShowBattleFolderPanel] = useState(false)
   const [showDebugMenu, setShowDebugMenu] = useState(false)
+  const [debugVirusActor, setDebugVirusActor] = useState('mettaur')
   const ticks = useGameStore((state) => state.ticks)
   const speed = useGameStore((state) => state.speed)
   const combat = useGameStore((state) => state.combat)
@@ -29,6 +30,7 @@ export function App() {
   const debugCompleteCurrentWave = useGameStore((state) => state.debugCompleteCurrentWave)
   const debugJumpToBossWave = useGameStore((state) => state.debugJumpToBossWave)
   const debugSetZenny99999 = useGameStore((state) => state.debugSetZenny99999)
+  const debugStartWaveWithVirus = useGameStore((state) => state.debugStartWaveWithVirus)
   const movePlayer = useGameStore((state) => state.movePlayer)
   const cycleMegamanControlMode = useGameStore((state) => state.cycleMegamanControlMode)
   const useChipSlot = useGameStore((state) => state.useChipSlot)
@@ -222,6 +224,23 @@ export function App() {
                 </button>
                 <button type="button" onClick={debugSetZenny99999}>
                   Set Zenny 99999 (Debug)
+                </button>
+              </div>
+
+              <div className="debug-controls-row">
+                <label htmlFor="debug-virus-select">Spawn wave actor:</label>
+                <select
+                  id="debug-virus-select"
+                  value={debugVirusActor}
+                  onChange={(event) => setDebugVirusActor(event.currentTarget.value)}
+                >
+                  <option value="mettaur">Mettaur</option>
+                  <option value="swordy">Swordy</option>
+                  <option value="fishy">Fishy</option>
+                  <option value="fireman">FireMan</option>
+                </select>
+                <button type="button" onClick={() => debugStartWaveWithVirus(debugVirusActor)}>
+                  Start Wave with Selected Virus
                 </button>
               </div>
               <label className="sprite-scale-control" htmlFor="sprite-scale-slider">
