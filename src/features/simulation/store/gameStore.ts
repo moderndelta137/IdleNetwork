@@ -598,6 +598,36 @@ const addChipToStock = (stock: BattleChip[], chip: BattleChip): BattleChip[] => 
 
 const getPurchasableChipIds = (): ChipId[] => Object.keys(chipCatalog).filter((id) => id !== 'zcannon') as ChipId[]
 
+const getGachaWeightForChip = (chipId: ChipId): number => {
+  const mb = chipCatalog[chipId].mb
+  if (mb <= 20) return 6
+  if (mb <= 35) return 4
+  if (mb <= 50) return 2
+  return 1
+}
+
+const pickWeightedChipId = (pool: ChipId[]): ChipId => {
+  const weightedTotal = pool.reduce((sum, chipId) => sum + getGachaWeightForChip(chipId), 0)
+  if (weightedTotal <= 0) {
+    return pool[Math.floor(Math.random() * pool.length)]
+  }
+
+  let roll = Math.random() * weightedTotal
+  for (const chipId of pool) {
+    roll -= getGachaWeightForChip(chipId)
+    if (roll <= 0) {
+      return chipId
+    }
+  }
+
+  return pool[pool.length - 1]
+}
+
+const pickWeightedRareChipId = (pool: ChipId[]): ChipId => {
+  const rarePool = pool.filter((chipId) => chipCatalog[chipId].mb >= 35)
+  return pickWeightedChipId(rarePool.length > 0 ? rarePool : pool)
+}
+
 const programAdvanceRules: ProgramAdvanceRule[] = [
   {
     id: 'pa-z-cannon',
@@ -1325,7 +1355,7 @@ const buildCombatSummary = (
     virusesRemaining: runtime.virusesRemaining ?? getAliveVirusIds(entities).length,
     virusesTotal: runtime.virusesTotal ?? Math.max(1, getAliveVirusIds(entities).length),
     isInfiniteMode: runtime.isInfiniteMode ?? false,
-    unlockedAreaMaxLevel: runtime.unlockedAreaMaxLevel ?? 3,
+    unlockedAreaMaxLevel: runtime.unlockedAreaMaxLevel ?? 1,
     highlightedAreaLevel: runtime.highlightedAreaLevel ?? null,
     areaProgressByLevel: runtime.areaProgressByLevel ?? { 1: 0, 2: 0, 3: 0, 4: 0 }
   }
@@ -1947,7 +1977,7 @@ const buildInitialState = (): RuntimeState => {
     debugCompleteWaveRequested: false,
     enemyProjectiles: [],
     nextEnemyProjectileId: 1,
-    unlockedAreaMaxLevel: 3,
+    unlockedAreaMaxLevel: 1,
     highlightedAreaLevel: null,
     isInfiniteMode: false,
     infiniteWaveTemplate: 1,
@@ -2085,7 +2115,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         return {}
       }
 
-      const picked = pool[Math.floor(Math.random() * pool.length)]
+      const picked = pickWeightedChipId(pool)
       const newChip = createStockChip(picked)
       pulledChip = newChip
       return {
@@ -2107,10 +2137,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         return {}
       }
 
-      pulledChips = Array.from({ length: pulls }, () => {
-        const picked = pool[Math.floor(Math.random() * pool.length)]
-        return createStockChip(picked)
-      })
+      pulledChips = Array.from({ length: pulls }, () => createStockChip(pickWeightedChipId(pool)))
+
+      if (pulls >= 10 && !pulledChips.some((chip) => chipCatalog[chip.id].mb >= 35)) {
+        pulledChips[pulledChips.length - 1] = createStockChip(pickWeightedRareChipId(pool))
+      }
 
       return {
         totalZenny: current.totalZenny - totalCost,
@@ -2215,7 +2246,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       const areaProgress = current.areaProgressByLevel[targetLevel] ?? 0
       const entersInfinite = areaProgress >= maxWavesPerLevel
-      const startingWave = entersInfinite ? pickInfiniteWaveTemplate() : Math.max(1, areaProgress)
+      const startingWave = entersInfinite ? pickInfiniteWaveTemplate() : Math.min(maxWavesPerLevel, Math.max(1, areaProgress + 1))
       const virusesTotal = getWaveVirusCount(startingWave)
       const nextEntities = prepareWaveStartEntities(current.entities, startingWave, virusesTotal, true)
       const virusAi = resetVirusAiForWave(current.virusAi, nextEntities)
@@ -2449,7 +2480,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   movePlayer: (deltaRow, deltaCol) => {
     set((current) => {
-      if (current.megamanControlMode !== 'manual' || current.waveResult !== null || current.battleStartBannerTicks > 0 || current.megamanInvincibleTicks > 0) {
+      if (current.megamanControlMode !== 'manual' || current.waveResult !== null || current.battleStartBannerTicks > 0 || current.megamanHitstunTicks > 0) {
         return {}
       }
 
@@ -2534,7 +2565,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       }
 
-      const megamanBusy = !current.entities.megaman.alive || current.megamanHitstunTicks > 0 || current.megamanRecoveryTicks > 0
+      const megamanBusy = !current.entities.megaman.alive || current.megamanHitstunTicks > 0 || current.megamanRecoveryTicks > 0 || current.megamanInvincibleTicks > 0
 
       if (megamanBusy) {
         const bufferedSlot = sanitizeQueuedChipSlot(current.chipHand, index)
@@ -2633,7 +2664,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   manualFireBuster: () => {
     set((current) => {
-      if (current.waveResult !== null || current.battleStartBannerTicks > 0 || current.megamanControlMode !== 'manual' || current.megamanBusterCooldown > 0 || current.megamanRecoveryTicks > 0) {
+      if (current.waveResult !== null || current.battleStartBannerTicks > 0 || current.megamanControlMode !== 'manual' || current.megamanBusterCooldown > 0 || current.megamanRecoveryTicks > 0 || current.megamanInvincibleTicks > 0 || current.megamanHitstunTicks > 0) {
         return {}
       }
 
@@ -3016,9 +3047,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
           queuedChipSlot = sanitizeQueuedChipSlot(chipHand, queuedChipSlot)
 
-          const megamanBusy = !nextEntities.megaman.alive || megamanHitstunTicks > 0 || megamanRecoveryTicks > 0
+          const megamanBusy = !nextEntities.megaman.alive || megamanHitstunTicks > 0 || megamanRecoveryTicks > 0 || megamanInvincibleTicks > 0
 
-          if (combatActive && nextEntities.megaman.alive && megamanControlMode !== 'manual' && megamanAutoMoveCooldown === 0 && megamanInvincibleTicks === 0) {
+          if (combatActive && nextEntities.megaman.alive && megamanControlMode !== 'manual' && megamanAutoMoveCooldown === 0 && megamanHitstunTicks === 0) {
             const mettaurThreatState = summarizeVirusAi(nextEntities, virusAi)
             const autoMove = chooseMegamanAutoMove(nextEntities, {
               mettaurTelegraphTicksRemaining: mettaurThreatState.mettaurTelegraphTicksRemaining,

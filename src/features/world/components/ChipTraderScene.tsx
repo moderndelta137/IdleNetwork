@@ -5,7 +5,8 @@ import { useGameStore } from '../../simulation/store/gameStore'
 const chipCatalog = loadChipCatalog(100)
 const singlePullCost = 220
 const tenPullCount = 10
-const tenPullCost = singlePullCost * tenPullCount
+const tenPullCost = 2000
+const tenPullCostPerPull = Math.floor(tenPullCost / tenPullCount)
 
 type PulledChip = {
   id: ChipRuntimeId
@@ -42,7 +43,7 @@ export function ChipTraderScene() {
     <section className="trade-scene" aria-label="Chip Trader scene">
       <header className="trade-scene-header">
         <h2>Chip Trader</h2>
-        <p>Spend Zenny for random chips. Pulled chips are sent to Stock in the Folder scene.</p>
+        <p>Spend Zenny for random chips. Pulled chips are sent to Stock in the Folder scene. x10 pulls include a discounted rate and a guaranteed mid/high MB chip.</p>
       </header>
 
       <div className="trade-scene-stats" role="list" aria-label="Chip Trader stats">
@@ -67,7 +68,7 @@ export function ChipTraderScene() {
           type="button"
           disabled={!canTenPull}
           onClick={() => {
-            const pulls = rollGachaBatch(tenPullCount, singlePullCost)
+            const pulls = rollGachaBatch(tenPullCount, tenPullCostPerPull)
             setLastPulls(pulls.map((chip) => ({ id: chip.id, name: chip.name, code: chip.code, mb: chipCatalog[chip.id].mb })))
             setHoveredPullIndex(null)
           }}

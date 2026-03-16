@@ -43,7 +43,7 @@ export function AreaMapScene({ onAreaSwitched, highlightedAreaLevel = null }: Ar
         subtitle: 'Starter zone · Mettaur traffic',
         recommendedLevel: 1,
         unlocked: true,
-        status: unlockedLevel === 1 ? 'current' : 'available',
+        status: currentLevel === 1 ? 'current' : 'available',
         x: 14,
         y: 74
       },
