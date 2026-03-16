@@ -11,6 +11,12 @@ type ShopOffer = {
   cost: number
 }
 
+const getShopPriceByMb = (mb: number, slotIndex: number): number => {
+  const base = 90 + mb * 8
+  const tierMarkup = mb >= 50 ? 160 : mb >= 35 ? 95 : mb >= 20 ? 45 : 0
+  return base + tierMarkup + slotIndex * 10
+}
+
 const getShopPool = (): ChipRuntimeId[] => Object.keys(chipCatalog).filter((chipId) => chipId !== 'zcannon') as ChipRuntimeId[]
 
 const buildOffersForRotation = (rotationIndex: number): ShopOffer[] => {
@@ -20,12 +26,12 @@ const buildOffersForRotation = (rotationIndex: number): ShopOffer[] => {
   }
 
   const offers: ShopOffer[] = []
-  for (let index = 0; index < offerCount; index += 1) {
-    const poolIndex = (rotationIndex * 7 + index * 3) % pool.length
-    const chipId = pool[poolIndex]
+  const start = (rotationIndex * 5) % pool.length
+
+  for (let offset = 0; offset < pool.length && offers.length < Math.min(offerCount, pool.length); offset += 1) {
+    const chipId = pool[(start + offset) % pool.length]
     const mb = chipCatalog[chipId].mb
-    const cost = 80 + mb * 9 + index * 15
-    offers.push({ chipId, cost })
+    offers.push({ chipId, cost: getShopPriceByMb(mb, offers.length) })
   }
 
   return offers
