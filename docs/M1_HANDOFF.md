@@ -13,18 +13,24 @@ This file captures the current implementation state and recommended next work fo
   - Area Map scene with area selection + unlock highlight flow.
   - Infinite-wave mode and boss challenge from infinite.
   - FireMan enemy integration and projectile grammar/runtime support.
-  - Baseline NetDealer economy scenes: Chip Trader (x1/x10 gacha pulls) and Higsby's Shop (rotating chip offers every 6 hours).
+  - NetDealer economy scenes: Chip Trader and Higsby's Shop.
 
 ## Recently Completed Fixes
 - Boss clear transition behavior is now consistent across scenarios:
   - First-time boss clear shows the result screen before transitioning to Area Map.
   - Re-clearing an already-unlocked boss also shows the result screen before returning to Wave ∞.
   - Boss challenges launched from Wave ∞ show the result screen before resuming Wave ∞.
+- Economy tuning pass landed:
+  - Weighted gacha pulls by MB tier (common chips appear more often, higher-MB chips are rarer).
+  - 10-pull quality floor (ensures at least one mid/high-MB chip in a 10-pull result set).
+  - 10-pull pricing value pass in Chip Trader.
+  - Higsby pricing now uses explicit MB-tiered pricing.
 
 ## Immediate Priority (Next Thread)
-1. M3 polish/QA pass on progression, map UX, and economy tuning.
-2. Expand shop/gacha depth (inventory rotation, pricing tiers, rarity tables).
-3. Additional combat/content expansion after economy tuning baseline.
+1. M3 runtime QA pass on progression transitions and map UX after recent economy changes.
+2. Validate/tune weighted gacha + 10-pull guarantee using telemetry-like sample runs.
+3. Expand shop/gacha depth further (rarity presentation, inventory rotation variety, pity messaging).
+4. Additional combat/content expansion after economy + transition QA baseline is stable.
 
 ## Runtime QA Focus
 - Re-verify result-modal timing and transitions for all boss outcomes:
@@ -32,12 +38,23 @@ This file captures the current implementation state and recommended next work fo
   - repeat clear,
   - Wave ∞ boss challenge clear,
   - boss loss and retry path.
-- Re-verify active-attacker-only hitbox highlight behavior during multi-virus waves.
+- Re-verify multi-virus telegraph/highlight behavior during multi-virus waves.
 - Re-verify deterministic behavior under long-run simulation (movement contention + independent AI timers).
+- Re-verify economy loop edge-cases:
+  - low-zenny disabled states,
+  - x10 guarantee behavior,
+  - shop rotation offer variety and pricing readability.
+
+## Latest Re-Validation Snapshot
+- Re-checked M3 progression/map/economy flows after weighted-gacha tuning pass.
+- Confirmed no regression in baseline checks (`check:game-store-duplicates`, node tests, build).
+- Current recommendation remains: focus next thread on transition-path QA matrix + economy telemetry tuning.
 
 ## Known Operational Notes
 - Duplicate-helper guard script remains required before build:
   - `npm run check:game-store-duplicates`
+- Test check:
+  - `node --test tests/*.test.mjs`
 - Build check:
   - `npm run build`
 - Local font file note:
@@ -48,9 +65,9 @@ This file captures the current implementation state and recommended next work fo
 - `src/features/simulation/store/gameStore.ts`
 - `src/app/App.tsx`
 - `src/features/world/components/AreaMapScene.tsx`
+- `src/features/world/components/ChipTraderScene.tsx`
+- `src/features/world/components/HigsbyShopScene.tsx`
 - `src/shared/styles/global.css`
-- `src/features/enemies/data/enemy-attacks.csv`
-- `src/features/shared/effectGrammar.ts`
 
 ## Read Order for New Thread
 1. `docs/M1_HANDOFF.md`
