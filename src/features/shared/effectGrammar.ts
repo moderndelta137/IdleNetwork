@@ -75,6 +75,25 @@ const validateProjectileEffect = (effect: string): boolean => {
 
   return rowParts.every((row) => integerPattern.test(row))
 }
+
+const validateDashEffect = (effect: string): boolean => {
+  if (!effect.startsWith('dash:maxRange=')) {
+    return false
+  }
+
+  const maxRangeMatch = effect.match(/maxRange=(\d+)/)
+  const speedMatch = effect.match(/speed=(\d+)/)
+  const passesMatch = effect.match(/passes=(\d+)/)
+  if (!maxRangeMatch || !speedMatch || !passesMatch) {
+    return false
+  }
+
+  const maxRange = Number.parseInt(maxRangeMatch[1], 10)
+  const speed = Number.parseInt(speedMatch[1], 10)
+  const passes = Number.parseInt(passesMatch[1], 10)
+
+  return Number.isFinite(maxRange) && maxRange > 0 && Number.isFinite(speed) && speed > 0 && Number.isFinite(passes) && passes > 0
+}
 export const validateEffectsGrammar = (effects: string): string | null => {
   const trimmed = effects.trim()
   if (trimmed.length === 0) {
@@ -124,6 +143,13 @@ export const validateEffectsGrammar = (effects: string): string | null => {
     if (effect.startsWith('projectile:rows=')) {
       if (!validateProjectileEffect(effect)) {
         return `Invalid projectile effect: ${effect}`
+      }
+      continue
+    }
+
+    if (effect.startsWith('dash:maxRange=')) {
+      if (!validateDashEffect(effect)) {
+        return `Invalid dash effect: ${effect}`
       }
       continue
     }
