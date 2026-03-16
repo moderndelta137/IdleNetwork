@@ -48,6 +48,8 @@ This file captures the current implementation state and recommended next work fo
 ## Latest Re-Validation Snapshot
 - Re-checked M3 progression/map/economy flows after weighted-gacha tuning pass.
 - Confirmed no regression in baseline checks (`check:game-store-duplicates`, node tests, build).
+- Re-ran required checks in this thread (`check:game-store-duplicates`, `node --test tests/*.test.mjs`, `npm run build`) with pass status.
+- Attempted browser-driven runtime QA for transition/economy matrix, but browser container Playwright crashed during Chromium launch (`TargetClosedError` with SIGSEGV), so runtime matrix remains the immediate next manual QA priority in a browser-capable environment.
 - Current recommendation remains: focus next thread on transition-path QA matrix + economy telemetry tuning.
 
 ## Known Operational Notes
