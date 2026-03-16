@@ -56,7 +56,7 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 - Wave result cadence is implemented: post-wave result summary (DeleteTime, Busting Lv, reward roll) and pre-wave `BATTLE START` banner gating.
 - Multi-virus wave scaling baseline is implemented with simultaneous board presence (capped at 6 viruses in a wave) and increasing per-wave pressure.
 - Virus behavior baseline supports independent per-virus AI timing (movement, telegraph, attack cooldown, recovery) instead of a single shared enemy timer.
-- Active telegraph/hitbox visualization follows the active attacker target rule for board readability.
+- Active telegraph/hitbox visualization supports concurrent enemy telegraphs/projectiles for multi-virus readability.
 - Wave-10 boss retry baseline is implemented: boss loss returns player to wave 9 and allows immediate retry into wave 10.
 
 ### Runtime Behavior
@@ -66,8 +66,8 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 
 ## 7. Meta Systems (V1)
 - Folder building with lighter MB/cost constraints
-- Rotating chip shop
-- Light-impact gacha
+- Rotating chip shop (MB-tiered pricing baseline)
+- Light-impact gacha (weighted outcomes baseline with x10 quality floor)
 - Single save slot
 
 ## 8. Content Targets (V1)
