@@ -119,12 +119,12 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 - M1 Combat Vertical Slice is complete (Tasks 1-5).
 - M2 Chips + Rules is complete.
 - M2 currently includes: always-on custom gauge/hand flow, deck/discard refill behavior, buffered chip use, aggressive auto-chip behavior (`fullAuto`), MegaMan control modes (`manual`, `semiAuto`, `fullAuto`), baseline movement AI, sprite board rendering with hit-flash/HP overlays, runtime debug controls (pause/step/scale), recovery windows, and CSV-driven chip/enemy attack catalogs with grammar-aware melee/hitscan/throw/step execution, plus explicit chip MB metadata and deck MB legality enforcement.
-- M2 scope is complete; M3 is in progress with baseline 10-wave level FSM, wave-clear Result popup, BATTLE START pre-wave banner, wave-scaled virus count/power (cap: 6 per wave), and wave-10 boss retry flow (boss loss returns to wave 9 with retry).
+- M2 scope is complete; M3 now includes baseline progression+economy loops: 10-wave level FSM, wave-clear Result popup, BATTLE START pre-wave banner, area map selection/unlocks, infinite-wave routing, wave-10 boss retry flow (boss loss returns to wave 9), and first-pass NetDealer systems (Chip Trader + Higsby shop).
 - Debug runtime now includes wave progression helpers (`Complete Wave`, `Jump to Wave 10`, and wave-9 `Retry Boss`) for rapid FSM verification.
 - Detailed active handoff and task status are maintained in `docs/M1_HANDOFF.md`.
 - New thread onboarding/read order is also maintained in `docs/M1_HANDOFF.md` under "New Thread Read Order (Carry-Over Pack)".
 - GDD remains design-intent level; runtime implementation specifics and active next-thread actions are tracked in `docs/M1_HANDOFF.md`.
-- Next product-owner-directed implementation focus: FireMan boss integration using newly uploaded sprite assets from latest `main`.
+- Next product-owner-directed implementation focus: runtime QA matrix for progression transitions + economy edge-cases, then deeper shop/gacha presentation tuning.
 
 ---
 
