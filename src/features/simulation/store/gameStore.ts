@@ -76,6 +76,7 @@ type VirusAiState = {
   moveCooldown: number
   activeAttackId: string | null
   sameRowTicks: number
+  verticalDirection: -1 | 1
 }
 
 type VirusAiById = Record<VirusEntityId, VirusAiState>
@@ -534,7 +535,8 @@ const createVirusAiState = (virus: EntityState, index: number): VirusAiState => 
     recoveryTicks: 0,
     moveCooldown: Math.max(0, cadence.moveCooldown - phaseOffset),
     activeAttackId: null,
-    sameRowTicks: 0
+    sameRowTicks: 0,
+    verticalDirection: index % 2 === 0 ? -1 : 1
   }
 }
 
@@ -559,7 +561,8 @@ const resetVirusAiForWave = (virusAi: VirusAiById, entities: Record<EntityId, En
           recoveryTicks: 0,
           moveCooldown: 0,
           activeAttackId: null,
-          sameRowTicks: 0
+          sameRowTicks: 0,
+          verticalDirection: virusAi[virusId]?.verticalDirection ?? (index % 2 === 0 ? -1 : 1)
         }
   })
   return next
@@ -1783,10 +1786,6 @@ const advanceEnemyDashes = (
       }
 
       const nextCol = current.position.col - 1
-      if (nextCol < 0) {
-        completedPass = true
-        break
-      }
 
       current = {
         ...current,
@@ -3357,7 +3356,8 @@ export const useGameStore = create<GameState>((set, get) => ({
               recoveryTicks: Math.max(0, ai.recoveryTicks - 1),
               moveCooldown: Math.max(0, ai.moveCooldown - 1),
               activeAttackId: ai.activeAttackId,
-              sameRowTicks: ai.sameRowTicks
+              sameRowTicks: ai.sameRowTicks,
+              verticalDirection: ai.verticalDirection
             }
           })
           const battlePaused = waveResult !== null || battleStartBannerTicks > 0
@@ -3467,17 +3467,38 @@ export const useGameStore = create<GameState>((set, get) => ({
                 return
               }
 
-              const autoMove = chooseVirusAutoMove(nextEntities, virusId, {
-                megamanBusterCooldown,
-                telegraphTicksRemaining: ai.telegraphTicksRemaining
-              })
+              const actorKey = getVirusActorKey(virus)
+              let autoMove = virus.position
+
+              if (actorKey === 'fishy') {
+                if (virus.position.row === nextEntities.megaman.position.row) {
+                  autoMove = virus.position
+                } else {
+                  const nextRow = virus.position.row + ai.verticalDirection
+                  if (nextRow < 0 || nextRow >= boardRowCount) {
+                    virusAi[virusId] = {
+                      ...virusAi[virusId],
+                      verticalDirection: (ai.verticalDirection * -1) as -1 | 1
+                    }
+                    autoMove = virus.position
+                  } else {
+                    autoMove = { row: nextRow, col: virus.position.col }
+                  }
+                }
+              } else {
+                autoMove = chooseVirusAutoMove(nextEntities, virusId, {
+                  megamanBusterCooldown,
+                  telegraphTicksRemaining: ai.telegraphTicksRemaining
+                })
+              }
+
               const movedEntities = moveEntityIfPossible(nextEntities, virusId, autoMove)
               if (movedEntities !== nextEntities) {
                 nextEntities = movedEntities
                 lastEvent = `${virus.name} repositioned`
                 virusAi[virusId] = {
                   ...virusAi[virusId],
-                  moveCooldown: mettaurMoveCadenceTicks
+                  moveCooldown: getVirusCadenceTicks(virus).moveCooldown
                 }
               }
             })
@@ -3692,7 +3713,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                   telegraphTicksRemaining: 0,
                   recoveryTicks: 0,
                   activeAttackId: null,
-                  sameRowTicks: 0
+                  sameRowTicks: 0,
+                  verticalDirection: ai.verticalDirection
                 }
                 return
               }
@@ -3745,7 +3767,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                     ...virusAi[virusId],
                     recoveryTicks: getVirusCadenceTicks(virus).recoveryTicks,
                     activeAttackId: null,
-                    sameRowTicks: 0
+                    sameRowTicks: 0,
+                    verticalDirection: virusAi[virusId].verticalDirection
                   }
                 }
                 return
@@ -3762,7 +3785,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 if (actorKey === 'fishy' && sameRowTicks < 10) {
                   virusAi[virusId] = {
                     ...ai,
-                    sameRowTicks
+                    sameRowTicks,
+                    verticalDirection: ai.verticalDirection
                   }
                   return
                 }
@@ -3773,7 +3797,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                   activeAttackId: selectedAttack.id,
                   telegraphTicksRemaining: selectedAttack.lagTicks,
                   attackCooldown: getVirusCadenceTicks(virus).attackCooldown,
-                  sameRowTicks
+                  sameRowTicks,
+                  verticalDirection: ai.verticalDirection
                 }
                 lastEvent = `${virus.name} telegraph (${selectedAttack.lagTicks} ticks)`
               }
