@@ -58,21 +58,25 @@ const SPRITES_BY_ENTITY: Record<string, SpriteSources> = {
   swordy: {
     idle: [
       'sprites/swordy/Swordy-idle.png',
-      'sprites/swordy/swordy-idle.png'
+      'sprites/swordy/swordy-idle.png',
+      'sprites/swordy/swordy-placeholder.svg'
     ],
     attack: [
       'sprites/swordy/Swordy-attack.png',
-      'sprites/swordy/swordy-attack.png'
+      'sprites/swordy/swordy-attack.png',
+      'sprites/swordy/swordy-placeholder.svg'
     ]
   },
   fishy: {
     idle: [
       'sprites/fishy/Fishy-idle.png',
-      'sprites/fishy/fishy-idle.png'
+      'sprites/fishy/fishy-idle.png',
+      'sprites/fishy/fishy-placeholder.svg'
     ],
     attack: [
       'sprites/fishy/Fishy-attack.png',
-      'sprites/fishy/fishy-attack.png'
+      'sprites/fishy/fishy-attack.png',
+      'sprites/fishy/fishy-placeholder.svg'
     ]
   }
 }

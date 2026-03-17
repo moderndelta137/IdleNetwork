@@ -114,7 +114,6 @@ type EnemyDash = {
   maxRange: number
   remainingRange: number
   passesRemaining: number
-  pendingRetarget: boolean
   damage: number
 }
 
@@ -1629,7 +1628,6 @@ const spawnEnemyDashes = (
       maxRange: dash.maxRange,
       remainingRange: dash.maxRange,
       passesRemaining: dash.passes,
-      pendingRetarget: true,
       damage: attack.damage
     })
     currentId += 1
@@ -1768,14 +1766,6 @@ const advanceEnemyDashes = (
     }
 
     let current = { ...dash }
-    if (current.pendingRetarget) {
-      current = {
-        ...current,
-        pendingRetarget: false,
-        row: nextEntities.megaman.position.row,
-        position: { row: nextEntities.megaman.position.row, col: current.origin.col }
-      }
-    }
     let interrupted = false
     let completedPass = false
 
@@ -1791,6 +1781,14 @@ const advanceEnemyDashes = (
         ...current,
         position: { row: current.row, col: nextCol },
         remainingRange: current.remainingRange - 1
+      }
+
+      nextEntities = {
+        ...nextEntities,
+        [current.ownerId]: {
+          ...nextEntities[current.ownerId],
+          position: { ...current.position }
+        }
       }
 
       const blockingVirusId = getAliveVirusIds(nextEntities).find((virusId) => {
@@ -1850,7 +1848,8 @@ const advanceEnemyDashes = (
         ...current,
         passesRemaining: current.passesRemaining - 1,
         remainingRange: current.maxRange,
-        pendingRetarget: true
+        row: current.row,
+        position: { row: current.row, col: current.origin.col }
       })
       lastEvent = `${nextEntities[current.ownerId].name} lined up another dash`
     } else {
