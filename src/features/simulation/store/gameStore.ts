@@ -75,6 +75,8 @@ type VirusAiState = {
   recoveryTicks: number
   moveCooldown: number
   activeAttackId: string | null
+  sameRowTicks: number
+  verticalDirection: -1 | 1
 }
 
 type VirusAiById = Record<VirusEntityId, VirusAiState>
@@ -85,6 +87,12 @@ type ProjectileEffectDefinition = {
   speed: number
 }
 
+type DashEffectDefinition = {
+  maxRange: number
+  speed: number
+  passes: number
+}
+
 type EnemyProjectile = {
   id: number
   ownerId: VirusEntityId
@@ -93,6 +101,19 @@ type EnemyProjectile = {
   directionCol: number
   speed: number
   remainingRange: number
+  damage: number
+}
+
+type EnemyDash = {
+  id: number
+  ownerId: VirusEntityId
+  origin: PanelPosition
+  position: PanelPosition
+  row: number
+  speed: number
+  maxRange: number
+  remainingRange: number
+  passesRemaining: number
   damage: number
 }
 
@@ -125,6 +146,7 @@ type CombatSummary = {
   virusesRemaining: number
   virusesTotal: number
   enemyProjectiles?: EnemyProjectile[]
+  enemyDashes?: EnemyDash[]
   isInfiniteMode?: boolean
   unlockedAreaMaxLevel?: number
   highlightedAreaLevel?: number | null
@@ -180,8 +202,10 @@ type GameState = {
   megamanAutoMoveCooldown: number
   mettaurMoveCooldown: number
   enemyProjectiles: EnemyProjectile[]
+  enemyDashes: EnemyDash[]
   debugCompleteWaveRequested: boolean
   nextEnemyProjectileId: number
+  nextEnemyDashId: number
   unlockedAreaMaxLevel: number
   highlightedAreaLevel: number | null
   isInfiniteMode: boolean
@@ -202,6 +226,7 @@ type GameState = {
   debugCompleteCurrentWave: () => void
   debugJumpToBossWave: () => void
   debugSetZenny99999: () => void
+  debugStartWaveWithVirus: (actor: string) => void
   selectAreaLevel: (level: number) => void
   challengeBossFromInfinite: () => void
   clearHighlightedAreaLevel: () => void
@@ -385,6 +410,20 @@ const mergeCombatEntities = (
   return next
 }
 
+const getWaveVirusActor = (wave: number, spawnIndex: number): string => {
+  const clampedWave = Math.max(1, Math.min(maxWavesPerLevel, wave))
+  if (clampedWave <= 3) {
+    return 'Mettaur'
+  }
+
+  if (clampedWave <= 6) {
+    return spawnIndex % 2 === 0 ? 'Swordy' : 'Mettaur'
+  }
+
+  const rotation: Array<'Mettaur' | 'Swordy' | 'Fishy'> = ['Fishy', 'Swordy', 'Mettaur']
+  return rotation[(spawnIndex - 1) % rotation.length]
+}
+
 const setupWaveViruses = (
   entities: Record<EntityId, EntityState>,
   wave: number,
@@ -396,7 +435,7 @@ const setupWaveViruses = (
     if (index < virusesTotal) {
       const hp = getWaveVirusSpawnHp(wave, index + 1)
       const position = bossWave && index === 0 ? { row: 1, col: 4 } : virusSpawnPositions[index]
-      const name = bossWave && index === 0 ? 'FireMan' : 'Mettaur'
+      const name = bossWave && index === 0 ? 'FireMan' : getWaveVirusActor(wave, index + 1)
       next[id] = {
         ...next[id],
         id,
@@ -464,6 +503,18 @@ const getVirusCadenceTicks = (virus: EntityState): VirusCadenceProfile => {
         moveCooldown: 8,
         recoveryTicks: 8
       }
+    case 'swordy':
+      return {
+        attackCooldown: 12,
+        moveCooldown: 5,
+        recoveryTicks: 7
+      }
+    case 'fishy':
+      return {
+        attackCooldown: 10,
+        moveCooldown: 4,
+        recoveryTicks: 6
+      }
     case 'mettaur':
     default:
       return {
@@ -482,7 +533,9 @@ const createVirusAiState = (virus: EntityState, index: number): VirusAiState => 
     telegraphTicksRemaining: 0,
     recoveryTicks: 0,
     moveCooldown: Math.max(0, cadence.moveCooldown - phaseOffset),
-    activeAttackId: null
+    activeAttackId: null,
+    sameRowTicks: 0,
+    verticalDirection: index % 2 === 0 ? -1 : 1
   }
 }
 
@@ -506,7 +559,9 @@ const resetVirusAiForWave = (virusAi: VirusAiById, entities: Record<EntityId, En
           telegraphTicksRemaining: 0,
           recoveryTicks: 0,
           moveCooldown: 0,
-          activeAttackId: null
+          activeAttackId: null,
+          sameRowTicks: 0,
+          verticalDirection: virusAi[virusId]?.verticalDirection ?? (index % 2 === 0 ? -1 : 1)
         }
   })
   return next
@@ -738,6 +793,26 @@ const parseProjectileEffect = (effect: string): ProjectileEffectDefinition | nul
   return { rows, maxRange, speed }
 }
 
+
+const parseDashEffect = (effect: string): DashEffectDefinition | null => {
+  if (!effect.startsWith('dash:maxRange=')) {
+    return null
+  }
+
+  const maxRange = parseEffectNumber(effect, 'maxRange=')
+  const speed = parseEffectNumber(effect, 'speed=')
+  const passes = parseEffectNumber(effect, 'passes=')
+  if (maxRange === null || maxRange <= 0 || speed === null || speed <= 0 || passes === null || passes <= 0) {
+    return null
+  }
+
+  return {
+    maxRange,
+    speed,
+    passes
+  }
+}
+
 const clampPanelPosition = (position: PanelPosition): PanelPosition => ({
   row: Math.max(0, Math.min(boardRowCount - 1, position.row)),
   col: Math.max(0, Math.min(boardColCount - 1, position.col))
@@ -838,6 +913,17 @@ const collectEnemyAttackPanels = (source: EntityState, effects: string): string[
           panels.add(makePanelKey({ row, col }))
         }
       })
+      return
+    }
+
+    if (effect.startsWith('dash:maxRange=')) {
+      const dash = parseDashEffect(effect)
+      if (!dash) return
+      for (let step = 1; step <= dash.maxRange; step += 1) {
+        const col = source.position.col - step
+        if (col < 0 || col >= boardColCount) break
+        panels.add(makePanelKey({ row: source.position.row, col }))
+      }
     }
   })
 
@@ -1269,7 +1355,8 @@ const buildOccupiedPanels = (entities: Record<EntityId, EntityState>): OccupiedP
 const buildActiveVirusHitboxPanels = (
   entities: Record<EntityId, EntityState>,
   virusAi: VirusAiById,
-  enemyProjectiles: EnemyProjectile[]
+  enemyProjectiles: EnemyProjectile[],
+  enemyDashes: EnemyDash[]
 ): string[] => {
   const tiles = new Set<string>()
 
@@ -1285,6 +1372,12 @@ const buildActiveVirusHitboxPanels = (
   enemyProjectiles.forEach((projectile) => {
     if (projectile.position.row >= 0 && projectile.position.row < boardRowCount && projectile.position.col >= 0 && projectile.position.col < boardColCount) {
       tiles.add(makePanelKey(projectile.position))
+    }
+  })
+
+  enemyDashes.forEach((dash) => {
+    if (dash.position.row >= 0 && dash.position.row < boardRowCount && dash.position.col >= 0 && dash.position.col < boardColCount) {
+      tiles.add(makePanelKey(dash.position))
     }
   })
 
@@ -1312,6 +1405,7 @@ type CombatSummaryRuntime = {
   virusesRemaining?: number
   virusesTotal?: number
   enemyProjectiles?: EnemyProjectile[]
+  enemyDashes?: EnemyDash[]
   isInfiniteMode?: boolean
   unlockedAreaMaxLevel?: number
   highlightedAreaLevel?: number | null
@@ -1343,7 +1437,7 @@ const buildCombatSummary = (
     megamanControlMode: runtime.megamanControlMode,
     programAdvanceAnimation: runtime.programAdvanceAnimation,
     lastEvent,
-    activeHitboxPanels: buildActiveVirusHitboxPanels(entities, runtime.virusAi, runtime.enemyProjectiles ?? []),
+    activeHitboxPanels: buildActiveVirusHitboxPanels(entities, runtime.virusAi, runtime.enemyProjectiles ?? [], runtime.enemyDashes ?? []),
     chipIndicatorPanels: runtime.chipIndicatorPanels,
     currentLevel: runtime.currentLevel,
     currentWave: runtime.currentWave,
@@ -1508,6 +1602,43 @@ const spawnEnemyProjectiles = (
   return { projectiles: spawned, nextProjectileId: nextId }
 }
 
+
+const spawnEnemyDashes = (
+  sourceId: VirusEntityId,
+  source: EntityState,
+  attack: { effects: string; damage: number },
+  nextDashId: number
+): { dashes: EnemyDash[]; nextDashId: number } => {
+  const spawned: EnemyDash[] = []
+  let currentId = nextDashId
+
+  splitEffectChain(attack.effects).forEach((effect) => {
+    const dash = parseDashEffect(effect)
+    if (!dash) {
+      return
+    }
+
+    spawned.push({
+      id: currentId,
+      ownerId: sourceId,
+      origin: { ...source.position },
+      position: { ...source.position },
+      row: source.position.row,
+      speed: dash.speed,
+      maxRange: dash.maxRange,
+      remainingRange: dash.maxRange,
+      passesRemaining: dash.passes,
+      damage: attack.damage
+    })
+    currentId += 1
+  })
+
+  return {
+    dashes: spawned,
+    nextDashId: currentId
+  }
+}
+
 const advanceEnemyProjectiles = (
   enemyProjectiles: EnemyProjectile[],
   entities: Record<EntityId, EntityState>,
@@ -1575,6 +1706,166 @@ const advanceEnemyProjectiles = (
 
   return {
     enemyProjectiles: nextProjectiles,
+    entities: nextEntities,
+    barrierCharges: nextBarrier,
+    megamanHitstunApplied,
+    lastEvent
+  }
+}
+
+
+const pickNearestEnemyAreaTile = (
+  entities: Record<EntityId, EntityState>,
+  origin: PanelPosition,
+  ownerId: VirusEntityId
+): PanelPosition => {
+  const candidates: PanelPosition[] = []
+  for (let row = 0; row < boardRowCount; row += 1) {
+    for (let col = 3; col < boardColCount; col += 1) {
+      candidates.push({ row, col })
+    }
+  }
+
+  candidates.sort((a, b) => {
+    const da = Math.abs(a.row - origin.row) + Math.abs(a.col - origin.col)
+    const db = Math.abs(b.row - origin.row) + Math.abs(b.col - origin.col)
+    return da - db
+  })
+
+  const occupied = buildOccupiedPanels(entities)
+  const found = candidates.find((tile) => {
+    const occupiedBy = occupied[makePanelKey(tile)]
+    return !occupiedBy || occupiedBy === ownerId
+  })
+
+  return found ?? origin
+}
+
+const advanceEnemyDashes = (
+  enemyDashes: EnemyDash[],
+  entities: Record<EntityId, EntityState>,
+  barrierCharges: number,
+  megamanInvincibleTicks: number
+): {
+  enemyDashes: EnemyDash[]
+  entities: Record<EntityId, EntityState>
+  barrierCharges: number
+  megamanHitstunApplied: boolean
+  lastEvent: string | null
+} => {
+  const nextDashes: EnemyDash[] = []
+  let nextEntities = entities
+  let nextBarrier = barrierCharges
+  let megamanHitstunApplied = false
+  let lastEvent: string | null = null
+
+  enemyDashes.forEach((dash) => {
+    const owner = nextEntities[dash.ownerId]
+    if (!owner || !owner.alive) {
+      return
+    }
+
+    let current = { ...dash }
+    let interrupted = false
+    let completedPass = false
+
+    for (let step = 0; step < current.speed; step += 1) {
+      if (current.remainingRange <= 0) {
+        completedPass = true
+        break
+      }
+
+      const nextCol = current.position.col - 1
+
+      current = {
+        ...current,
+        position: { row: current.row, col: nextCol },
+        remainingRange: current.remainingRange - 1
+      }
+
+      nextEntities = {
+        ...nextEntities,
+        [current.ownerId]: {
+          ...nextEntities[current.ownerId],
+          position: { ...current.position }
+        }
+      }
+
+      const blockingVirusId = getAliveVirusIds(nextEntities).find((virusId) => {
+        if (virusId === current.ownerId) {
+          return false
+        }
+        const virus = nextEntities[virusId]
+        return virus.position.row === current.position.row && virus.position.col === current.position.col
+      })
+
+      if (blockingVirusId) {
+        interrupted = true
+        const returnTile = pickNearestEnemyAreaTile(nextEntities, current.origin, current.ownerId)
+        nextEntities = {
+          ...nextEntities,
+          [current.ownerId]: {
+            ...nextEntities[current.ownerId],
+            position: returnTile
+          }
+        }
+        lastEvent = `${nextEntities[current.ownerId].name} dash interrupted by ${nextEntities[blockingVirusId].name}`
+        break
+      }
+
+      if (current.position.row === nextEntities.megaman.position.row && current.position.col === nextEntities.megaman.position.col) {
+        if (nextBarrier > 0) {
+          nextBarrier -= 1
+          lastEvent = `${nextEntities[current.ownerId].name} dash blocked by barrier`
+        } else if (megamanInvincibleTicks > 0) {
+          lastEvent = `${nextEntities[current.ownerId].name} dash missed (invincible)`
+        } else {
+          const result = applyDamage(nextEntities[current.ownerId], nextEntities.megaman, current.damage)
+          nextEntities = {
+            ...nextEntities,
+            [current.ownerId]: result.source,
+            megaman: result.target
+          }
+          if (result.didHit) {
+            megamanHitstunApplied = true
+            lastEvent = `${nextEntities[current.ownerId].name} dash hit for ${current.damage}`
+          }
+        }
+      }
+    }
+
+    if (interrupted) {
+      return
+    }
+
+    if (!completedPass && current.remainingRange > 0) {
+      nextDashes.push(current)
+      return
+    }
+
+    if (current.passesRemaining > 1) {
+      nextDashes.push({
+        ...current,
+        passesRemaining: current.passesRemaining - 1,
+        remainingRange: current.maxRange,
+        row: current.row,
+        position: { row: current.row, col: current.origin.col }
+      })
+      lastEvent = `${nextEntities[current.ownerId].name} lined up another dash`
+    } else {
+      const returnTile = pickNearestEnemyAreaTile(nextEntities, current.origin, current.ownerId)
+      nextEntities = {
+        ...nextEntities,
+        [current.ownerId]: {
+          ...nextEntities[current.ownerId],
+          position: returnTile
+        }
+      }
+    }
+  })
+
+  return {
+    enemyDashes: nextDashes,
     entities: nextEntities,
     barrierCharges: nextBarrier,
     megamanHitstunApplied,
@@ -1913,7 +2204,9 @@ type RuntimeState = Pick<
   | 'chipIndicatorTicksRemaining'
   | 'debugCompleteWaveRequested'
   | 'enemyProjectiles'
+  | 'enemyDashes'
   | 'nextEnemyProjectileId'
+  | 'nextEnemyDashId'
   | 'unlockedAreaMaxLevel'
   | 'highlightedAreaLevel'
   | 'isInfiniteMode'
@@ -1976,7 +2269,9 @@ const buildInitialState = (): RuntimeState => {
     chipIndicatorTicksRemaining: 0,
     debugCompleteWaveRequested: false,
     enemyProjectiles: [],
+    enemyDashes: [],
     nextEnemyProjectileId: 1,
+    nextEnemyDashId: 1,
     unlockedAreaMaxLevel: 1,
     highlightedAreaLevel: null,
     isInfiniteMode: false,
@@ -2234,6 +2529,100 @@ export const useGameStore = create<GameState>((set, get) => ({
         debugCompleteWaveRequested: false,
         ...summarizeVirusAi(nextEntities, virusAi),
         combat: buildCombatSummary(nextEntities, runtime, 'Debug: jumped to boss wave')
+      }
+    })
+  },
+
+  debugStartWaveWithVirus: (actor) => {
+    set((current) => {
+      const normalized = actor.trim().toLowerCase()
+      const allowed = new Set(['mettaur', 'swordy', 'fishy', 'fireman'])
+      if (!allowed.has(normalized)) {
+        return {}
+      }
+
+      const label = normalized === 'fireman' ? 'FireMan' : normalized.charAt(0).toUpperCase() + normalized.slice(1)
+      const nextEntities = { ...current.entities }
+      virusEntityIds.forEach((id, index) => {
+        if (index === 0) {
+          const hp = getWaveEnemyMaxHp(current.currentWave)
+          nextEntities[id] = {
+            ...nextEntities[id],
+            id,
+            name: label,
+            alive: true,
+            hp,
+            maxHp: hp,
+            position: { row: 1, col: 4 },
+            hitFlashTicks: 0
+          }
+        } else {
+          nextEntities[id] = {
+            ...nextEntities[id],
+            alive: false,
+            hp: 0,
+            name: 'Mettaur',
+            hitFlashTicks: 0
+          }
+        }
+      })
+
+      const virusAi = resetVirusAiForWave(current.virusAi, nextEntities)
+      const waveStatus: WaveStatus = 'inProgress'
+      const battleStartBannerTicks = battleStartBannerDurationTicks
+      const queuedChipSlot = sanitizeQueuedChipSlot(current.chipHand, current.queuedChipSlot)
+      const runtime = {
+        virusAi,
+        customGaugeTicks: current.customGaugeTicks,
+        customGaugeMaxTicks: current.customGaugeMaxTicks,
+        chipHand: current.chipHand,
+        barrierCharges: 0,
+        megamanHitstunTicks: 0,
+        queuedChipSlot,
+        megamanControlMode: current.megamanControlMode,
+        programAdvanceAnimation: current.programAdvanceAnimation,
+        chipIndicatorPanels: [],
+        currentLevel: current.currentLevel,
+        currentWave: current.currentWave,
+        waveStatus,
+        waveResult: null,
+        battleStartBannerTicks,
+        totalZenny: current.totalZenny,
+        virusesRemaining: 1,
+        virusesTotal: 1,
+        enemyProjectiles: [],
+        enemyDashes: [],
+        isInfiniteMode: current.isInfiniteMode,
+        unlockedAreaMaxLevel: current.unlockedAreaMaxLevel,
+        highlightedAreaLevel: current.highlightedAreaLevel,
+        areaProgressByLevel: current.areaProgressByLevel
+      }
+
+      return {
+        entities: nextEntities,
+        occupiedPanels: buildOccupiedPanels(nextEntities),
+        virusAi,
+        waveStatus,
+        waveTransitionTick: null,
+        waveStartedAtTick: current.ticks,
+        waveResult: null,
+        battleStartBannerTicks,
+        virusesRemaining: 1,
+        virusesTotal: 1,
+        barrierCharges: 0,
+        megamanHitstunTicks: 0,
+        megamanInvincibleTicks: 0,
+        megamanRecoveryTicks: 0,
+        pendingStepReturnPosition: null,
+        pendingStepReturnTicks: 0,
+        chipIndicatorPanels: [],
+        chipIndicatorTicksRemaining: 0,
+        queuedChipSlot,
+        debugCompleteWaveRequested: false,
+        enemyProjectiles: [],
+        enemyDashes: [],
+        ...summarizeVirusAi(nextEntities, virusAi),
+        combat: buildCombatSummary(nextEntities, runtime, `Debug: started wave with ${label}`)
       }
     })
   },
@@ -2948,7 +3337,9 @@ export const useGameStore = create<GameState>((set, get) => ({
           let virusesTotal = current.virusesTotal
           let debugCompleteWaveRequested = current.debugCompleteWaveRequested
           let enemyProjectiles = current.enemyProjectiles
+          let enemyDashes = current.enemyDashes
           let nextEnemyProjectileId = current.nextEnemyProjectileId
+          let nextEnemyDashId = current.nextEnemyDashId
           let unlockedAreaMaxLevel = current.unlockedAreaMaxLevel
           let highlightedAreaLevel = current.highlightedAreaLevel
           let isInfiniteMode = current.isInfiniteMode
@@ -2963,7 +3354,9 @@ export const useGameStore = create<GameState>((set, get) => ({
               telegraphTicksRemaining: ai.telegraphTicksRemaining,
               recoveryTicks: Math.max(0, ai.recoveryTicks - 1),
               moveCooldown: Math.max(0, ai.moveCooldown - 1),
-              activeAttackId: ai.activeAttackId
+              activeAttackId: ai.activeAttackId,
+              sameRowTicks: ai.sameRowTicks,
+              verticalDirection: ai.verticalDirection
             }
           })
           const battlePaused = waveResult !== null || battleStartBannerTicks > 0
@@ -3017,6 +3410,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             megamanAutoMoveCooldown = current.megamanAutoMoveCooldown
             virusAi = current.virusAi
             enemyProjectiles = current.enemyProjectiles
+            enemyDashes = current.enemyDashes
           }
           const combatActive = !battlePaused && waveStatus === 'inProgress'
           let lastEvent = waveResult ? `Wave ${waveResult.wave} clear results ready` : battleStartBannerTicks > 0 ? 'BATTLE START' : recycledDeck.didRecycle ? 'Deck recycled from discard pile' : 'Idle tick'
@@ -3072,17 +3466,38 @@ export const useGameStore = create<GameState>((set, get) => ({
                 return
               }
 
-              const autoMove = chooseVirusAutoMove(nextEntities, virusId, {
-                megamanBusterCooldown,
-                telegraphTicksRemaining: ai.telegraphTicksRemaining
-              })
+              const actorKey = getVirusActorKey(virus)
+              let autoMove = virus.position
+
+              if (actorKey === 'fishy') {
+                if (virus.position.row === nextEntities.megaman.position.row) {
+                  autoMove = virus.position
+                } else {
+                  const nextRow = virus.position.row + ai.verticalDirection
+                  if (nextRow < 0 || nextRow >= boardRowCount) {
+                    virusAi[virusId] = {
+                      ...virusAi[virusId],
+                      verticalDirection: (ai.verticalDirection * -1) as -1 | 1
+                    }
+                    autoMove = virus.position
+                  } else {
+                    autoMove = { row: nextRow, col: virus.position.col }
+                  }
+                }
+              } else {
+                autoMove = chooseVirusAutoMove(nextEntities, virusId, {
+                  megamanBusterCooldown,
+                  telegraphTicksRemaining: ai.telegraphTicksRemaining
+                })
+              }
+
               const movedEntities = moveEntityIfPossible(nextEntities, virusId, autoMove)
               if (movedEntities !== nextEntities) {
                 nextEntities = movedEntities
                 lastEvent = `${virus.name} repositioned`
                 virusAi[virusId] = {
                   ...virusAi[virusId],
-                  moveCooldown: mettaurMoveCadenceTicks
+                  moveCooldown: getVirusCadenceTicks(virus).moveCooldown
                 }
               }
             })
@@ -3179,6 +3594,7 @@ export const useGameStore = create<GameState>((set, get) => ({
               chipIndicatorPanels = []
               chipIndicatorTicksRemaining = 0
               enemyProjectiles = []
+              enemyDashes = []
               queuedChipSlot = sanitizeQueuedChipSlot(chipHand, queuedChipSlot)
               lastEvent = 'Boss lost. Returned to wave 9. Retry is available.'
             } else {
@@ -3272,6 +3688,20 @@ export const useGameStore = create<GameState>((set, get) => ({
             }
           }
 
+          if (combatActive && enemyDashes.length > 0) {
+            const dashAdvance = advanceEnemyDashes(enemyDashes, nextEntities, barrierCharges, megamanInvincibleTicks)
+            enemyDashes = dashAdvance.enemyDashes
+            nextEntities = dashAdvance.entities
+            barrierCharges = dashAdvance.barrierCharges
+            if (dashAdvance.megamanHitstunApplied && megamanInvincibleTicks === 0) {
+              megamanHitstunTicks = megamanHitstunTicksOnHit
+              megamanInvincibleTicks = megamanInvincibilityTicksOnHit
+            }
+            if (dashAdvance.lastEvent) {
+              lastEvent = dashAdvance.lastEvent
+            }
+          }
+
           if (combatActive && nextEntities.megaman.alive) {
             virusEntityIds.forEach((virusId) => {
               const virus = nextEntities[virusId]
@@ -3281,7 +3711,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                   ...ai,
                   telegraphTicksRemaining: 0,
                   recoveryTicks: 0,
-                  activeAttackId: null
+                  activeAttackId: null,
+                  sameRowTicks: 0,
+                  verticalDirection: ai.verticalDirection
                 }
                 return
               }
@@ -3300,45 +3732,72 @@ export const useGameStore = create<GameState>((set, get) => ({
                     enemyProjectiles = [...enemyProjectiles, ...spawned.projectiles]
                     nextEnemyProjectileId = spawned.nextProjectileId
                     lastEvent = `${virus.name} launched a fireball`
-                  } else if (canEffectsHitTarget(virus, nextEntities.megaman, attack.effects)) {
-                    if (barrierCharges > 0) {
-                      barrierCharges -= 1
-                      lastEvent = `${virus.name} attack blocked by barrier`
-                    } else if (megamanInvincibleTicks > 0) {
-                      lastEvent = `${virus.name} attack missed (invincible)`
-                    } else {
-                      const result = applyDamage(virus, nextEntities.megaman, attack.damage)
-                      nextEntities = {
-                        ...nextEntities,
-                        [virusId]: result.source,
-                        megaman: result.target
-                      }
-                      if (result.didHit) {
-                        megamanHitstunTicks = megamanHitstunTicksOnHit
-                        megamanInvincibleTicks = megamanInvincibilityTicksOnHit
-                        lastEvent = `${virus.name} attack hit for ${attack.damage}`
-                      }
-                    }
                   } else {
-                    lastEvent = `${virus.name} attack missed`
+                    const spawnedDashes = spawnEnemyDashes(virusId, virus, attack, nextEnemyDashId)
+                    if (spawnedDashes.dashes.length > 0) {
+                      enemyDashes = [...enemyDashes, ...spawnedDashes.dashes]
+                      nextEnemyDashId = spawnedDashes.nextDashId
+                      lastEvent = `${virus.name} lined up a dash`
+                    } else if (canEffectsHitTarget(virus, nextEntities.megaman, attack.effects)) {
+                      if (barrierCharges > 0) {
+                        barrierCharges -= 1
+                        lastEvent = `${virus.name} attack blocked by barrier`
+                      } else if (megamanInvincibleTicks > 0) {
+                        lastEvent = `${virus.name} attack missed (invincible)`
+                      } else {
+                        const result = applyDamage(virus, nextEntities.megaman, attack.damage)
+                        nextEntities = {
+                          ...nextEntities,
+                          [virusId]: result.source,
+                          megaman: result.target
+                        }
+                        if (result.didHit) {
+                          megamanHitstunTicks = megamanHitstunTicksOnHit
+                          megamanInvincibleTicks = megamanInvincibilityTicksOnHit
+                          lastEvent = `${virus.name} attack hit for ${attack.damage}`
+                        }
+                      }
+                    } else {
+                      lastEvent = `${virus.name} attack missed`
+                    }
                   }
 
                   virusAi[virusId] = {
                     ...virusAi[virusId],
                     recoveryTicks: getVirusCadenceTicks(virus).recoveryTicks,
-                    activeAttackId: null
+                    activeAttackId: null,
+                    sameRowTicks: 0,
+                    verticalDirection: virusAi[virusId].verticalDirection
                   }
                 }
                 return
               }
 
               if (ai.attackCooldown === 0 && ai.recoveryTicks === 0) {
+                const actorKey = getVirusActorKey(virus)
+                const sameRowTicks = actorKey === 'fishy'
+                  ? isSameRow(virus, nextEntities.megaman)
+                    ? ai.sameRowTicks + 1
+                    : 0
+                  : ai.sameRowTicks
+
+                if (actorKey === 'fishy' && sameRowTicks < 10) {
+                  virusAi[virusId] = {
+                    ...ai,
+                    sameRowTicks,
+                    verticalDirection: ai.verticalDirection
+                  }
+                  return
+                }
+
                 const selectedAttack = chooseVirusAttackForTelegraph(virus)
                 virusAi[virusId] = {
                   ...ai,
                   activeAttackId: selectedAttack.id,
                   telegraphTicksRemaining: selectedAttack.lagTicks,
-                  attackCooldown: getVirusCadenceTicks(virus).attackCooldown
+                  attackCooldown: getVirusCadenceTicks(virus).attackCooldown,
+                  sameRowTicks,
+                  verticalDirection: ai.verticalDirection
                 }
                 lastEvent = `${virus.name} telegraph (${selectedAttack.lagTicks} ticks)`
               }
@@ -3367,6 +3826,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             virusesRemaining,
             virusesTotal,
             enemyProjectiles,
+            enemyDashes,
             isInfiniteMode,
             unlockedAreaMaxLevel,
             highlightedAreaLevel,
@@ -3414,7 +3874,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             chipIndicatorTicksRemaining,
             debugCompleteWaveRequested,
             enemyProjectiles,
+            enemyDashes,
             nextEnemyProjectileId,
+            nextEnemyDashId,
             unlockedAreaMaxLevel,
             highlightedAreaLevel,
             isInfiniteMode,

@@ -124,7 +124,7 @@ Ship a stable, polished web game where players can run BN-style battles mostly a
 - Detailed active handoff and task status are maintained in `docs/M1_HANDOFF.md`.
 - New thread onboarding/read order is also maintained in `docs/M1_HANDOFF.md` under "New Thread Read Order (Carry-Over Pack)".
 - GDD remains design-intent level; runtime implementation specifics and active next-thread actions are tracked in `docs/M1_HANDOFF.md`.
-- Next product-owner-directed implementation focus: runtime QA matrix for progression transitions + economy edge-cases, then deeper shop/gacha presentation tuning.
+- Next product-owner-directed implementation focus: runtime QA matrix confirmation for progression/economy stability, then additional combat/content expansion (virus families, encounter variety, chip catalog depth).
 
 ---
 
