@@ -54,6 +54,30 @@ const SPRITES_BY_ENTITY: Record<string, SpriteSources> = {
   fireman: {
     idle: ['sprites/fireman/FireMan-idle.png'],
     attack: ['sprites/fireman/FireMan-attack1.png']
+  },
+  swordy: {
+    idle: [
+      'sprites/swordy/Swordy-idle.png',
+      'sprites/swordy/swordy-idle.png',
+      'sprites/swordy/swordy-placeholder.svg'
+    ],
+    attack: [
+      'sprites/swordy/Swordy-attack.png',
+      'sprites/swordy/swordy-attack.png',
+      'sprites/swordy/swordy-placeholder.svg'
+    ]
+  },
+  fishy: {
+    idle: [
+      'sprites/fishy/Fishy-idle.png',
+      'sprites/fishy/fishy-idle.png',
+      'sprites/fishy/fishy-placeholder.svg'
+    ],
+    attack: [
+      'sprites/fishy/Fishy-attack.png',
+      'sprites/fishy/fishy-attack.png',
+      'sprites/fishy/fishy-placeholder.svg'
+    ]
   }
 }
 
@@ -71,7 +95,11 @@ function OccupantSprite({ entityId, actorName, fallbackLabel, isAttacking, isFla
   const [attemptIndex, setAttemptIndex] = useState(0)
 
   const normalizedActor = actorName.trim().toLowerCase()
-  const normalizedEntityId = normalizedActor === 'fireman' ? 'fireman' : entityId.startsWith('mettaur') ? 'mettaur' : entityId
+  const normalizedEntityId = SPRITES_BY_ENTITY[normalizedActor]
+    ? normalizedActor
+    : entityId.startsWith('mettaur')
+      ? 'mettaur'
+      : entityId
   const spriteSources = SPRITES_BY_ENTITY[normalizedEntityId]
   const candidates = useMemo(() => {
     if (!spriteSources) {
@@ -132,12 +160,12 @@ const resolveMegamanActionFromEvent = (lastEvent: string): MegamanSpriteAction |
     .replace('Buffered chip resolved: ', '')
     .replace('Auto chip: ', '')
 
-  const swordChipPattern = /(Sword|WideSword|LongSword|StepSword)/
+  const swordChipPattern = /\b(?:Sword|WideSword|LongSword|StepSword)\b/
   if (swordChipPattern.test(normalized)) {
     return 'sword'
   }
 
-  const shootChipPattern = /(Cannon|HiCannon|M-Cannon|Spreader|MiniBomb|LilBomb|Z-Cannon)/
+  const shootChipPattern = /\b(?:Cannon|HiCannon|M-Cannon|Spreader|MiniBomb|LilBomb|Z-Cannon)\b/
   if (shootChipPattern.test(normalized)) {
     return 'shoot'
   }
