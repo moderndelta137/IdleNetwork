@@ -505,9 +505,9 @@ const getVirusCadenceTicks = (virus: EntityState): VirusCadenceProfile => {
       }
     case 'swordy':
       return {
-        attackCooldown: 12,
-        moveCooldown: 5,
-        recoveryTicks: 7
+        attackCooldown: 20,
+        moveCooldown: 10,
+        recoveryTicks: 9
       }
     case 'fishy':
       return {

@@ -160,12 +160,12 @@ const resolveMegamanActionFromEvent = (lastEvent: string): MegamanSpriteAction |
     .replace('Buffered chip resolved: ', '')
     .replace('Auto chip: ', '')
 
-  const swordChipPattern = /(Sword|WideSword|LongSword|StepSword)/
+  const swordChipPattern = /\b(?:Sword|WideSword|LongSword|StepSword)\b/
   if (swordChipPattern.test(normalized)) {
     return 'sword'
   }
 
-  const shootChipPattern = /(Cannon|HiCannon|M-Cannon|Spreader|MiniBomb|LilBomb|Z-Cannon)/
+  const shootChipPattern = /\b(?:Cannon|HiCannon|M-Cannon|Spreader|MiniBomb|LilBomb|Z-Cannon)\b/
   if (shootChipPattern.test(normalized)) {
     return 'shoot'
   }
