@@ -77,6 +77,7 @@ type VirusAiState = {
   activeAttackId: string | null
   sameRowTicks: number
   verticalDirection: -1 | 1
+  hitboxActiveTicksRemaining: number
 }
 
 type VirusAiById = Record<VirusEntityId, VirusAiState>
@@ -270,6 +271,8 @@ const waveTransitionDelayTicks = 20
 const bossWaveHpMultiplier = 1.6
 const waveHpStep = 8
 const battleStartBannerDurationTicks = 10
+const enemyTelegraphHighlightLeadTicks = 4
+const enemyHitboxHighlightTicks = 1
 
 const chipCatalog = loadChipCatalog(baseTickMs)
 const enemyAttackCatalog = loadEnemyAttackCatalog(baseTickMs)
@@ -505,9 +508,9 @@ const getVirusCadenceTicks = (virus: EntityState): VirusCadenceProfile => {
       }
     case 'swordy':
       return {
-        attackCooldown: 20,
-        moveCooldown: 10,
-        recoveryTicks: 9
+        attackCooldown: 24,
+        moveCooldown: 16,
+        recoveryTicks: 10
       }
     case 'fishy':
       return {
@@ -535,7 +538,8 @@ const createVirusAiState = (virus: EntityState, index: number): VirusAiState => 
     moveCooldown: Math.max(0, cadence.moveCooldown - phaseOffset),
     activeAttackId: null,
     sameRowTicks: 0,
-    verticalDirection: index % 2 === 0 ? -1 : 1
+    verticalDirection: index % 2 === 0 ? -1 : 1,
+    hitboxActiveTicksRemaining: 0
   }
 }
 
@@ -561,7 +565,8 @@ const resetVirusAiForWave = (virusAi: VirusAiById, entities: Record<EntityId, En
           moveCooldown: 0,
           activeAttackId: null,
           sameRowTicks: 0,
-          verticalDirection: virusAi[virusId]?.verticalDirection ?? (index % 2 === 0 ? -1 : 1)
+          verticalDirection: virusAi[virusId]?.verticalDirection ?? (index % 2 === 0 ? -1 : 1),
+          hitboxActiveTicksRemaining: 0
         }
   })
   return next
@@ -1363,7 +1368,9 @@ const buildActiveVirusHitboxPanels = (
   getAliveVirusIds(entities).forEach((virusId) => {
     const virus = entities[virusId]
     const ai = virusAi[virusId]
-    if (ai.telegraphTicksRemaining > 0) {
+    const shouldShowTelegraph = ai.telegraphTicksRemaining > 0 && ai.telegraphTicksRemaining <= enemyTelegraphHighlightLeadTicks
+    const shouldShowHitbox = ai.hitboxActiveTicksRemaining > 0
+    if (shouldShowTelegraph || shouldShowHitbox) {
       const attack = getCurrentVirusAttack(virus, ai)
       collectEnemyAttackPanels(virus, attack.effects).forEach((panel) => tiles.add(panel))
     }
@@ -3356,7 +3363,8 @@ export const useGameStore = create<GameState>((set, get) => ({
               moveCooldown: Math.max(0, ai.moveCooldown - 1),
               activeAttackId: ai.activeAttackId,
               sameRowTicks: ai.sameRowTicks,
-              verticalDirection: ai.verticalDirection
+              verticalDirection: ai.verticalDirection,
+              hitboxActiveTicksRemaining: Math.max(0, ai.hitboxActiveTicksRemaining - 1)
             }
           })
           const battlePaused = waveResult !== null || battleStartBannerTicks > 0
@@ -3713,7 +3721,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                   recoveryTicks: 0,
                   activeAttackId: null,
                   sameRowTicks: 0,
-                  verticalDirection: ai.verticalDirection
+                  verticalDirection: ai.verticalDirection,
+                  hitboxActiveTicksRemaining: 0
                 }
                 return
               }
@@ -3767,7 +3776,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                     recoveryTicks: getVirusCadenceTicks(virus).recoveryTicks,
                     activeAttackId: null,
                     sameRowTicks: 0,
-                    verticalDirection: virusAi[virusId].verticalDirection
+                    verticalDirection: virusAi[virusId].verticalDirection,
+                    hitboxActiveTicksRemaining: enemyHitboxHighlightTicks
                   }
                 }
                 return
@@ -3785,7 +3795,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                   virusAi[virusId] = {
                     ...ai,
                     sameRowTicks,
-                    verticalDirection: ai.verticalDirection
+                    verticalDirection: ai.verticalDirection,
+                    hitboxActiveTicksRemaining: ai.hitboxActiveTicksRemaining
                   }
                   return
                 }
@@ -3797,7 +3808,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                   telegraphTicksRemaining: selectedAttack.lagTicks,
                   attackCooldown: getVirusCadenceTicks(virus).attackCooldown,
                   sameRowTicks,
-                  verticalDirection: ai.verticalDirection
+                  verticalDirection: ai.verticalDirection,
+                  hitboxActiveTicksRemaining: 0
                 }
                 lastEvent = `${virus.name} telegraph (${selectedAttack.lagTicks} ticks)`
               }
