@@ -140,9 +140,9 @@ export function App() {
 
   return (
     <main className="app-shell" style={{ '--sprite-scale': `${debugSpriteScalePercent / 100}` } as CSSProperties}>
-      <header>
-        <h1>Idle Network — M3 Wave FSM Vertical Slice</h1>
-        <p>Wave-based progression baseline: 10-wave FSM with boss wave gate, while preserving M2 combat/chip systems.</p>
+      <header className="app-header">
+        <h1>Idle Network</h1>
+        <p>Auto-battle BN action with manual clutch control, wave progression, and active folder economy management.</p>
       </header>
 
       <section className="scene-taskbar top" aria-label="Scene navigation">
@@ -166,7 +166,7 @@ export function App() {
       {scene === 'battle' ? (
         <>
           <section className="hud">
-        <span>Ticks: {ticks}</span>
+        <span className="hud-pill">Ticks: {ticks}</span>
         <div className="speed-controls" role="group" aria-label="Simulation speed">
           {SPEEDS.map((value) => (
             <button
@@ -188,15 +188,15 @@ export function App() {
         <button type="button" onClick={() => setShowDebugMenu((current) => !current)}>
           {showDebugMenu ? 'Hide Debug' : 'Show Debug'}
         </button>
-        <span>Level {combat.currentLevel} · Wave {combat.isInfiniteMode ? '∞' : `${combat.currentWave}/10`} {combat.isBossWave && !combat.isInfiniteMode ? '(Boss)' : ''}</span>
-        <span>Wave state: {combat.waveStatus}</span>
+        <span className="hud-pill">Level {combat.currentLevel} · Wave {combat.isInfiniteMode ? '∞' : `${combat.currentWave}/10`} {combat.isBossWave && !combat.isInfiniteMode ? '(Boss)' : ''}</span>
+        <span className="hud-pill">Wave state: {combat.waveStatus}</span>
         {canRetryBossWave ? (
           <button type="button" onClick={retryBossWave}>
             Retry Boss (Wave 10)
           </button>
         ) : null}
-        <span>Zenny: {combat.totalZenny}</span>
-        <span>Viruses: {combat.virusesRemaining}/{combat.virusesTotal}</span>
+        <span className="hud-pill">Zenny: {combat.totalZenny}</span>
+        <span className="hud-pill">Viruses: {combat.virusesRemaining}/{combat.virusesTotal}</span>
           </section>
 
           {showDebugMenu ? (
