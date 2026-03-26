@@ -1,6 +1,7 @@
 # Active Handoff Notes (M3)
 
 This file captures the current implementation state and recommended next work for a new thread.
+Last validated: 2026-03-26 (UTC).
 
 ## Current State
 - M0 foundation/deployment is in place (Vite + React + TypeScript + Zustand + Pages workflow).
@@ -20,17 +21,21 @@ This file captures the current implementation state and recommended next work fo
   - First-time boss clear shows the result screen before transitioning to Area Map.
   - Re-clearing an already-unlocked boss also shows the result screen before returning to Wave ∞.
   - Boss challenges launched from Wave ∞ show the result screen before resuming Wave ∞.
-- Economy tuning pass landed:
+- Economy tuning and presentation pass landed:
   - Weighted gacha pulls by MB tier (common chips appear more often, higher-MB chips are rarer).
   - 10-pull quality floor (ensures at least one mid/high-MB chip in a 10-pull result set).
   - 10-pull pricing value pass in Chip Trader.
   - Higsby pricing now uses explicit MB-tiered pricing.
+  - Rarity presentation and pity messaging baseline were added to player-facing gacha/shop UX.
+- Combat/content expansion pass started:
+  - Added Swordy and Fishy enemy attack definitions to the CSV-driven enemy catalog.
+  - Added wave spawn mixing so non-boss waves can include Mettaur/Swordy/Fishy compositions by wave depth.
+  - Added baseline cadence profiles for Swordy and Fishy AI timing to differentiate pressure patterns.
 
 ## Immediate Priority (Next Thread)
-1. M3 runtime QA pass on progression transitions and map UX after recent economy changes.
-2. Validate/tune weighted gacha + 10-pull guarantee using telemetry-like sample runs.
-3. Expand shop/gacha depth further (rarity presentation, inventory rotation variety, pity messaging).
-4. Additional combat/content expansion after economy + transition QA baseline is stable.
+1. M3 runtime QA pass on progression transitions/map UX and economy readability after recent M3 tuning.
+2. Continue additional combat/content expansion (next: chip catalog growth + encounter depth pass after Swordy/Fishy integration).
+3. Balance pass across wave pacing and reward cadence after new content is integrated.
 
 ## Runtime QA Focus
 - Re-verify result-modal timing and transitions for all boss outcomes:
@@ -48,7 +53,9 @@ This file captures the current implementation state and recommended next work fo
 ## Latest Re-Validation Snapshot
 - Re-checked M3 progression/map/economy flows after weighted-gacha tuning pass.
 - Confirmed no regression in baseline checks (`check:game-store-duplicates`, node tests, build).
-- Current recommendation remains: focus next thread on transition-path QA matrix + economy telemetry tuning.
+- Re-ran required command-word checks in this thread (`npm run check:game-store-duplicates`, `npm run build`) with pass status.
+- Attempted browser-driven runtime QA for transition/economy matrix, but browser container Playwright crashed during Chromium launch (`TargetClosedError` with SIGSEGV), so runtime matrix remains the immediate next manual QA priority in a browser-capable environment.
+- Current recommendation remains: complete transition-path QA confirmation, then move directly into combat/content expansion implementation.
 
 ## Known Operational Notes
 - Duplicate-helper guard script remains required before build:

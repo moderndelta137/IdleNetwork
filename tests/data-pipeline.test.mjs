@@ -39,8 +39,10 @@ test('parseCsv keeps quoted comma fields intact', () => {
 test('validateEffectsGrammar rejects malformed effects', () => {
   assert.equal(validateEffectsGrammar('throw:offsets=3|0'), null)
   assert.equal(validateEffectsGrammar('projectile:rows=0;maxRange=6;speed=2'), null)
+  assert.equal(validateEffectsGrammar('dash:maxRange=6;speed=3;passes=2'), null)
   assert.match(validateEffectsGrammar('throw:offsets=bad') ?? '', /Invalid throw effect/)
   assert.match(validateEffectsGrammar('projectile:rows=0;maxRange=6') ?? '', /Invalid projectile effect/)
+  assert.match(validateEffectsGrammar('dash:maxRange=6;speed=3') ?? '', /Invalid dash effect/)
   assert.match(validateEffectsGrammar('unknown:foo=1') ?? '', /Unsupported effect section/)
 })
 
@@ -71,13 +73,14 @@ test('loadEnemyAttackCatalogFromCsv skips malformed rows and logs warnings', asy
     'Name,Actor,DMG,Type,Description,Lag,Recoil,Effects',
     'MettaurSwing,mettaur,6,Melee,OK,0.4,0.6,melee:offsets=-1|0;-2|0',
     'FireManFireball,fireman,20,Projectile,OK,0.4,1.1,projectile:rows=0;maxRange=6;speed=2',
+    'FishyDash,fishy,18,Dash,OK,1.0,1.1,dash:maxRange=6;speed=3;passes=2',
     'BrokenLag,mettaur,6,Melee,Bad lag,nope,0.6,melee:offsets=-1|0',
     'BrokenEffect,mettaur,6,Melee,Bad effect,0.4,0.6,step:offset=bad'
   ].join('\n')
 
   const catalog = loadEnemyAttackCatalogFromCsv(raw, 100, (m) => warnings.push(m))
 
-  assert.deepEqual(Object.keys(catalog), ['MettaurSwing', 'FireManFireball'])
+  assert.deepEqual(Object.keys(catalog), ['MettaurSwing', 'FireManFireball', 'FishyDash'])
   assert.equal(catalog.MettaurSwing.damage, 6)
   assert.equal(warnings.length, 2)
 })

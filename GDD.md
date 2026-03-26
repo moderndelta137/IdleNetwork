@@ -66,8 +66,8 @@ Idle Network is a Mega Man Battle Network-inspired web idle RPG where combat run
 
 ## 7. Meta Systems (V1)
 - Folder building with lighter MB/cost constraints
-- Rotating chip shop (MB-tiered pricing baseline)
-- Light-impact gacha (weighted outcomes baseline with x10 quality floor)
+- Rotating chip shop (MB-tiered pricing with improved rarity/readability messaging baseline)
+- Light-impact gacha (weighted outcomes baseline with x10 quality floor and pity messaging baseline)
 - Single save slot
 
 ## 8. Content Targets (V1)
