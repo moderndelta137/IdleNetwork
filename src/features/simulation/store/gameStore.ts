@@ -71,6 +71,7 @@ type OccupiedPanels = Record<string, EntityId>
 
 type VirusAiState = {
   attackCooldown: number
+  globalAttackCooldown: number
   telegraphTicksRemaining: number
   recoveryTicks: number
   moveCooldown: number
@@ -490,12 +491,19 @@ const chooseVirusAttackForTelegraph = (virus: EntityState) => {
     return mettaurSwingAttack
   }
 
+  if (getVirusActorKey(virus) === 'swordy' && attacks.length > 1) {
+    const weightedPool = attacks.flatMap((attack) => (attack.id.includes('step') ? [attack] : [attack, attack, attack]))
+    const index = Math.floor(Math.random() * weightedPool.length)
+    return weightedPool[index] ?? attacks[0]
+  }
+
   const index = Math.floor(Math.random() * attacks.length)
   return attacks[index] ?? attacks[0]
 }
 
 type VirusCadenceProfile = {
   attackCooldown: number
+  globalAttackCooldown: number
   moveCooldown: number
   recoveryTicks: number
 }
@@ -505,18 +513,21 @@ const getVirusCadenceTicks = (virus: EntityState): VirusCadenceProfile => {
     case 'fireman':
       return {
         attackCooldown: 18,
+        globalAttackCooldown: 0,
         moveCooldown: 8,
         recoveryTicks: 8
       }
     case 'swordy':
       return {
         attackCooldown: 24,
+        globalAttackCooldown: 22,
         moveCooldown: 16,
         recoveryTicks: 10
       }
     case 'fishy':
       return {
         attackCooldown: 10,
+        globalAttackCooldown: 0,
         moveCooldown: 4,
         recoveryTicks: 6
       }
@@ -524,6 +535,7 @@ const getVirusCadenceTicks = (virus: EntityState): VirusCadenceProfile => {
     default:
       return {
         attackCooldown: mettaurAttackCadenceTicks,
+        globalAttackCooldown: 0,
         moveCooldown: mettaurMoveCadenceTicks,
         recoveryTicks: mettaurSwingRecoveryTicks
       }
@@ -535,6 +547,7 @@ const createVirusAiState = (virus: EntityState, index: number): VirusAiState => 
   const phaseOffset = index % 3
   return {
     attackCooldown: Math.max(0, cadence.attackCooldown - phaseOffset),
+    globalAttackCooldown: 0,
     telegraphTicksRemaining: 0,
     recoveryTicks: 0,
     moveCooldown: Math.max(0, cadence.moveCooldown - phaseOffset),
@@ -562,6 +575,7 @@ const resetVirusAiForWave = (virusAi: VirusAiById, entities: Record<EntityId, En
       ? createVirusAiState(virus, index)
       : {
           attackCooldown: cadence.attackCooldown,
+          globalAttackCooldown: 0,
           telegraphTicksRemaining: 0,
           recoveryTicks: 0,
           moveCooldown: 0,
@@ -3373,6 +3387,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             const ai = virusAi[virusId]
             virusAi[virusId] = {
               attackCooldown: Math.max(0, ai.attackCooldown - 1),
+              globalAttackCooldown: Math.max(0, ai.globalAttackCooldown - 1),
               telegraphTicksRemaining: ai.telegraphTicksRemaining,
               recoveryTicks: Math.max(0, ai.recoveryTicks - 1),
               moveCooldown: Math.max(0, ai.moveCooldown - 1),
@@ -3734,6 +3749,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                   ...ai,
                   telegraphTicksRemaining: 0,
                   recoveryTicks: 0,
+                  globalAttackCooldown: 0,
                   activeAttackId: null,
                   sameRowTicks: 0,
                   verticalDirection: ai.verticalDirection,
@@ -3789,6 +3805,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                   virusAi[virusId] = {
                     ...virusAi[virusId],
                     recoveryTicks: getVirusCadenceTicks(virus).recoveryTicks,
+                    globalAttackCooldown: getVirusCadenceTicks(virus).globalAttackCooldown,
                     activeAttackId: null,
                     sameRowTicks: 0,
                     verticalDirection: virusAi[virusId].verticalDirection,
@@ -3798,7 +3815,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                 return
               }
 
-              if (ai.attackCooldown === 0 && ai.recoveryTicks === 0) {
+              if (ai.attackCooldown === 0 && ai.recoveryTicks === 0 && ai.globalAttackCooldown === 0) {
                 const actorKey = getVirusActorKey(virus)
                 const sameRowTicks = actorKey === 'fishy'
                   ? isSameRow(virus, nextEntities.megaman)
