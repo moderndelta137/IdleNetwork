@@ -54,12 +54,33 @@ strong {
   padding: 1.5rem;
 }
 
+.app-header {
+  margin-bottom: 0.7rem;
+}
+
+.app-header h1 {
+  margin: 0;
+}
+
+.app-header p {
+  color: #bfdbfe;
+  margin: 0.2rem 0 0;
+}
+
 .hud {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
-  justify-content: space-between;
   margin-bottom: 1rem;
+}
+
+.hud-pill {
+  background: #111827;
+  border: 1px solid #374151;
+  border-radius: 999px;
+  color: #dbeafe;
+  padding: 0.2rem 0.52rem;
 }
 
 
@@ -212,6 +233,16 @@ button {
   color: #e5e7eb;
   cursor: pointer;
   padding: 0.35rem 0.75rem;
+}
+
+button:hover:not(:disabled) {
+  border-color: #7dd3fc;
+  transform: translateY(-1px);
+}
+
+button:focus-visible {
+  outline: 2px solid #facc15;
+  outline-offset: 2px;
 }
 
 button:disabled {
@@ -929,6 +960,28 @@ button.active {
 
 .area-detail-window p {
   margin: 0 0 0.35rem;
+}
+
+.area-map-inspector {
+  align-items: center;
+  background: #0b1220;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+  justify-content: space-between;
+  padding: 0.65rem 0.75rem;
+}
+
+.area-map-inspector strong {
+  color: #f8fafc;
+}
+
+.area-map-inspector span {
+  color: #bae6fd;
+  flex: 1;
+  min-width: 220px;
 }
 
 .infinite-controls {
