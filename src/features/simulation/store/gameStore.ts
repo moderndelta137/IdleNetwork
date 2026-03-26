@@ -86,6 +86,7 @@ type ProjectileEffectDefinition = {
   rows: number[]
   maxRange: number
   speed: number
+  pierce: boolean
 }
 
 type DashEffectDefinition = {
@@ -103,6 +104,7 @@ type EnemyProjectile = {
   speed: number
   remainingRange: number
   damage: number
+  pierce: boolean
 }
 
 type EnemyDash = {
@@ -713,6 +715,15 @@ const parseEffectNumber = (effects: string, prefix: string): number | null => {
   return Number.parseInt(match[1], 10)
 }
 
+const parseEffectBoolean = (effects: string, prefix: string): boolean | null => {
+  const match = effects.match(new RegExp(`${escapeRegex(prefix)}(true|false)`))
+  if (!match) {
+    return null
+  }
+
+  return match[1] === 'true'
+}
+
 const splitEffectChain = (effects: string): string[] =>
   effects
     .split(',')
@@ -782,7 +793,7 @@ const parseProjectileRows = (effect: string): number[] => {
   return body
     .split(';')
     .map((part) => part.trim())
-    .filter((part) => part.length > 0 && !part.startsWith('maxRange=') && !part.startsWith('speed='))
+    .filter((part) => part.length > 0 && !part.startsWith('maxRange=') && !part.startsWith('speed=') && !part.startsWith('pierce='))
     .map((value) => Number.parseInt(value, 10))
     .filter((value) => Number.isFinite(value))
 }
@@ -791,11 +802,12 @@ const parseProjectileEffect = (effect: string): ProjectileEffectDefinition | nul
   const rows = parseProjectileRows(effect)
   const maxRange = parseEffectNumber(effect, 'maxRange=')
   const speed = parseEffectNumber(effect, 'speed=')
+  const pierce = parseEffectBoolean(effect, 'pierce=') ?? false
   if (rows.length === 0 || maxRange === null || maxRange <= 0 || speed === null || speed <= 0) {
     return null
   }
 
-  return { rows, maxRange, speed }
+  return { rows, maxRange, speed, pierce }
 }
 
 
@@ -1600,7 +1612,8 @@ const spawnEnemyProjectiles = (
         directionCol: -1,
         speed: projectile.speed,
         remainingRange: projectile.maxRange,
-        damage: attack.damage
+        damage: attack.damage,
+        pierce: projectile.pierce
       })
       nextId += 1
     })
@@ -1689,8 +1702,10 @@ const advanceEnemyProjectiles = (
         if (nextBarrier > 0) {
           nextBarrier -= 1
           lastEvent = 'Fireball blocked by barrier'
+          destroyed = true
         } else if (megamanInvincibleTicks > 0) {
           lastEvent = 'Fireball missed (invincible)'
+          destroyed = true
         } else {
           const result = applyDamage(nextEntities[projectile.ownerId], nextEntities.megaman, current.damage)
           nextEntities = {
@@ -1701,8 +1716,8 @@ const advanceEnemyProjectiles = (
             megamanHitstunApplied = true
             lastEvent = `Fireball hit for ${current.damage}`
           }
+          destroyed = !current.pierce
         }
-        destroyed = true
       }
     }
 
