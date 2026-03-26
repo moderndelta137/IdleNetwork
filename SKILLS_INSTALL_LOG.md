@@ -51,3 +51,7 @@ Installed skills:
 - yeet
 
 Note: restart Codex to pick up newly installed skills.
+
+## Repo cleanup recommendation
+
+The `skills/` folder in this repository is only a local source snapshot. After installation, it should be removed from the product repository to avoid unnecessary repository bloat. Runtime skills are loaded from `/opt/codex/skills`.
