@@ -89,6 +89,7 @@ export function AreaMapScene({ onAreaSwitched, highlightedAreaLevel = null }: Ar
   const areaById = useMemo(() => new Map(areas.map((area) => [area.id, area])), [areas])
 
   const highlightedAreaId = areas.find((area) => area.recommendedLevel === highlightedAreaLevel)?.id ?? null
+  const inspectorArea = areaById.get(selectedAreaId ?? highlightedAreaId ?? '') ?? null
   const detailArea = areaById.get(hoveredAreaId ?? selectedAreaId ?? highlightedAreaId ?? '') ?? null
 
   const handleSwitchArea = (area: AreaNode) => {
@@ -140,7 +141,10 @@ export function AreaMapScene({ onAreaSwitched, highlightedAreaLevel = null }: Ar
               type="button"
               className={`area-node-circle ${area.status}`}
               aria-label={area.name}
+              aria-pressed={selectedAreaId === area.id}
               onClick={() => setSelectedAreaId(area.id)}
+              onFocus={() => setHoveredAreaId(area.id)}
+              onBlur={() => setHoveredAreaId((current) => (current === area.id ? null : current))}
             >
               {area.unlocked ? '◉' : '🔒'}
             </button>
@@ -176,6 +180,28 @@ export function AreaMapScene({ onAreaSwitched, highlightedAreaLevel = null }: Ar
           </aside>
         ) : null}
       </div>
+
+      <footer className="area-map-inspector" aria-live="polite">
+        <strong>{inspectorArea?.name ?? 'Select an area node'}</strong>
+        <span>
+          {inspectorArea
+            ? `${inspectorArea.subtitle} · Recommended Lv. ${inspectorArea.recommendedLevel}`
+            : 'Tip: choose a node to pin details, then use Switch Area.'}
+        </span>
+        {inspectorArea ? (
+          <button
+            type="button"
+            disabled={!inspectorArea.unlocked || inspectorArea.status === 'current'}
+            onClick={() => handleSwitchArea(inspectorArea)}
+          >
+            {inspectorArea.unlocked
+              ? inspectorArea.status === 'current'
+                ? 'Current Area'
+                : `Switch to ${inspectorArea.name}`
+              : 'Locked'}
+          </button>
+        ) : null}
+      </footer>
     </section>
   )
 }

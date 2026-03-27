@@ -6,5 +6,5 @@ Step,step:offset=x|y,step:offset=3|0,Temporarily move user to offset before foll
 Heal,heal:amount=n,heal:amount=10,Restores player HP
 Barrier,barrier:charges=n,barrier:charges=1,Sets barrier hit count
 Chaining,effectA,effectA,effects can be chained in one Effects field by separating entries with commas
-Projectile,projectile:rows=y;...;maxRange=n;speed=n,projectile:rows=0;maxRange=6;speed=2,Spawns moving projectile(s) that travel forward up to maxRange at speed panels/tick and stop on first collision
+Projectile,projectile:rows=y;...;maxRange=n;speed=n;pierce=true|false,projectile:rows=0;maxRange=6;speed=2;pierce=false,Spawns moving projectile(s) that travel forward up to maxRange at speed panels/tick; optional pierce flag allows projectiles to continue after hitting MegaMan
 Dash,dash:maxRange=n;speed=n;passes=n,dash:maxRange=6;speed=3;passes=2,Enemy-oriented lane retarget dash that can execute multiple passes and is processed by runtime dash logic

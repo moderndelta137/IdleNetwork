@@ -1,5 +1,5 @@
 Name,Actor,DMG,Type,Description,Lag,Recoil,Effects
-MettaurSwing,mettaur,6,Melee,Telegraphed hammer swing,0.4,0.6,melee:offsets=-1|0;-2|0
+MettaurSwing,mettaur,6,Projectile,Telegraphed helmet shot that pierces through MegaMan,0.4,0.6,projectile:rows=0;maxRange=6;speed=1;pierce=true
 FireManFlame,fireman,14,Melee,Flamethrower burst that scorches 4 panels ahead,0.5,0.8,melee:offsets=-1|0;-2|0;-3|0;-4|0
 FireManFireball,fireman,20,Projectile,Fast fireball projectile,0.4,1.1,projectile:rows=0;maxRange=6;speed=2
 SwordySlash,swordy,16,Melee,Blade slash across adjacent panels,0.85,0.9,melee:offsets=-1|0;-2|0
