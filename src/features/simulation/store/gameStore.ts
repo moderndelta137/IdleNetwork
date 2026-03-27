@@ -938,10 +938,9 @@ const collectEnemyAttackPanels = (source: EntityState, effects: string): string[
       projectile.rows.forEach((rowOffset) => {
         const row = source.position.row + rowOffset
         if (row < 0 || row >= boardRowCount) return
-        for (let step = 1; step <= projectile.maxRange; step += 1) {
-          const col = source.position.col - step
-          if (col < 0 || col >= boardColCount) break
-          panels.add(makePanelKey({ row, col }))
+        const spawnCol = source.position.col - 1
+        if (spawnCol >= 0 && spawnCol < boardColCount) {
+          panels.add(makePanelKey({ row, col: spawnCol }))
         }
       })
       return
