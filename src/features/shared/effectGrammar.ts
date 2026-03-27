@@ -63,12 +63,17 @@ const validateProjectileEffect = (effect: string): boolean => {
     return false
   }
 
+  const piercePart = parts.find((part) => part.startsWith('pierce='))
+  if (piercePart && !/^pierce=(true|false)$/.test(piercePart)) {
+    return false
+  }
+
   const speedValue = Number.parseInt(speedPart.slice('speed='.length), 10)
   if (!Number.isFinite(speedValue) || speedValue <= 0) {
     return false
   }
 
-  const rowParts = parts.filter((part) => !part.startsWith('maxRange=') && !part.startsWith('speed='))
+  const rowParts = parts.filter((part) => !part.startsWith('maxRange=') && !part.startsWith('speed=') && !part.startsWith('pierce='))
   if (rowParts.length === 0) {
     return false
   }
